@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
+import { Footprints, Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import { stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
@@ -43,6 +43,12 @@ const VERBS = [
 function verbLabel(id: Verb, inHive: boolean): string {
   if (id === "fly") return inHive ? "Crawl!" : "Fly!";
   return VERBS.find((v) => v.id === id)!.label;
+}
+
+/** Wings above ground, feet below. A bee in a tunnel is not flying. */
+function verbIcon(id: Verb, inHive: boolean) {
+  if (id === "fly") return inHive ? Footprints : Wind;
+  return VERBS.find((v) => v.id === id)!.Icon;
 }
 
 type Verb = (typeof VERBS)[number]["id"];
@@ -126,7 +132,7 @@ function RivalColumn({
 }
 
 export default function App() {
-  const { match, frame, you, cooldown, submit, restart } = useSoloMatch();
+  const { match, frame, you, cooldown, cooldownMs, submit, restart } = useSoloMatch();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [verb, setVerb] = useState<Verb>("fly");
   const [target, setTarget] = useState<number | null>(null);
@@ -340,59 +346,69 @@ export default function App() {
         </div>
       )}
 
-      {/* Controls — three chiclets that name the verb, one button that does it.
-       *
-       * The old control was a full-width cooldown bar with a lone icon beside
-       * it, and it read as decoration rather than as the thing to press. The
-       * cooldown now fills the button it gates, so the affordance and the wait
-       * are the same object, and the label says which of the three motions you
-       * are about to pay for. */}
-      <div className="flex shrink-0 items-center justify-center gap-3 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex gap-1 rounded-xl bg-white/5 p-1">
-          {VERBS.map(({ id, Icon, hint }) => (
-            <button
-              key={id}
-              onClick={() => setVerb(id)}
-              title={hint}
-              aria-pressed={verb === id}
-              className={`flex h-11 w-11 items-center justify-center rounded-lg transition ${
-                verb === id ? "bg-[var(--color-wax)] text-black" : "text-white/60 hover:bg-white/10"
-              }`}
-            >
-              <Icon size={18} />
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={act}
-          disabled={!pending.action || !ready}
-          className="relative min-w-40 overflow-hidden rounded-xl bg-white/10 px-6 py-3 font-semibold transition disabled:opacity-45"
-        >
-          <span
-            className="absolute inset-y-0 left-0 bg-[var(--color-wax)]/25 transition-[width] duration-100"
-            style={{ width: `${Math.max(0, Math.min(1, 1 - cooldown)) * 100}%` }}
-          />
-          <span
-            className={`relative ${pending.action && ready ? "text-[var(--color-wax)]" : "text-white/70"}`}
-          >
-            {verbLabel(verb, inHive)}
-          </span>
-        </button>
-
-        <span className="min-w-0 max-w-64 text-[11px] leading-tight text-white/50">
-          {!ready
-            ? "Catching breath…"
-            : pending.why
-              ? pending.why
-              : target === null
+      {/* Controls. The prompt sits on the LEFT, where reading starts — after
+       * the button it was an answer arriving behind its question. */}
+      <div className="flex shrink-0 items-center gap-4 pb-[env(safe-area-inset-bottom)]">
+        <span className="min-w-0 flex-1 text-right text-[12px] leading-tight text-white/55">
+          {!ready ? (
+            <span className="text-[var(--color-you)]">
+              Resting {(cooldownMs / 1000).toFixed(1)}s
+            </span>
+          ) : (
+            pending.why ||
+            (target === null
               ? you?.phase === "forage"
                 ? "Tap a flower that still has pollen"
                 : you?.phase === "return"
                   ? "Tap a door in the hive wall"
                   : "Tap where you want to go"
-              : `${you ? PHASE_WORD[you.phase] : ""} — press to go`}
+              : `${you ? PHASE_WORD[you.phase] : ""} — press to go`)
+          )}
         </span>
+
+        <div className="flex gap-2 rounded-xl bg-white/5 p-1.5">
+          {VERBS.map(({ id, hint }) => {
+            const Icon = verbIcon(id, inHive);
+            return (
+              <button
+                key={id}
+                onClick={() => setVerb(id)}
+                title={hint}
+                aria-pressed={verb === id}
+                className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
+                  verb === id
+                    ? "bg-[var(--color-you)] text-black"
+                    : "text-white/55 hover:bg-white/10"
+                }`}
+              >
+                <Icon size={19} />
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={act}
+          disabled={!pending.action || !ready}
+          className={`relative min-w-40 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
+            pending.action && ready
+              ? "bg-[var(--color-you)] text-black"
+              : "bg-white/10 text-white/45"
+          }`}
+        >
+          {/* The rest, drawn ON the button it gates: the unfilled part IS the
+           * wait. A bee moves once every couple of seconds and rather longer
+           * after a dig, which is what stops spending from buying speed. */}
+          {!ready && (
+            <span
+              className="absolute inset-y-0 left-0 bg-[var(--color-you)]/30 transition-[width] duration-100"
+              style={{ width: `${Math.max(0, Math.min(1, 1 - cooldown)) * 100}%` }}
+            />
+          )}
+          <span className="relative">{verbLabel(verb, inHive)}</span>
+        </button>
+
+        <span className="flex-1" />
       </div>
     </div>
   );

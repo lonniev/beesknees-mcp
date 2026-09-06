@@ -297,14 +297,19 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
             const [tx, ty] = cellCentre(g, target);
             return (
               <>
-                <circle cx={tx} cy={ty} r={5.5} fill="var(--color-you)" opacity={0.2} className="bk-pulse" />
+                {/* Two rings and a breath. One thin ring vanished against a
+                    flower glyph, a lit meadow, or the queen's own disc — and a
+                    destination you cannot confirm is a destination you keep
+                    re-tapping. */}
+                <circle cx={tx} cy={ty} r={9} fill="var(--color-you)" opacity={0.18} className="bk-pulse" />
+                <circle cx={tx} cy={ty} r={9} fill="none" stroke="var(--color-you)" strokeWidth={0.8} opacity={0.7} />
                 <circle
                   cx={tx}
                   cy={ty}
                   r={5.5}
                   fill="none"
                   stroke="var(--color-you)"
-                  strokeWidth={1.3}
+                  strokeWidth={2}
                 />
                 {/* A thread from your bee to what it is heading for, so the
                     pairing is explicit rather than inferred from two rings. */}

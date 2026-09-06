@@ -20,6 +20,8 @@ export interface MatchApi {
   you: Bee | null;
   /** 0 while ready to act, 1 immediately after acting. */
   cooldown: number;
+  /** Milliseconds of rest still owed — the number a player can read. */
+  cooldownMs: number;
   submit: (a: Action | null) => void;
   restart: () => void;
 }
@@ -28,6 +30,7 @@ export function useSoloMatch(): MatchApi {
   const [match, setMatch] = useState<Match>(() => makeSoloMatch());
   const [frame, setFrame] = useState(0);
   const [cooldown, setCooldown] = useState(0);
+  const [cooldownMs, setCooldownMs] = useState(0);
   const pending = useRef<Action | null>(null);
 
   const restart = useCallback(() => {
@@ -65,6 +68,7 @@ export function useSoloMatch(): MatchApi {
           // Measured against the delay actually served, so the ring reads true
           // after a dig (which costs several cooldowns) and not just after a fly.
           setCooldown(left <= 0 ? 0 : left / Math.max(1, bee.lastDelayTicks));
+          setCooldownMs(left <= 0 ? 0 : left * TICK_MS);
         }
       }
     };
@@ -79,5 +83,5 @@ export function useSoloMatch(): MatchApi {
 
   const you = match.you ? match.hives[match.you.hive].round.bees[match.you.beeId] : null;
 
-  return { match, frame, you, cooldown, submit, restart };
+  return { match, frame, you, cooldown, cooldownMs, submit, restart };
 }
