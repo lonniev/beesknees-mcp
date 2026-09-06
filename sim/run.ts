@@ -39,6 +39,7 @@ interface Arg {
   cellW: number;
   stagger: number;
   hard: number;
+  occupancy: number;
   seed: number;
 }
 
@@ -62,7 +63,8 @@ function args(): Arg {
     collapseTicks: num("collapseticks", 0),
     cellW: num("cellw", 1.4),
     stagger: num("stagger", 0),
-    hard: num("hard", 0.08),
+    hard: num("hard", 0.05),
+    occupancy: num("occupancy", 1),
     seed: num("seed", 1),
   };
 }
@@ -93,6 +95,7 @@ function playOne(cfg: Arg, seed: number): RoundResult {
     collapseTicks: cfg.collapseTicks,
     staggerRequired: cfg.stagger > 0,
     blockShare: cfg.hard,
+    occupancy: cfg.occupancy > 0,
     costs: { fly: 1, dig: cfg.digCost, collapse: cfg.collapseCost },
   };
   const g = makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW);
@@ -197,7 +200,7 @@ function main() {
 
   console.log(`\nThe Bee's Knees — ${cfg.rounds} rounds, ${cfg.bees} bees (${perStrategy} per strategy)`);
   console.log(
-    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · blocked ${(cfg.hard*100).toFixed(0)}% · ${makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW).cells} cells · ${elapsed}s\n`,
+    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · blocked ${(cfg.hard*100).toFixed(0)}% · bodies ${cfg.occupancy ? 'ON' : 'off'} · ${makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW).cells} cells · ${elapsed}s\n`,
   );
 
   console.log("WIN RATE            share   vs uniform   mean spend");

@@ -307,3 +307,42 @@ test("a bee that follows the pathfinder actually arrives", () => {
   // leaves room for obstructions and still fails a bee that is ping-ponging.
   assert.ok(rings.length < 60, `took ${rings.length} moves — that is a bee going in circles`);
 });
+
+test("a bee has a body — one cell, one bee, inside the hive", () => {
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(43));
+  const g = round.board.g;
+  const [a, b] = round.bees;
+  const cell = idx(g, 6, 2);
+  round.board.state[cell] = OPEN;
+  round.board.blocked[cell] = 0;
+  const from = neighbors(g, cell).find(
+    (n) => ringOf(g, n) > ringOf(g, cell) && !round.board.blocked[n],
+  )!;
+  round.board.state[from] = OPEN;
+
+  b.cell = cell;
+  b.phase = "tunnel";
+  a.cell = from;
+  a.phase = "tunnel";
+  a.cameInward = false;
+
+  assert.equal(apply(round, a, { kind: "fly", to: cell }), false, "no walking through a rival");
+  assert.equal(a.cell, from);
+
+  // And once that bee is gone, the way is open again.
+  b.phase = "done" as Phase;
+  a.nextMoveTick = round.tick;
+  assert.ok(apply(round, a, { kind: "fly", to: cell }));
+});
+
+test("the meadow is air — bees pass each other freely above ground", () => {
+  // Enforcing bodies above the wall gridlocks the very first move: all twelve
+  // bees start on one ring by construction.
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(47));
+  const g = round.board.g;
+  const [a, b] = round.bees;
+  const cell = idx(g, g.maxRing - 1, 4);
+  b.cell = cell;
+  a.cell = neighbors(g, cell).find((n) => ringOf(g, n) > g.R)!;
+  assert.ok(apply(round, a, { kind: "fly", to: cell }), "the air is shared");
+});

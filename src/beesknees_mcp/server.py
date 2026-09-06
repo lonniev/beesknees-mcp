@@ -48,6 +48,9 @@ mcp = FastMCP(
         "beesknees_dig cuts new, and beesknees_seal buries an open cell.\n\n"
         "A bee acts once per cooldown, measured on the clock, so no amount of "
         "spending buys a faster bee. What spending buys is interference.\n\n"
+        "A bee has a body. Inside the hive one cell holds one bee, so a bee in "
+        "front of you is an obstacle to route around or to bury. The meadow is "
+        "air and everyone passes freely.\n\n"
         "## Reading the board\n"
         "beesknees_match_state carries every hive since a sequence number and "
         "tells you when to ask again. Poll it rather than guessing a cadence.\n\n"
@@ -489,8 +492,8 @@ async def seal(
 ) -> dict[str, Any]:
     """Bring down an open tunnel cell, so the bees behind you must cut it again.
 
-    Costs sats but no time — the one place in the game where spending converts
-    into position rather than into nothing.
+    Costs one move and a fare, and sets a rival back several — a bee has a body,
+    so a bee stuck behind a seal is also a wall for everyone behind it.
 
     Args:
         at_cell: The open tunnel cell to bring down.

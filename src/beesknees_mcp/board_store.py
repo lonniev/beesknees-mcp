@@ -52,8 +52,15 @@ QUORUM = 8
 # inert. Measured in `sim/`, not chosen by taste.
 COOLDOWN_S = 2.0
 DIG_EXTRA_S = 6.0
-SEAL_S = 0.0
-"""Sealing costs sats but no time — the one place spending buys position."""
+SEAL_S = 2.0
+"""One cooldown, the same as a move.
+
+Sealing was free in time, as the one place spending bought position outright.
+Bees having BODIES changed that: a seal now traps a rival where it also blocks
+everyone behind it, and free sealing took 57% of rounds against the digger's
+33%. One cooldown gives 48.5% against 40.5% and tightens the p90 round from
+6:14 to 4:22. Spending still buys position — one move to set a rival back
+several — it is simply not free while doing it."""
 
 ROUND_CEILING_S = 600
 """A stalled match still ends, with the bee nearest a queen taking it."""
@@ -390,6 +397,7 @@ async def fly(
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
+    await _require_unoccupied(match_id, g, bee, to_cell)
     m = await get_match(match_id)
     seed = int((m or {}).get("seed") or 0)
 
@@ -538,6 +546,23 @@ def _require_adjacent(g: geo.Geometry, cur: int, to_cell: int) -> None:
 
 def is_blocked(seed: int, hive: int, cell: int) -> bool:
     return cell in obstructions(seed, hive)
+
+
+async def _require_unoccupied(match_id: str, g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
+    """A bee has a body: inside the hive, one cell holds one of them.
+
+    The meadow is exempt — bees pass each other in the air, and enforcing it
+    above ground gridlocks the start, where all twelve begin on one ring.
+    """
+    if geo.ring_of(g, to_cell) > g.wall:
+        return
+    r = await _exec(
+        f"SELECT 1 FROM {BEES} WHERE match_id = $1 AND hive = $2 AND cell = $3 "
+        "AND npub <> $4 AND phase <> 'done' LIMIT 1",
+        [match_id, int(bee["hive"]), to_cell, str(bee["npub"])],
+    )
+    if _rows(r):
+        raise BoardError("another bee is standing there — go round it, or bury it")
 
 
 def _require_stagger(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:

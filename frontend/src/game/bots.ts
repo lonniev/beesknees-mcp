@@ -180,6 +180,13 @@ export function stepToward(round: Round, bee: Bee, target: number): Action | nul
       const armedHere = state >= N;
       for (const prev of neighbors(g, cell)) {
         if (board.blocked[cell]) continue;
+        // Another bee's body is a wall for as long as it stands there.
+        if (
+          rules.occupancy &&
+          ringOf(g, cell) <= g.R &&
+          round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === cell)
+        )
+          continue;
         const wentInward = ringOf(g, cell) < ringOf(g, prev) && ringOf(g, prev) <= g.R;
         if (wentInward !== armedHere) continue;
         if (rules.staggerRequired && wentInward) {

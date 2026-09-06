@@ -277,6 +277,8 @@ export interface Rules {
    */
   digDelayTicks: number;
   maxTicks: number;
+  /** Whether a cell inside the hive holds only one bee. */
+  occupancy: boolean;
   /** Share of comb that is impassable — the texture that makes routing a choice. */
   blockShare: number;
   /** Whether a collapse may target any cell, or only one next to the bee. */
@@ -292,11 +294,14 @@ export interface Rules {
   /**
    * Cooldowns a collapse costs the bee that buys it.
    *
-   * Set this to a full cooldown and collapsing is a move not made, so it always
-   * loses ground and no one rationally does it. At zero it is the one place in
-   * the game where SPENDING converts into position rather than into nothing —
-   * which is the whole reason there is a game to play rather than fifty bees on
-   * identical clocks arriving in a random order.
+   * It was free, deliberately — the one place spending bought position without
+   * spending time. Once bees had BODIES that changed: a seal now traps a rival
+   * where it also blocks everyone behind it, and free sealing took 57% of
+   * rounds. One cooldown brings it to 48.5% against the digger's 40.5% and
+   * pulls the p90 round from 6:14 to 4:22.
+   *
+   * Spending still buys position — a seal costs one move and sets a rival back
+   * several — it is simply no longer free while doing it.
    */
   collapseTicks: number;
 }
@@ -307,9 +312,10 @@ export const DEFAULT_RULES: Rules = {
   digDelayTicks: 60, // a dug cell costs four cooldowns in all
   maxTicks: 6000, // 10 minutes
   collapseRange: "anywhere",
-  collapseTicks: 0,
+  collapseTicks: 20,
   staggerRequired: true,
   blockShare: 0.05,
+  occupancy: true,
 };
 
 export interface Round {
@@ -329,7 +335,7 @@ export type Action =
 
 /** Is this a legal action for this bee right now? Pure; no mutation. */
 export function legal(round: Round, bee: Bee, a: Action): boolean {
-  const { board } = round;
+  const { board, rules } = round;
   const g = board.g;
   if (bee.phase === "done") return false;
   if (a.kind === "wait") return true;
@@ -349,6 +355,18 @@ export function legal(round: Round, bee: Bee, a: Action): boolean {
 
   if (!neighbors(g, bee.cell).includes(a.to)) return false;
   if (board.blocked[a.to]) return false;
+
+  // A bee has a body. Inside the hive a cell holds ONE of them, so a bee in
+  // front of you is an obstacle to route around or to bury — not something to
+  // walk through. The meadow is air and exempt: bees pass each other there at
+  // different heights, and enforcing it above ground only gridlocks the start,
+  // where all twelve are on one ring by construction.
+  if (
+    rules.occupancy &&
+    ringOf(g, a.to) <= g.R &&
+    round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === a.to)
+  )
+    return false;
   // The stagger: no two inward moves back to back. Applies to flying as well as
   // digging, or a bee would simply ride a straight shaft somebody else cut.
   if (round.rules.staggerRequired && bee.cameInward && ringOf(g, a.to) < ringOf(g, bee.cell))
