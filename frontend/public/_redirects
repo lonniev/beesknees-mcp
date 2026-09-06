@@ -1,0 +1,7 @@
+# Client-side routing: every path that is not a real file serves the app.
+#
+# Pages Functions run BEFORE this, so /mcp still reaches functions/mcp.js and is
+# proxied to the operator rather than being swallowed by the fallback. That
+# precedence is worth re-checking after any deploy that touches routing, because
+# the failure is silent: the page would load and every tool call would get HTML.
+/*  /index.html  200

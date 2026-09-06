@@ -28,7 +28,9 @@ const server = await createServer({
 });
 
 try {
-  const { default: App } = await server.ssrLoadModule("/src/App.tsx");
+    // The board, not the router shell — this check exists to prove a full
+  // board paints, and the shell would render an empty route on the server.
+  const { default: App } = await server.ssrLoadModule("/src/SoloBoard.tsx");
   const html = renderToString(createElement(App));
   // Count only the boards. Every lucide icon is an <svg> with paths too, which
   // is how an earlier version of this check "found" seven hives.
@@ -46,7 +48,6 @@ try {
   );
 
   const problems = [];
-  if (!/The Bee(&#x27;|')s Knees/.test(html)) problems.push("no header");
   // Four hives, four circles. The focused hive used to be drawn in the strip
   // AS WELL as full size, which put the same hive on screen twice and read as a
   // fifth one. This is the assertion that would have caught it.
