@@ -145,6 +145,16 @@ def outward(g: Geometry, r: int, i: int) -> list[int]:
     return [idx(g, r + 1, j) for j in range(n) if (j * g.size[r]) // n == i]
 
 
+def arms_stagger(g: Geometry, from_cell: int, to_cell: int) -> bool:
+    """Whether this move arms the stagger for the next one.
+
+    Passing through a DOOR does not: it is not cutting down a level. Counting it
+    deadlocked every bee at the threshold, unable to go inward (stagger) or
+    sideways (the wall is uncuttable).
+    """
+    return ring_of(g, to_cell) < ring_of(g, from_cell) and ring_of(g, from_cell) <= g.wall
+
+
 def may_move(g: Geometry, from_cell: int, to_cell: int, came_inward: bool) -> bool:
     """Whether the stagger rule permits this step.
 
@@ -177,6 +187,16 @@ def neighbors(g: Geometry, cell: int) -> list[int]:
         if g.size[r] > 2:
             out.append(idx(g, r, i - 1))
     return out
+
+
+def is_wall(g: Geometry, cell: int) -> bool:
+    """The hive's outer ring, which cannot be cut — only its doors let you in.
+
+    Measured before the rule existed: 80% of bees chopped their own hole rather
+    than fly to a mouth, which made the doors decoration and left the hive with
+    no chokepoint at all.
+    """
+    return ring_of(g, cell) == g.wall
 
 
 def is_meadow(g: Geometry, cell: int) -> bool:

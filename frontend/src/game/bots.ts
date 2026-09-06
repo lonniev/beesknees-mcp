@@ -14,7 +14,6 @@ import {
   COMB,
   OPEN,
   field,
-  idx,
   legal,
   inward,
   neighbors,
@@ -36,7 +35,10 @@ function goals(round: Round, bee: Bee): number[] {
     return out;
   }
   if (bee.phase === "return") {
-    for (let i = 0; i < g.size[g.R]; i++) out.push(idx(g, g.R, i));
+    // The DOORS, not the whole wall. Aiming at any wall cell was fine while the
+    // wall could be cut; once it could not, bees flew to a spot they could
+    // never enter and no round finished at all.
+    for (let c = 0; c < g.cells; c++) if (board.mouth[c]) out.push(c);
     return out;
   }
   return [0]; // the queen

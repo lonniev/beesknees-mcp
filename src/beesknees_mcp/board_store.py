@@ -391,8 +391,10 @@ async def fly(
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
     m = await get_match(match_id)
-    _require_passable(int((m or {}).get("seed") or 0), int(bee["hive"]), to_cell)
-    _require_stagger(g, bee, to_cell)
+    seed = int((m or {}).get("seed") or 0)
+
+    if is_blocked(seed, int(bee["hive"]), to_cell):
+        raise BoardError("that cell is capped brood — nothing flies through it")
 
     phase = _phase_after(g, str(bee["phase"]), to_cell, on_flower)
     needs_open = not geo.is_meadow(g, to_cell)
@@ -411,7 +413,7 @@ async def fly(
         f"{gate} "
         "RETURNING hive, seat, cell, phase",
         [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
-         geo.ring_of(g, to_cell) < geo.ring_of(g, cur)],
+         geo.arms_stagger(g, cur, to_cell)],
     )
     rows = _rows(r)
     if not rows:
@@ -437,8 +439,30 @@ async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
     g = geo.make_geometry()
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
+    _require_stagger(g, bee, to_cell)
     if geo.is_meadow(g, to_cell):
         raise BoardError("there is nothing to dig in open air")
+    if geo.is_wall(g, to_cell):
+        raise BoardError("the hive wall cannot be cut — go in through a door")
+
+    m = await get_match(match_id)
+    seed = int((m or {}).get("seed") or 0)
+
+    if is_blocked(seed, int(bee["hive"]), to_cell):
+        # Charged, and it burns a cooldown. The player could see the obstruction
+        # and swung at it anyway — that is a move that happened, not a malformed
+        # request, and it is where a lot of the outcome variability lives: some
+        # people will try to cut a wall away before they believe it.
+        spent = await _exec(
+            f"UPDATE {BEES} SET next_move_at = now() + interval '{COOLDOWN_S} seconds' "
+            "WHERE match_id = $1 AND npub = $2 AND next_move_at <= now() RETURNING seat",
+            [match_id, npub],
+        )
+        if not _rows(spent):
+            raise BoardError("not your turn yet")
+        await bump(match_id)
+        return {"moved": False, "blocked": True,
+                "reason": "capped brood — your mandibles will not go through it"}
 
     phase = _phase_after(g, str(bee["phase"]), to_cell, False)
     r = await _exec(
@@ -457,7 +481,7 @@ async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
         "    AND EXISTS (SELECT 1 FROM cut) RETURNING seat"
         ") SELECT (SELECT count(*) FROM cut) AS cut, (SELECT count(*) FROM moved) AS moved",
         [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
-         geo.ring_of(g, to_cell) < geo.ring_of(g, cur)],
+         geo.arms_stagger(g, cur, to_cell)],
     )
     rows = _rows(r)
     won = bool(rows and int(rows[0]["moved"]) > 0)
@@ -512,10 +536,8 @@ def _require_adjacent(g: geo.Geometry, cur: int, to_cell: int) -> None:
         raise BoardError("a bee moves one cell at a time")
 
 
-def _require_passable(seed: int, hive: int, to_cell: int) -> None:
-    """Obstructions are absolute — no fare, no cooldown, no way through."""
-    if to_cell in obstructions(seed, hive):
-        raise BoardError("that cell is capped brood — there is no cutting through it")
+def is_blocked(seed: int, hive: int, cell: int) -> bool:
+    return cell in obstructions(seed, hive)
 
 
 def _require_stagger(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:

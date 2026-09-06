@@ -230,3 +230,44 @@ test("no bee may enter an obstruction", () => {
   assert.equal(apply(round, bee, { kind: "fly", to: wall }), false, "nor flown through");
   assert.equal(bee.cell, from);
 });
+
+test("the hive wall cannot be cut — doors are the only way in", () => {
+  // Measured before this rule: 80% of bees chopped their own hole rather than
+  // fly to a mouth, which made the doors decoration and left the hive with no
+  // chokepoint at all.
+  const round = makeRound(["rider"], DEFAULT_RULES, mulberry32(37));
+  const g = round.board.g;
+  const bee = round.bees[0];
+  const wallCell = [...Array(g.size[g.R]).keys()]
+    .map((i) => idx(g, g.R, i))
+    .find((c) => !round.board.mouth[c])!;
+  const outside = neighbors(g, wallCell).find((n) => ringOf(g, n) > g.R)!;
+  bee.cell = outside;
+  bee.phase = "return";
+  assert.equal(apply(round, bee, { kind: "dig", to: wallCell }), false);
+  assert.equal(bee.cell, outside, "the wall turned it away");
+});
+
+test("a door does not arm the stagger, or every bee jams in the threshold", () => {
+  // This combination deadlocked the whole game: entering counted as an inward
+  // move, the stagger then demanded a sideways step, and sideways along the
+  // wall is uncuttable. Nothing finished a round.
+  const round = makeRound(["rider"], DEFAULT_RULES, mulberry32(41));
+  const g = round.board.g;
+  const bee = round.bees[0];
+  const mouth = [...Array(g.cells).keys()].find((c) => round.board.mouth[c])!;
+  const outside = neighbors(g, mouth).find((n) => ringOf(g, n) > g.R)!;
+  bee.cell = outside;
+  bee.phase = "return";
+
+  assert.ok(apply(round, bee, { kind: "fly", to: mouth }), "in through the door");
+  assert.equal(bee.phase, "tunnel");
+  assert.equal(bee.cameInward, false, "passing a door is not cutting down a level");
+
+  bee.nextMoveTick = round.tick;
+  const inward1 = inward(g, g.R, mouth - g.offset[g.R])!;
+  assert.ok(
+    apply(round, bee, { kind: "dig", to: inward1 }),
+    "and so the very next move may go inward",
+  );
+});

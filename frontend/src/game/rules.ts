@@ -354,6 +354,14 @@ export function legal(round: Round, bee: Bee, a: Action): boolean {
   if (round.rules.staggerRequired && bee.cameInward && ringOf(g, a.to) < ringOf(g, bee.cell))
     return false;
   if (a.kind === "fly") return board.state[a.to] === OPEN;
+
+  // The WALL cannot be cut. Only the doors get you in.
+  //
+  // It was diggable, and measurement said 80% of bees simply chopped their own
+  // hole rather than fly to a mouth — which made the doors decoration and the
+  // wall a formality. A hive you can enter anywhere has no chokepoint and no
+  // reason to look at where anyone else is going.
+  if (ringOf(g, a.to) === g.R) return false;
   return board.state[a.to] === COMB; // dig
 }
 
@@ -415,7 +423,11 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
       bee.netTurn += d;
     }
   }
-  bee.cameInward = rTo < rFrom;
+  // Passing through a DOOR is not cutting down a level, so it does not arm the
+  // stagger. It used to, and the combination deadlocked every bee at the
+  // threshold: it could not go inward (stagger) and could not go sideways (the
+  // wall is uncuttable), so no round finished at all.
+  bee.cameInward = rTo < rFrom && rFrom <= g.R;
   bee.prevCell = bee.cell;
   bee.cell = a.to;
   bee.moves++;
