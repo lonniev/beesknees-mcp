@@ -49,7 +49,11 @@ try {
     renderToString(
       createElement(HiveView, { hive, frame: 1, youId: 0, target, focused: true, armed: false, onTapCell: () => {} }),
     );
-  const aimMarks = (h) => (h.match(/--color-you/g) || []).length;
+  // Count the AIM's own ink, not the bee's. These were the same lime until the
+  // destination and the bee became indistinguishable on screen and the aim was
+  // moved to white — at which point this check went blind and said so, which is
+  // the only reason it is still honest.
+  const aimMarks = (h) => (h.match(/#fff/g) || []).length;
   const aimed = aimMarks(draw(120));
   const unaimed = aimMarks(draw(null));
 

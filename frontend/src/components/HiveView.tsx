@@ -18,6 +18,14 @@ import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius, slotAngle,
 interface Props {
   hive: Hive;
   /**
+   * The cells this bee could legally step to next, drawn as options.
+   *
+   * Showing them does the teaching the rules cannot: when the stagger bars the
+   * way inward, the inward cell simply is not offered, so the player learns the
+   * rule by seeing it rather than by being refused.
+   */
+  options?: number[];
+  /**
    * Where the player has aimed, drawn so the two-step move is visible.
    *
    * REQUIRED, not optional. It was optional, a patch failed to add it to the
@@ -48,7 +56,7 @@ function beeGlyph(bee: Bee): string {
   return bee.phase === "done" ? "👑" : "🐝";
 }
 
-function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, onTapHive }: Props) {
+function HiveViewInner({ hive, frame, youId, target, options, focused, armed, onTapCell, onTapHive }: Props) {
   void frame;
   const svgRef = useRef<SVGSVGElement>(null);
   const g = hive.round.board.g;
@@ -286,6 +294,20 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
         </g>
       )}
 
+      {/* The moves available right now. Faint: they are a menu, not the answer. */}
+      {focused &&
+        options?.map((c) => (
+          <path
+            key={`opt${c}`}
+            d={cellPath(g, ringOf(g, c), c - g.offset[ringOf(g, c)])}
+            fill="#fff"
+            opacity={0.07}
+            stroke="#fff"
+            strokeWidth={0.35}
+            strokeOpacity={0.3}
+          />
+        ))}
+
       {/* The aim, and it has to be unmistakable.
        *
        * A tinted wedge was not enough: on a lit meadow a 22%-opacity fill over a
@@ -299,40 +321,33 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
             const [tx, ty] = cellCentre(g, target);
             return (
               <>
-                {/* RINGS, never a fill. A tinted wedge plus a filled disc marked
-                    the cell and hid whatever stood in it — the flower you chose,
-                    and any rival already there. What matters is the boundary; the
-                    inside of the mark belongs to the board. */}
-                <circle
-                  cx={tx}
-                  cy={ty}
-                  r={8}
+                {/* The destination is the CELL, outlined, in white — a different
+                    shape and a different hue from the bee's lime disc. They were
+                    both lime circles of nearly the same size sitting side by
+                    side, and there was no telling which was which. */}
+                <path
+                  d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
+                  fill="#fff"
+                  opacity={0.1}
+                />
+                <path
+                  d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
                   fill="none"
-                  stroke="var(--color-you)"
-                  strokeWidth={0.7}
-                  opacity={0.55}
+                  stroke="#fff"
+                  strokeWidth={1.4}
                   className="bk-pulse"
                 />
-                <circle
-                  cx={tx}
-                  cy={ty}
-                  r={5}
-                  fill="none"
-                  stroke="var(--color-you)"
-                  strokeWidth={1.4}
-                />
-                {/* A thread from your bee to what it is heading for, so the
-                    pairing is explicit rather than inferred from two rings. */}
+                {/* A thread from your bee to what it is heading for. */}
                 {youBee && (
                   <line
                     x1={cellCentre(g, youBee.cell)[0]}
                     y1={cellCentre(g, youBee.cell)[1]}
                     x2={tx}
                     y2={ty}
-                    stroke="var(--color-you)"
+                    stroke="#fff"
                     strokeWidth={0.5}
                     strokeDasharray="2 2"
-                    opacity={0.55}
+                    opacity={0.45}
                   />
                 )}
               </>

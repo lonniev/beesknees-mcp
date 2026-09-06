@@ -12,7 +12,7 @@ import { Footprints, Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-re
 import { HiveView } from "./components/HiveView.tsx";
 import { stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
-import { COMB, OPEN, TICK_MS, ringOf } from "./game/rules.ts";
+import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
 import { isHot, queenOf } from "./game/match.ts";
 import { cellCentre } from "./lib/polar.ts";
@@ -66,12 +66,12 @@ function NEXT_STEP(phase: string | undefined, target: number | null, why: string
   if (target === null) {
     if (phase === "forage") return "Tap a flower that still has pollen.";
     if (phase === "return") return "Choose a door now — tap a gap in the hive wall.";
-    return "Tap where you want to go in the comb.";
+    return "Tap one of the highlighted cells.";
   }
   if (why) return why;
   if (phase === "forage") return "Flower chosen — press to fly.";
   if (phase === "return") return "Door chosen — press to fly.";
-  return "Press to move.";
+  return "Press to move there.";
 }
 
 
@@ -164,6 +164,29 @@ export default function App() {
   const rivals = match.hives.filter((h) => h.id !== focus);
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
+
+  /**
+   * The moves available to your bee right now, under the verb you have chosen.
+   *
+   * Inside the comb this is also what a tap may select, so finger precision
+   * stops mattering: there are four to six options and the nearest one wins.
+   * Widening the cells to make them easier to hit was measured and rejected —
+   * fewer cells per ring plus bodies gridlocks the hive, and completion fell
+   * from 91% to 79%.
+   */
+  const options = useMemo(() => {
+    if (!you || !yourHive || you.phase !== "tunnel" || match.state !== "running") return [];
+    const round = yourHive.round;
+    const g = round.board.g;
+    return neighbors(g, you.cell).filter((n) => {
+      if (verb === "seal") return ringOf(g, n) >= 1 && ringOf(g, n) <= g.R && round.board.state[n] === OPEN;
+      const kind = round.board.state[n] === OPEN ? "fly" : "dig";
+      if (verb === "fly" && kind !== "fly") return false;
+      if (verb === "dig" && kind !== "dig") return false;
+      return legal(round, you, { kind, to: n } as Action);
+    });
+  }, [frame, match.state, verb, you, yourHive]);
+
   const inHive =
     !!you && !!yourHive && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
 
@@ -187,8 +210,12 @@ export default function App() {
         for (let c = 0; c < g.cells; c++) if (b.pollen[c]) candidates.push(c);
       } else if (you.phase === "return") {
         for (let c = 0; c < g.cells; c++) if (b.mouth[c]) candidates.push(c);
+      } else {
+        // In the comb a tap selects a MOVE, so only legal ones are on offer.
+        // Aiming at an unreachable cell is what produced "No way through".
+        candidates.push(...options);
       }
-      if (!candidates.length) return setTarget(cell);
+      if (!candidates.length) return setTarget(null);
 
       const [tx, ty] = cellCentre(g, cell);
       let best = candidates[0];
@@ -203,7 +230,7 @@ export default function App() {
       }
       setTarget(best);
     },
-    [you, yourHive],
+    [options, you, yourHive],
   );
 
   /**
@@ -332,6 +359,7 @@ export default function App() {
               frame={frame}
               youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
               target={match.you?.hive === focus ? target : null}
+              options={match.you?.hive === focus ? options : []}
               focused
               armed={verb === "seal"}
               onTapCell={onTapCell}
