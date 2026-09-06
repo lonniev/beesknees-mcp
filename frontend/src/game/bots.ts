@@ -15,6 +15,7 @@ import {
   OPEN,
   field,
   idx,
+  legal,
   inward,
   neighbors,
   ringOf,
@@ -58,6 +59,11 @@ function descend(round: Round, bee: Bee, digWeight: number): Action {
   let best = -1;
   let bestD = Infinity;
   for (const n of neighbors(round.board.g, bee.cell)) {
+    // Only consider moves the rules would actually allow. Under the stagger a
+    // bot that picks the forbidden inward cell just stalls, which would read as
+    // the rule being punishing when it is the bot being stupid.
+    const kind = round.board.state[n] === OPEN ? "fly" : "dig";
+    if (!legal(round, bee, { kind, to: n } as Action)) continue;
     const d = f.dist[n];
     if (d < bestD) {
       bestD = d;

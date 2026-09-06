@@ -14,7 +14,7 @@ import { stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
-import { isHot, queenOf, standings } from "./game/match.ts";
+import { isHot, queenOf } from "./game/match.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 import { useWide } from "./lib/useWide.ts";
 
@@ -169,7 +169,6 @@ export default function App() {
     if (verb === "seal") setTarget(null);
   }, [pending, ready, submit, verb]);
 
-  const board = useMemo(() => standings(match).slice(0, 6), [match, frame]);
   const elapsed = Math.floor((match.tick * TICK_MS) / 1000);
 
   return (
@@ -278,27 +277,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Standings — who is nearest a queen, anywhere. */}
-      <div className="flex shrink-0 gap-1 overflow-x-auto px-0.5 pb-0.5 text-[11px]">
-        {board.map(({ hive, seat, bee }) => {
-          const isYou = seat.npub === "you";
-          return (
-            <div
-              key={`${hive.id}-${seat.beeId}`}
-              className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 ${
-                isYou ? "bg-white/20 font-medium" : "bg-white/5 text-white/60"
-              }`}
-            >
-              <span>{seat.label}</span>
-              <span className="text-white/30">{hive.name.slice(0, 3)}</span>
-              <span className="tabular-nums text-white/40">
-                {bee.phase === "tunnel" ? `${ringOf(hive.round.board.g, bee.cell)}` : bee.phase === "done" ? "\u2713" : "\u00b7"}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Controls — three chiclets that name the verb, one button that does it.
        *
        * The old control was a full-width cooldown bar with a lone icon beside
@@ -306,7 +284,7 @@ export default function App() {
        * cooldown now fills the button it gates, so the affordance and the wait
        * are the same object, and the label says which of the three motions you
        * are about to pay for. */}
-      <div className="flex shrink-0 items-center gap-2 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex shrink-0 items-center justify-center gap-3 pb-[env(safe-area-inset-bottom)]">
         <div className="flex gap-1 rounded-xl bg-white/5 p-1">
           {VERBS.map(({ id, Icon, hint }) => (
             <button
@@ -339,8 +317,14 @@ export default function App() {
           </span>
         </button>
 
-        <span className="min-w-0 flex-1 truncate text-[11px] text-white/45">
-          {!ready ? "Catching breath…" : pending.why || (you ? PHASE_WORD[you.phase] : "")}
+        <span className="min-w-0 max-w-64 text-[11px] leading-tight text-white/50">
+          {!ready
+            ? "Catching breath…"
+            : pending.why
+              ? pending.why
+              : target === null
+                ? "Pick a move, then tap the hive to aim"
+                : `${you ? PHASE_WORD[you.phase] : ""} — press to go`}
         </span>
       </div>
     </div>

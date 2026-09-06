@@ -17,13 +17,13 @@ export const VIEW = 100;
 /**
  * Share of the radius given to the hive, leaving the rest to the meadow.
  *
- * Deliberately NOT the ring count's own proportion. There are 25 comb rings to
+ * Deliberately NOT the ring count's own proportion. There are 15 comb rings to
  * 4 meadow ones, which would leave the meadow a sliver — and the meadow is
  * where every bee starts, where the flowers are, and where the whole first act
  * happens. Widening it costs the comb nothing legible, because comb rings only
  * need to be big enough to tell a dug cell from a solid one.
  */
-export const COMB_SHARE = 0.8;
+export const COMB_SHARE = 0.68;
 
 /** Radius in view units where a ring begins. */
 export function ringRadius(g: Geometry, r: number): number {

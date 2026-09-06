@@ -38,16 +38,29 @@ def test_rings_narrow_toward_the_queen(g: Geometry) -> None:
     """The funnel is the reason the board is round. Assert it is really there."""
     for r in range(2, g.max_ring + 1):
         assert g.size[r] >= g.size[r - 1], f"ring {r} is narrower than ring {r - 1}"
-    # And that it bites: the wall must be many times the width of the last ring
-    # before the chamber, or there is no scrum to arrive at.
-    assert g.size[g.wall] / g.size[1] > 6
+    # And that it BITES, expressed against the thing that makes it matter — the
+    # number of bees — rather than a ratio tuned to one board. An earlier version
+    # asserted "> 6", which was calibrated to a 24-ring hive and failed the
+    # moment the board was retuned to 14, for no gameplay reason at all.
+    #
+    # The wall must seat everyone with room to spare, and the last ring before
+    # the chamber must hold fewer cells than there are bees, so arriving is
+    # contested rather than parallel.
+    seats = 12
+    assert g.size[g.wall] >= seats, "the wall must fit a full hive spread out"
+    assert g.size[1] < seats, "the innermost ring must be narrower than the field"
     assert g.size[0] == 1, "the queen's chamber is one cell"
 
 
 def test_the_shipped_board_is_the_one_that_was_measured(g: Geometry) -> None:
-    """A silent change here retunes the game without retuning the simulation."""
-    assert (g.wall, g.meadow_rings) == (24, 4)
-    assert g.cells == 857
+    """A silent change here retunes the game without retuning the simulation.
+
+    Fourteen rings is not a taste: with the stagger rule it gives a round near
+    two and a half minutes, a good player winning about 3.5x their uniform
+    share, and the straight-line driller winning nothing at all.
+    """
+    assert (g.wall, g.meadow_rings) == (14, 4)
+    assert g.cells == 365
 
 
 def test_every_cell_round_trips_through_ring_and_slot(g: Geometry) -> None:

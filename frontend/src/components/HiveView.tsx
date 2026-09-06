@@ -17,6 +17,8 @@ import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius } from "../
 
 interface Props {
   hive: Hive;
+  /** Where the player has aimed, drawn so the two-step move is visible. */
+  target?: number | null;
   /**
    * The match's tick counter.
    *
@@ -39,7 +41,7 @@ function beeGlyph(bee: Bee): string {
   return bee.phase === "done" ? "👑" : "🐝";
 }
 
-function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHive }: Props) {
+function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, onTapHive }: Props) {
   void frame;
   const svgRef = useRef<SVGSVGElement>(null);
   const g = hive.round.board.g;
@@ -101,10 +103,10 @@ function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHiv
             y={y}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={focused ? 4 : 5}
-            opacity={0.9}
+            fontSize={focused ? 6 : 6}
+            opacity={0.95}
           >
-            🌼
+            🪻
           </text>
         );
       })}
@@ -117,7 +119,7 @@ function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHiv
         cy={0}
         r={wallR}
         fill="var(--color-comb)"
-        stroke={hot ? "var(--color-hot)" : mine ? "var(--color-you)" : "var(--color-wax)"}
+        stroke={hot ? "var(--color-hot)" : mine ? "var(--color-hive-mine)" : "var(--color-wax)"}
         strokeWidth={hot ? 1.8 : mine ? 1.2 : 0.6}
       />
 
@@ -236,6 +238,24 @@ function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHiv
               </>
             );
           })()}
+        </g>
+      )}
+
+      {/* The aim. Without it the board gives no sign that a tap did anything,
+       * and the button looked like the only control that existed. */}
+      {focused && target != null && (
+        <g pointerEvents="none">
+          <path
+            d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
+            fill="var(--color-you)"
+            opacity={0.22}
+          />
+          <path
+            d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
+            fill="none"
+            stroke="var(--color-you)"
+            strokeWidth={0.9}
+          />
         </g>
       )}
 

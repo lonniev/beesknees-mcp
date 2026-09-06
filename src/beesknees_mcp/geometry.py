@@ -25,16 +25,23 @@ import math
 from dataclasses import dataclass
 
 # Settled by simulation rather than by taste — see the batch runner in `sim/`.
-# 857 cells is small enough that four hives render at once on a phone and deep
-# enough that a round lands near two minutes with a good player beating an
-# adequate one about 1.8 times as often. Finer rings made a prettier comb and a
-# board nobody could draw four of.
-WALL_RING = 24
+# Fourteen rings and the stagger rule together give 365 cells, a round near two
+# and a half minutes, a good player winning about 3.5x their uniform share, and
+# a straight-line driller winning nothing at all.
+WALL_RING = 14
 MEADOW_RINGS = 4
 CELL_WIDTH = 3.0
 
 COMB = 0
 OPEN = 1
+
+# No two inward moves in a row: a bee must step sideways between them.
+#
+# Without this a bee can drill a straight radial shaft while a smarter one
+# carves an arc, and the driller wins on raw distance — measured at 22% of
+# rounds before the rule and 0% after. The stagger is the hive changing level:
+# cut down, shift along, cut down again.
+STAGGER_REQUIRED = True
 
 
 @dataclass(frozen=True)
@@ -106,6 +113,19 @@ def outward(g: Geometry, r: int, i: int) -> list[int]:
         return []
     n = g.size[r + 1]
     return [idx(g, r + 1, j) for j in range(n) if (j * g.size[r]) // n == i]
+
+
+def may_move(g: Geometry, from_cell: int, to_cell: int, came_inward: bool) -> bool:
+    """Whether the stagger rule permits this step.
+
+    Applies to flying as well as digging — otherwise a bee simply rides a
+    straight shaft somebody else cut and the rule buys nothing.
+    """
+    if not STAGGER_REQUIRED:
+        return True
+    if not came_inward:
+        return True
+    return ring_of(g, to_cell) >= ring_of(g, from_cell)
 
 
 def neighbors(g: Geometry, cell: int) -> list[int]:

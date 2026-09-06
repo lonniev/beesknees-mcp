@@ -43,13 +43,16 @@ export interface Geometry {
 /**
  * The shipped board, settled by simulation rather than by taste.
  *
- * 857 cells is the number that matters as much as the others: it is small
- * enough that four hives render at once on a phone, and deep enough that a
- * round lands near two minutes with a good player beating an adequate one
- * roughly 1.8 times as often. Finer rings made a prettier comb and a board
- * nobody could draw four of.
+ * Fourteen rings and the stagger rule together: 365 cells, a round landing near
+ * two and a half minutes, and a good player beating an adequate one about 3.5
+ * times as often. The straight-line driller wins ZERO percent, which is the
+ * whole point of the stagger — before it, boring a radial shaft beat routing.
+ *
+ * Twenty-four rings without the stagger gave 1.8x and a driller on 22%; with
+ * the stagger it gave 4.2x but a four-and-a-half-minute round. Fourteen keeps
+ * nearly all the skill and hands back the two minutes.
  */
-export const BOARD = { wall: 24, meadowRings: 4, cellW: 3.0 } as const;
+export const BOARD = { wall: 14, meadowRings: 4, cellW: 3.0 } as const;
 
 export function makeGeometry(
   R: number = BOARD.wall,
@@ -187,6 +190,8 @@ export interface Bee {
   cell: number;
   /** The cell just vacated — what a sealer buries behind itself. */
   prevCell: number;
+  /** Was the last move inward? The stagger rule reads this. */
+  cameInward: boolean;
   phase: Phase;
   nextMoveTick: number;
   /** Relative effort spent. Not sats. */
@@ -228,6 +233,14 @@ export interface Rules {
   /** Whether a collapse may target any cell, or only one next to the bee. */
   collapseRange: "anywhere" | "adjacent";
   /**
+   * Forbid two inward moves in a row, so a bee must step sideways between them.
+   *
+   * Without it a bee can drill a straight radial shaft while a smarter one
+   * carves a long arc, and the driller simply wins on distance. The stagger is
+   * the hive changing level: you cut down, you shift along, you cut down again.
+   */
+  staggerRequired: boolean;
+  /**
    * Cooldowns a collapse costs the bee that buys it.
    *
    * Set this to a full cooldown and collapsing is a move not made, so it always
@@ -246,6 +259,7 @@ export const DEFAULT_RULES: Rules = {
   maxTicks: 6000, // 10 minutes
   collapseRange: "anywhere",
   collapseTicks: 0,
+  staggerRequired: true,
 };
 
 export interface Round {
@@ -284,6 +298,10 @@ export function legal(round: Round, bee: Bee, a: Action): boolean {
   }
 
   if (!neighbors(g, bee.cell).includes(a.to)) return false;
+  // The stagger: no two inward moves back to back. Applies to flying as well as
+  // digging, or a bee would simply ride a straight shaft somebody else cut.
+  if (round.rules.staggerRequired && bee.cameInward && ringOf(g, a.to) < ringOf(g, bee.cell))
+    return false;
   if (a.kind === "fly") return board.state[a.to] === OPEN;
   return board.state[a.to] === COMB; // dig
 }
@@ -326,6 +344,7 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
   }
 
   if (ringOf(g, bee.cell) > g.R) bee.meadowMoves++;
+  bee.cameInward = ringOf(g, a.to) < ringOf(g, bee.cell);
   bee.prevCell = bee.cell;
   bee.cell = a.to;
   bee.moves++;
@@ -458,6 +477,7 @@ export function makeRound(
     // than anyone else by accident.
     cell: idx(g, outer, Math.floor((id * g.size[outer]) / strategies.length)),
     prevCell: -1,
+    cameInward: false,
     phase: "forage" as Phase,
     nextMoveTick: 0,
     spend: 0,

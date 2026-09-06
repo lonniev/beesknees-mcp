@@ -96,6 +96,7 @@ _DDL: list[str] = [
         "  phase TEXT NOT NULL DEFAULT 'forage',"
         "  next_move_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
         "  moves INTEGER NOT NULL DEFAULT 0,"
+        "  came_inward BOOLEAN NOT NULL DEFAULT FALSE,"
         "  digs INTEGER NOT NULL DEFAULT 0,"
         "  seals INTEGER NOT NULL DEFAULT 0,"
         "  finished_at TIMESTAMPTZ,"
@@ -140,6 +141,10 @@ _DDL: list[str] = [
 ]
 
 _MIGRATIONS: list[str] = [
+    # CREATE TABLE IF NOT EXISTS is a no-op on an existing table, so a new
+    # column needs its own ALTER. This is precisely the gap that broke operator
+    # adoption fleet-wide for ten weeks.
+    f"ALTER TABLE {BEES} ADD COLUMN IF NOT EXISTS came_inward BOOLEAN NOT NULL DEFAULT FALSE",
     f"CREATE INDEX IF NOT EXISTS bk_matches_state_idx ON {MATCHES} (state, created_at DESC)",
     f"CREATE INDEX IF NOT EXISTS bk_bees_npub_idx ON {BEES} (npub, match_id)",
     f"CREATE INDEX IF NOT EXISTS bk_fares_match_idx ON {FARES} (match_id)",
@@ -358,6 +363,8 @@ async def fly(
     g = geo.make_geometry()
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
+    _require_stagger(g, bee, to_cell)
+    _require_stagger(g, bee, to_cell)
 
     phase = _phase_after(g, str(bee["phase"]), to_cell, on_flower)
     needs_open = not geo.is_meadow(g, to_cell)
@@ -368,14 +375,15 @@ async def fly(
         else ""
     )
     r = await _exec(
-        f"UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, "
+        f"UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, came_inward = $7, "
         f"    next_move_at = now() + interval '{COOLDOWN_S} seconds', "
         "    finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END "
         "WHERE match_id = $1 AND npub = $2 "
         "  AND cell = $5 AND next_move_at <= now() AND phase <> 'done'"
         f"{gate} "
         "RETURNING hive, seat, cell, phase",
-        [match_id, npub, to_cell, phase, cur, int(bee["hive"])],
+        [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
+         geo.ring_of(g, to_cell) < geo.ring_of(g, cur)],
     )
     rows = _rows(r)
     if not rows:
@@ -414,13 +422,14 @@ async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
         "  SELECT $1, $6, $3, $2 WHERE EXISTS (SELECT 1 FROM ok) "
         "  ON CONFLICT (match_id, hive, cell) DO NOTHING RETURNING cell"
         "), moved AS ("
-        f"  UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, digs = digs + 1, "
+        f"  UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, digs = digs + 1, came_inward = $7, "
         f"      next_move_at = now() + interval '{COOLDOWN_S + DIG_EXTRA_S} seconds', "
         "      finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END "
         "  WHERE match_id = $1 AND npub = $2 AND cell = $5 "
         "    AND EXISTS (SELECT 1 FROM cut) RETURNING seat"
         ") SELECT (SELECT count(*) FROM cut) AS cut, (SELECT count(*) FROM moved) AS moved",
-        [match_id, npub, to_cell, phase, cur, int(bee["hive"])],
+        [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
+         geo.ring_of(g, to_cell) < geo.ring_of(g, cur)],
     )
     rows = _rows(r)
     won = bool(rows and int(rows[0]["moved"]) > 0)
@@ -473,6 +482,17 @@ async def seal(match_id: str, npub: str, at_cell: int) -> dict[str, Any]:
 def _require_adjacent(g: geo.Geometry, cur: int, to_cell: int) -> None:
     if to_cell not in geo.neighbors(g, cur):
         raise BoardError("a bee moves one cell at a time")
+
+
+def _require_stagger(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
+    """Enforce the stagger server-side, where it actually counts.
+
+    The client knows the rule and will not offer an illegal move, but a client
+    is not a authority — anything that only the browser checks is a rule that
+    only honest players follow.
+    """
+    if not geo.may_move(g, int(bee["cell"]), to_cell, bool(bee.get("came_inward"))):
+        raise BoardError("the comb steps down a level — move sideways before cutting deeper")
 
 
 # ── The pot ──────────────────────────────────────────────────────────────

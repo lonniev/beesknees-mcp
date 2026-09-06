@@ -1,17 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  --color-comb: #2a1f0e;
-  --color-comb-edge: #3d2e15;
+  --color-comb: #2f2410;
+  --color-comb-edge: #4a3819;
   --color-tunnel: #c9a227;
   --color-wax: #f2c14e;
-  --color-meadow: #16241a;
+  --color-meadow: #33523a;
   --color-sky: #0d1310;
   --color-queen: #ff5fa2;
   /* Your own bee. Deliberately the one hue nothing else on the board uses. */
-  --color-you: #7dd3fc;
+  --color-you: #a3e635;
   /* A hive where somebody has reached the inner rings. */
   --color-hot: #ff4d4d;
+  /* Your hive's WALL — a different hue from your bee, which shared it and made
+     the boundary and the halo read as the same thing. */
+  --color-hive-mine: #7dd3fc;
+  /* Flowers. Purple reads as a flower against green in a way yellow does not. */
+  --color-flower: #c084fc;
 }
 
 :root {

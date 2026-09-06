@@ -56,7 +56,11 @@ test("angles wrap, so a tap just left of twelve lands on the last slot", () => {
 });
 
 test("wedges are drawn, not degenerate", () => {
-  for (const r of [1, 5, 12, 24, g.maxRing]) {
+  // Derived from the shipped board, never restated. An earlier version named
+  // rings 20 and 24; the board shrank to 14 and the test started asserting
+  // NaN geometry for rings that no longer exist.
+  const probes = [1, Math.round(g.R / 2), g.R, g.maxRing];
+  for (const r of probes) {
     const d = cellPath(g, r, 0);
     assert.match(d, /^M /, `ring ${r} produced no path`);
     assert.ok(d.includes("A "), `ring ${r} wedge has no arc`);
@@ -75,7 +79,7 @@ test("rings are laid out inside the viewBox, innermost first", () => {
 });
 
 test("a full turn of any ring covers the whole circle with no gap", () => {
-  for (const r of [1, 7, 20]) {
+  for (const r of [1, Math.round(g.R / 2), g.maxRing]) {
     const n = g.size[r];
     assert.ok(Math.abs(slotAngle(n, n) - slotAngle(n, 0) - TAU) < 1e-9, `ring ${r} does not close`);
   }
