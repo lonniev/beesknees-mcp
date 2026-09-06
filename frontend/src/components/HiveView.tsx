@@ -34,6 +34,7 @@ function HiveViewInner({ hive, youId, focused, armed, onTapCell, onTapHive }: Pr
   const g = hive.round.board.g;
   const board = hive.round.board;
   const bees = seated(hive);
+  const youBee = youId === null ? null : bees.find((b) => b.id === youId) ?? null;
 
   const handle = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
@@ -110,27 +111,81 @@ function HiveViewInner({ hive, youId, focused, armed, onTapCell, onTapHive }: Pr
         👑
       </text>
 
-      {bees.map((bee) => {
-        const isYou = youId === bee.id;
-        const [x, y] = cellCentre(g, bee.cell);
-        return (
-          <g key={`b${bee.id}`}>
-            {isYou && (
-              <circle cx={x} cy={y} r={focused ? 4.5 : 7} fill="none" stroke="#fff" strokeWidth={focused ? 0.9 : 1.6} />
-            )}
+      {/* Rivals first, dimmed, so your own bee is never drawn under one. */}
+      {bees
+        .filter((b) => b.id !== youId)
+        .map((bee) => {
+          const [x, y] = cellCentre(g, bee.cell);
+          return (
             <text
+              key={`b${bee.id}`}
               x={x}
               y={y}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={focused ? 4.5 : 8}
-              opacity={bee.phase === "done" ? 1 : isYou ? 1 : 0.8}
+              fontSize={focused ? 4.5 : 7}
+              opacity={bee.phase === "done" ? 1 : 0.5}
             >
               {beeGlyph(bee)}
             </text>
-          </g>
-        );
-      })}
+          );
+        })}
+
+      {/* You, last and loudest.
+       *
+       * Twelve identical glyphs on a ring is a find-the-difference puzzle, and
+       * the thin white circle this replaced disappeared entirely at thumbnail
+       * size. The spoke is the part that actually works: the eye follows a line
+       * from the centre out, so locating yourself costs a glance rather than a
+       * search — which matters most on the crowded outer rings where every bee
+       * starts. */}
+      {youBee && (
+        <g>
+          {(() => {
+            const [x, y] = cellCentre(g, youBee.cell);
+            const len = Math.hypot(x, y);
+            const [sx, sy] = len > 0 ? [(x / len) * ringRadius(g, 1), (y / len) * ringRadius(g, 1)] : [0, 0];
+            return (
+              <>
+                <line
+                  x1={sx}
+                  y1={sy}
+                  x2={x}
+                  y2={y}
+                  stroke="var(--color-you)"
+                  strokeWidth={focused ? 0.5 : 0.9}
+                  opacity={0.45}
+                />
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={focused ? 5 : 8}
+                  fill="var(--color-you)"
+                  opacity={0.22}
+                  className="bk-pulse"
+                />
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={focused ? 5 : 8}
+                  fill="none"
+                  stroke="var(--color-you)"
+                  strokeWidth={focused ? 1.1 : 1.8}
+                />
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={focused ? 5.5 : 9}
+                >
+                  {beeGlyph(youBee)}
+                </text>
+              </>
+            );
+          })()}
+        </g>
+      )}
 
       {armed && focused && (
         <circle cx={0} cy={0} r={VIEW - 1} fill="none" stroke="var(--color-queen)" strokeWidth={1.5} />

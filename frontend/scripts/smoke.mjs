@@ -36,15 +36,24 @@ try {
   const boards = count(/class="hive/g);
   const bees = count(/🐝/g);
 
+  // Your own bee gets a spoke and a halo nothing else on the board uses; if it
+  // is missing, a player cannot find themselves among twelve identical glyphs.
+  const youMarks = count(/--color-you/g);
+
   console.log(
-    `rendered ${html.length} bytes · ${boards} boards · ${bees} bees · ${count(/👑/g)} queens`,
+    `rendered ${html.length} bytes · ${boards} boards · ${bees} bees · ` +
+      `${count(/👑/g)} queens · ${youMarks} "you" marks`,
   );
 
   const problems = [];
   if (!/The Bee(&#x27;|')s Knees/.test(html)) problems.push("no header");
-  if (boards !== HIVES + 1) problems.push(`want ${HIVES} thumbnails + 1 focused, got ${boards}`);
+  // Four hives, four circles. The focused hive used to be drawn in the strip
+  // AS WELL as full size, which put the same hive on screen twice and read as a
+  // fifth one. This is the assertion that would have caught it.
+  if (boards !== HIVES) problems.push(`want exactly ${HIVES} hive boards, got ${boards}`);
   if (bees < HIVES * SEATS) problems.push(`want ${HIVES * SEATS} bees on screen, got ${bees}`);
   if (html.includes("NaN")) problems.push("NaN reached the markup");
+  if (youMarks < 3) problems.push(`your own bee is not marked (${youMarks} refs; want spoke + halo + ring)`);
 
   if (problems.length) {
     console.error("FAIL: " + problems.join("; "));

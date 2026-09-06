@@ -79,28 +79,51 @@ export default function App() {
         </div>
       </header>
 
-      {/* The four hives. Tap one to bring it forward. */}
-      <div className="grid shrink-0 grid-cols-4 gap-1.5">
-        {match.hives.map((h) => {
-          const isYours = match.you?.hive === h.id;
-          const isFocus = focus === h.id;
-          return (
-            <button
-              key={h.id}
-              onClick={() => setFocus(h.id)}
-              className={`aspect-square overflow-hidden rounded-lg border transition ${
-                isFocus ? "border-white/60 bg-white/5" : "border-white/10"
-              }`}
-            >
-              <HiveView hive={h} youId={isYours ? (match.you?.beeId ?? null) : null} focused={false} armed={false} />
-              <div className="pointer-events-none -mt-4 pb-0.5 text-[10px] text-white/50">
-                {h.name}
-                {isYours && " ·"}
-              </div>
-            </button>
-          );
-        })}
+      {/* The OTHER hives. The focused one is the big board below, and drawing it
+       * in this strip as well put the same hive on screen twice — which reads as
+       * a fifth hive rather than as the one you are looking at. Four hives, four
+       * circles. */}
+      <div className="grid shrink-0 grid-cols-3 gap-2">
+        {match.hives
+          .filter((h) => h.id !== focus)
+          .map((h) => {
+            const isYours = match.you?.hive === h.id;
+            return (
+              <button
+                key={h.id}
+                onClick={() => setFocus(h.id)}
+                className={`aspect-square overflow-hidden rounded-lg border transition ${
+                  isYours ? "border-[var(--color-you)]/60" : "border-white/10"
+                }`}
+              >
+                <HiveView hive={h} youId={isYours ? (match.you?.beeId ?? null) : null} focused={false} armed={false} />
+                <div className="pointer-events-none -mt-4 pb-0.5 text-[10px] text-white/50">{h.name}</div>
+              </button>
+            );
+          })}
       </div>
+
+      {/* Which hive you are looking at — and a way straight back to your own,
+       * since watching a rival is a click away and finding your way home
+       * should not be a hunt through the strip. */}
+      {focus !== null && (
+        <div className="flex shrink-0 items-center justify-between px-1 text-xs">
+          <span className="font-medium">
+            {match.hives[focus].name}
+            {match.you?.hive === focus && (
+              <span className="ml-1.5 text-[var(--color-you)]">your hive</span>
+            )}
+          </span>
+          {match.you && match.you.hive !== focus && (
+            <button
+              onClick={() => setFocus(match.you!.hive)}
+              className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you)]"
+            >
+              Back to my bee
+            </button>
+          )}
+        </div>
+      )}
 
       {/* The hive in play. */}
       <div className="relative min-h-0 flex-1">

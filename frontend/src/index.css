@@ -8,6 +8,8 @@
   --color-meadow: #16241a;
   --color-sky: #0d1310;
   --color-queen: #ff5fa2;
+  /* Your own bee. Deliberately the one hue nothing else on the board uses. */
+  --color-you: #7dd3fc;
 }
 
 :root {
@@ -34,4 +36,27 @@ body {
 
 svg.hive {
   touch-action: none;
+}
+
+/* A slow breath on your own bee's halo. Slow on purpose: a fast blink competes
+   with the board for attention, and the board is the thing being read. */
+@keyframes bk-breathe {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.34;
+  }
+}
+
+.bk-pulse {
+  animation: bk-breathe 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-pulse {
+    animation: none;
+    opacity: 0.22;
+  }
 }
