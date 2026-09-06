@@ -27,6 +27,13 @@ export default function App() {
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [armed, setArmed] = useState(false);
 
+  // A new match re-seats you, so the view follows your bee rather than staying
+  // parked on whichever rival you were watching when the last round ended.
+  const newMatch = useCallback(() => {
+    restart();
+    setFocus(0);
+  }, [restart]);
+
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
 
@@ -72,17 +79,19 @@ export default function App() {
           <span>
             {String(Math.floor(elapsed / 60))}:{String(elapsed % 60).padStart(2, "0")}
           </span>
-          <button onClick={restart} className="rounded-md p-1.5 hover:bg-white/10" title="New match">
+          <button onClick={newMatch} className="rounded-md p-1.5 hover:bg-white/10" title="New match">
             <RotateCcw size={16} />
           </button>
         </div>
       </header>
 
-      {/* The OTHER hives. The focused one is the big board below, and drawing it
-       * in this strip as well put the same hive on screen twice — which reads as
-       * a fifth hive rather than as the one you are looking at. Four hives, four
-       * circles. */}
-      <div className="grid shrink-0 grid-cols-3 gap-2">
+      {/* The OTHER hives — a glance, not a display.
+       *
+       * Sized by HEIGHT, not width. As a `grid-cols-3` of `aspect-square` these
+       * were width-driven, so on a wide screen three rivals grew to some 660px
+       * each and the board you are actually playing got whatever vertical space
+       * was left — which was almost none. The hive that matters is the big one. */}
+      <div className="flex h-20 shrink-0 justify-center gap-2 sm:h-24">
         {match.hives
           .filter((h) => h.id !== focus)
           .map((h) => {
@@ -91,8 +100,9 @@ export default function App() {
               <button
                 key={h.id}
                 onClick={() => setFocus(h.id)}
-                className={`aspect-square overflow-hidden rounded-lg border transition ${
-                  isYours ? "border-[var(--color-you)]/60" : "border-white/10"
+                title={isYours ? `${h.name} — your hive` : h.name}
+                className={`relative aspect-square h-full overflow-hidden rounded-lg border transition ${
+                  isYours ? "border-[var(--color-you)]" : "border-white/10"
                 }`}
               >
                 <HiveView
@@ -102,7 +112,9 @@ export default function App() {
                   focused={false}
                   armed={false}
                 />
-                <div className="pointer-events-none -mt-4 pb-0.5 text-[10px] text-white/50">{h.name}</div>
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/45 text-[9px] leading-tight text-white/70">
+                  {h.name}
+                </span>
               </button>
             );
           })}
@@ -130,7 +142,7 @@ export default function App() {
         </div>
       )}
 
-      {/* The hive in play. */}
+      {/* The hive in play — the biggest thing on the screen, always. */}
       <div className="relative min-h-0 flex-1">
         {focus !== null && (
           <HiveView
@@ -151,7 +163,7 @@ export default function App() {
               <div className="text-sm text-white/60">reached the queen in {match.hives[match.winner.hive].name}</div>
             </div>
             <button
-              onClick={restart}
+              onClick={newMatch}
               className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
             >
               Again
