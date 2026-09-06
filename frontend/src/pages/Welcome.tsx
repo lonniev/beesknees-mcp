@@ -18,7 +18,7 @@ export default function Welcome() {
       </p>
 
       <div className="mt-8 space-y-5 text-[15px] text-white/80">
-        <h2 className="text-lg font-semibold text-white">What's actually happening to bees</h2>
+        <h2 className="text-lg font-semibold text-white">The Current Pollinator Crisis</h2>
 
         <p>
           Beekeepers in the United States have been losing a large share of their colonies every
@@ -41,7 +41,7 @@ export default function Welcome() {
           thousand acres of one flowering crop is a fortnight's feast and then a famine.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">The part nobody puts on a poster</h2>
+        <h2 className="pt-2 text-lg font-semibold text-white">Suburban Lawns and Spring Forage</h2>
 
         <p>
           Dandelion and white clover are among the first reliable sources of nectar and pollen in
@@ -54,12 +54,11 @@ export default function Welcome() {
           Home and garden pesticides are applied to lawns at concentrations that frequently exceed
           agricultural rates for the same active ingredients, by people under no obligation to
           follow a label the way a licensed applicator is. As housing spreads into farmland, mixed
-          forage becomes turf, and turf gets sprayed. It is a quieter story than most, and it is one
-          where the remedy is genuinely available to the person reading this: leave the dandelions,
-          skip the broadleaf spray, let the clover be.
+          forage becomes turf, and turf gets sprayed. The remedy is available to any homeowner:
+          leave the dandelions, skip the broadleaf spray, let the clover be.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">And an honest correction</h2>
+        <h2 className="pt-2 text-lg font-semibold text-white">Wild Bees most at Risk</h2>
 
         <p>
           Honeybees are livestock. They are not an endangered species — colony numbers hold up
@@ -78,10 +77,10 @@ export default function Welcome() {
           >
             Pollinator Partnership
           </a>{" "}
-          rather than to a honeybee charity. The hive is the game. The wild bees are the point.
+          rather than to a honeybee charity.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">How the money moves</h2>
+        <h2 className="pt-2 text-lg font-semibold text-white">Where the Money Goes</h2>
 
         <p>
           You buy a worker bee a seat, and every motion it makes costs a little. Most of what a
