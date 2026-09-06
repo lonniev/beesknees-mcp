@@ -8,6 +8,8 @@
  */
 
 import { Link } from "react-router-dom";
+import LossChart from "../components/LossChart.tsx";
+import WildVsManaged from "../components/WildVsManaged.tsx";
 
 export default function Welcome() {
   return (
@@ -17,14 +19,33 @@ export default function Welcome() {
         A race to the queen. Most of what a round collects goes to pollinator conservation.
       </p>
 
+      <ul className="mt-7 space-y-2 rounded-2xl bg-white/5 p-4 text-[14px] text-white/75">
+        <li>
+          <span aria-hidden="true">🕷️</span> A parasitic mite and the viruses it carries
+          are the largest single cause of colony death.
+        </li>
+        <li>
+          <span aria-hidden="true">🌾</span> Simplified landscape turns a season of forage
+          into a fortnight's feast and then a famine.
+        </li>
+        <li>
+          <span aria-hidden="true">🌼</span> Dandelion and clover feed colonies when they are
+          weakest — and lawn culture exists to remove them.
+        </li>
+        <li>
+          <span aria-hidden="true">🐝</span> Honeybees are livestock. The wild bees are the
+          ones with nobody to replace their losses.
+        </li>
+      </ul>
+
       <div className="mt-8 space-y-5 text-[15px] text-white/80">
-        <h2 className="text-lg font-semibold text-white">The Current Pollinator Crisis</h2>
+        <h2 className="text-lg font-semibold text-white">📉 The Current Pollinator Crisis</h2>
 
         <p>
           Beekeepers in the United States have been losing a large share of their colonies every
-          year for the better part of two decades — commonly reported in the range of 40 to 50
-          percent annually, with some winters considerably worse. British beekeepers report
-          overwinter losses too, typically smaller but still far above what was once normal.
+          year for the better part of two decades. National surveys put the annual figure between
+          roughly 29 and 51 percent depending on the year, averaging near 40. British beekeepers
+          report overwinter losses too, typically smaller but still far above what was once normal.
         </p>
 
         <p>
@@ -41,7 +62,9 @@ export default function Welcome() {
           thousand acres of one flowering crop is a fortnight's feast and then a famine.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">Suburban Lawns and Spring Forage</h2>
+        <LossChart />
+
+        <h2 className="pt-2 text-lg font-semibold text-white">🏡 Suburban Lawns and Spring Forage</h2>
 
         <p>
           Dandelion and white clover are among the first reliable sources of nectar and pollen in
@@ -58,7 +81,7 @@ export default function Welcome() {
           leave the dandelions, skip the broadleaf spray, let the clover be.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">Wild Bees most at Risk</h2>
+        <h2 className="pt-2 text-lg font-semibold text-white">🐝 Wild Bees most at Risk</h2>
 
         <p>
           Honeybees are livestock. They are not an endangered species — colony numbers hold up
@@ -80,7 +103,9 @@ export default function Welcome() {
           rather than to a honeybee charity.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">Where the Money Goes</h2>
+        <WildVsManaged />
+
+        <h2 className="pt-2 text-lg font-semibold text-white">🧾 Where the Money Goes</h2>
 
         <p>
           You buy a worker bee a seat, and every motion it makes costs a little. Most of what a
