@@ -295,28 +295,31 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
        * breathing, so the two read as a pair. */}
       {focused && target != null && (
         <g pointerEvents="none">
-          <path
-            d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
-            fill="var(--color-you)"
-            opacity={0.16}
-          />
           {(() => {
             const [tx, ty] = cellCentre(g, target);
             return (
               <>
-                {/* Two rings and a breath. One thin ring vanished against a
-                    flower glyph, a lit meadow, or the queen's own disc — and a
-                    destination you cannot confirm is a destination you keep
-                    re-tapping. */}
-                <circle cx={tx} cy={ty} r={9} fill="var(--color-you)" opacity={0.18} className="bk-pulse" />
-                <circle cx={tx} cy={ty} r={9} fill="none" stroke="var(--color-you)" strokeWidth={0.8} opacity={0.7} />
+                {/* RINGS, never a fill. A tinted wedge plus a filled disc marked
+                    the cell and hid whatever stood in it — the flower you chose,
+                    and any rival already there. What matters is the boundary; the
+                    inside of the mark belongs to the board. */}
                 <circle
                   cx={tx}
                   cy={ty}
-                  r={5.5}
+                  r={8}
                   fill="none"
                   stroke="var(--color-you)"
-                  strokeWidth={2}
+                  strokeWidth={0.7}
+                  opacity={0.55}
+                  className="bk-pulse"
+                />
+                <circle
+                  cx={tx}
+                  cy={ty}
+                  r={5}
+                  fill="none"
+                  stroke="var(--color-you)"
+                  strokeWidth={1.4}
                 />
                 {/* A thread from your bee to what it is heading for, so the
                     pairing is explicit rather than inferred from two rings. */}

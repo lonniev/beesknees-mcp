@@ -53,12 +53,27 @@ function verbIcon(id: Verb, inHive: boolean) {
 
 type Verb = (typeof VERBS)[number]["id"];
 
-const PHASE_WORD: Record<string, string> = {
-  forage: "Find a flower",
-  return: "Carry it to a door",
-  tunnel: "Reach the queen",
-  done: "At the queen",
-};
+/**
+ * What to do next, in the order a player needs it.
+ *
+ * Written as one function because the prompt was three nested ternaries that
+ * had already produced "No way through" at the exact moment the bee succeeded.
+ * A prompt that reports the engine's opinion rather than the player's next move
+ * is worse than none.
+ */
+function NEXT_STEP(phase: string | undefined, target: number | null, why: string): string {
+  if (phase === "done") return "At the queen.";
+  if (target === null) {
+    if (phase === "forage") return "Tap a flower that still has pollen.";
+    if (phase === "return") return "Choose a door now — tap a gap in the hive wall.";
+    return "Tap where you want to go in the comb.";
+  }
+  if (why) return why;
+  if (phase === "forage") return "Flower chosen — press to fly.";
+  if (phase === "return") return "Door chosen — press to fly.";
+  return "Press to move.";
+}
+
 
 /**
  * One rival hive, small.
@@ -203,6 +218,19 @@ export default function App() {
     const b = yourHive.round.board;
     if (you.phase === "forage" && b.flower[target] && !b.pollen[target]) setTarget(null);
   }, [frame, target, you, yourHive]);
+
+  /**
+   * A finished act retires its aim.
+   *
+   * Landing on a flower ends the forage and begins the walk home, but the aim
+   * stayed on the flower the bee was already standing in — so the button
+   * reported "No way through", which is true and useless. The prompt should be
+   * telling you the next thing to do.
+   */
+  const phase = you?.phase;
+  useEffect(() => {
+    setTarget(null);
+  }, [phase]);
 
   /**
    * The move the button would make, or the reason it cannot.
@@ -351,20 +379,13 @@ export default function App() {
       {/* Controls. The prompt sits on the LEFT, where reading starts — after
        * the button it was an answer arriving behind its question. */}
       <div className="flex shrink-0 items-center gap-4 pb-[env(safe-area-inset-bottom)]">
-        <span className="min-w-0 flex-1 text-right text-[12px] leading-tight text-white/55">
+        <span className="min-w-0 flex-1 text-left text-[13px] leading-tight text-white/60">
           {!ready ? (
             <span className="text-[var(--color-you)]">
               Resting {(cooldownMs / 1000).toFixed(1)}s
             </span>
           ) : (
-            pending.why ||
-            (target === null
-              ? you?.phase === "forage"
-                ? "Tap a flower that still has pollen"
-                : you?.phase === "return"
-                  ? "Tap a door in the hive wall"
-                  : "Tap where you want to go"
-              : `${you ? PHASE_WORD[you.phase] : ""} — press to go`)
+            NEXT_STEP(you?.phase, target, pending.why)
           )}
         </span>
 

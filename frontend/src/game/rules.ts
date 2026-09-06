@@ -200,11 +200,18 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
     mouth[c] = 1;
   }
 
-  // Flowers scatter through the meadow.
+  // Flowers scatter through the meadow, but never on the two outermost rings.
+  //
+  // Bees start spread around the outermost ring, so a flower there — or one ring
+  // in — is a bee that begins ON its pollen or one press away from it. Whoever
+  // was seeded next to a flower would win the first act for free. Keeping the
+  // outer two rings clear makes the shortest possible forage two presses, for
+  // everybody.
+  const innerMeadow = Math.max(1, g.meadowRings - 2);
   let placed = 0;
   let guard = 0;
   while (placed < o.flowers && guard++ < o.flowers * 100) {
-    const r = g.R + 1 + Math.floor(o.rng() * g.meadowRings);
+    const r = g.R + 1 + Math.floor(o.rng() * innerMeadow);
     const c = idx(g, r, Math.floor(o.rng() * g.size[r]));
     if (!flower[c]) {
       flower[c] = 1;
