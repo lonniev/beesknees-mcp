@@ -1,5 +1,5 @@
 /**
- * Roastify MCP client.
+ * The Bee's Knees MCP client.
  *
  * Pattern modeled on optionality-mcp/frontend/src/lib/mcp.ts:
  *
@@ -427,7 +427,7 @@ export interface NpubProofResult {
 /// human can cross-check — "the code in this DM was shown to you at <verifyAt>;
 /// approve only if it matches." Trust rests on that two-surface match, so we
 /// pass this app's own URL: an impostor firing the same tool from elsewhere
-/// cannot make the human's open Roastify tab show the attacker's code.
+/// cannot make the human's open Bee's Knees tab show the attacker's code.
 export async function requestNpubProof(
   patronNpub: string,
   verifyAt?: string,
