@@ -1,0 +1,18 @@
+name = "beesknees-scheduler"
+main = "src/index.js"
+compatibility_date = "2026-06-19"
+
+# A match that ends while nobody is watching must still settle. Every tool call
+# advances the clock opportunistically and any patron can poke `check_now`, so
+# this exists only for the quiet case — the last player closed their tab and a
+# round sits ended but unsettled, its charity share unrecorded.
+#
+# One minute, because what is being waited on is a twenty-second grace and a
+# ten-minute ceiling. Unlike the rest of the fleet this does NOT let Neon scale
+# to zero while matches are live, which is the honest cost of a real-time game
+# and why the tick is cheap and does nothing when nothing is due.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+MCP_URL = "https://beesknees-mcp.fastmcp.app/mcp"

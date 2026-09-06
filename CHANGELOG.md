@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared fleet contracts: `mcp-ci` composite action, the reusable release
   workflow, MCP registry publish, and Renovate against the community preset.
 
+- The board store: five tables, every motion a single fenced statement, cells
+  stored sparsely so a match starts with twenty rows rather than four thousand.
+- Match lifecycle — forming, quorum, grace, ceiling, settlement — owned by the
+  server so a patron's sleeping tab cannot stop the world.
+- All eleven domain tools registered and live.
+- `useLiveMatch`: polls the board at the cadence the server asks for, and
+  simulates nothing.
+- Pages: the welcome story, a public ledger of what every match raised, and an
+  about page that reports the running deployment.
+- A cron worker that settles matches nobody is watching. It holds no secrets.
+
 ### Notes
 
 - No domain tool is registered yet. Each one needs the shared board in Neon —
