@@ -76,6 +76,40 @@ which of the four leaders finishes first is a fair draw, so the signal survives.
 node sim/run.ts --rounds 400 --bees 12    # re-measure before changing a rule
 ```
 
+## Where the money goes
+
+Most of what a round collects goes to pollinator conservation. The beneficiary is
+**[Pollinator Partnership](https://www.pollinator.org/)** — chosen over the
+honeybee-focused charities on purpose, because managed honeybees are livestock
+and are not the ones in trouble; native and wild pollinators are, and they are
+what Pollinator Partnership covers.
+
+### The rail is deliberately not in the software
+
+The system **computes and publishes the debt. The operator settles it and records
+the proof.** No automated payout to a third party, and that is a design decision
+rather than a shortcut:
+
+- A single round's share is small, and an on-chain network fee can exceed it. A
+  settlement that costs more than it delivers is worse than no settlement.
+- Donations route through The Giving Block, which issues a **fresh address per
+  donation** — there is no stable destination to hold in config, and automating
+  it would mean binding this service to a third party's API and its future.
+- Fares arrive over **Lightning**, into channels. Paying out on chain is not the
+  same balance, and no amount of code makes it one.
+
+So the charity's share **accrues** per round and is settled in batches. Each
+settlement records the beneficiary, the amount, the date and the **transaction
+id** — and `beesknees_settlement_history` serves all of it free, because a claim
+about where the money went that costs money to check is not a claim anybody
+should believe. The txid is what makes it verifiable by someone who trusts
+nothing else here.
+
+The beneficiary is stored, not compiled in, so it can change. Every settlement
+records the beneficiary it actually paid, so history stays true even when the
+current one changes — a patron who played because of where the money went can
+always check where it went.
+
 ## Layout
 
 | Path | What lives there |
