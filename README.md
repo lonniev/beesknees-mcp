@@ -93,8 +93,11 @@ rather than a shortcut:
 - A single round's share is small, and an on-chain network fee can exceed it. A
   settlement that costs more than it delivers is worse than no settlement.
 - Donations route through The Giving Block, which issues a **fresh address per
-  donation** — there is no stable destination to hold in config, and automating
-  it would mean binding this service to a third party's API and its future.
+  donation** that **expires after 180 days unused** — there is no stable
+  destination to hold in config, and one minted early is wrong within six months.
+- The beneficiary takes **on-chain BTC only** ("Send only BTC to this address
+  using the Bitcoin blockchain"). Not Lightning. So the fares arrive on one rail
+  and the donation leaves on another, by their rules rather than by choice.
 - Fares arrive over **Lightning**, into channels. Paying out on chain is not the
   same balance, and no amount of code makes it one.
 
