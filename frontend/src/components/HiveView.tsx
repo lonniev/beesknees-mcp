@@ -125,7 +125,10 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
       viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
       onPointerDown={handle}
     >
-      <circle cx={0} cy={0} r={VIEW} fill="var(--color-meadow)" />
+      {/* A SQUARE meadow. The board is drawn in a square viewBox, so an
+       * inscribed circle threw away every corner — nearly a quarter of the
+       * picture — while bees crowded a thin outer ring. */}
+      <rect x={-VIEW} y={-VIEW} width={VIEW * 2} height={VIEW * 2} fill="var(--color-meadow)" rx={6} />
 
       {/* Flowers were gold dots, which at this size is exactly what a distant
        * bee looks like — so the meadow read as forty bees rather than twelve

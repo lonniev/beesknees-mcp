@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
+import Scoreboard from "./components/Scoreboard.tsx";
 import { stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
@@ -330,6 +331,8 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <Scoreboard />
 
       {/* Which hive you are looking at — and a way straight back to your own,
        * since watching a rival is a click away and finding your way home

@@ -617,6 +617,29 @@ export function progress(board: Board, bee: Bee, rules: Rules): number {
 
 // ── Setting up a round ───────────────────────────────────────────────────
 
+/**
+ * Where a bee begins: out at the corners, never in front of a door.
+ *
+ * Doors sit at the four cardinal points of the wall, so the four DIAGONALS are
+ * the furthest a bee can start from any of them — nobody is handed a door, and
+ * everyone has to cross the meadow to find one. Bees cluster in fours around
+ * each diagonal on adjacent slots, spread rather than stacked, which also puts
+ * them in the corners of a square meadow where there was previously nothing.
+ */
+export function startCell(g: Geometry, seat: number, seats: number): number {
+  const ring = g.maxRing;
+  const n = g.size[ring];
+  const corners = 4;
+  const perCorner = Math.ceil(seats / corners);
+  const corner = seat % corners;
+  const withinCorner = Math.floor(seat / corners);
+  // A diagonal is an eighth of a turn past a cardinal point.
+  const diagonal = (corner + 0.5) / corners;
+  // Fan out either side of the diagonal so no two share a cell.
+  const spread = withinCorner - (perCorner - 1) / 2;
+  return idx(g, ring, Math.round(diagonal * n + spread));
+}
+
 export function makeRound(
   strategies: string[],
   rules: Rules,
@@ -625,13 +648,10 @@ export function makeRound(
 ): Round {
   const g = geo ?? makeGeometry();
   const board = makeBoard(g, { mouths: 4, flowers: 24, blockShare: rules.blockShare, rng });
-  const outer = g.maxRing;
   const bees: Bee[] = strategies.map((strategy, id) => ({
     id,
     strategy,
-    // Spread evenly around the outermost ring, so nobody starts nearer a door
-    // than anyone else by accident.
-    cell: idx(g, outer, Math.floor((id * g.size[outer]) / strategies.length)),
+    cell: startCell(g, id, strategies.length),
     prevCell: -1,
     cameInward: false,
     netTurn: 0,

@@ -182,13 +182,36 @@ test("the distance field is cached on board version, not stale across a dig", ()
   );
 });
 
-test("bees start evenly spread, so nobody is born next to a door", () => {
-  const strategies = Array.from({ length: 20 }, () => "bore");
-  const round = makeRound(strategies, DEFAULT_RULES, mulberry32(23));
+test("bees start in the corners, spread, and never facing a door", () => {
+  // They used to be spread EVENLY around the ring, which put somebody directly
+  // in front of each door — a free entrance for whoever drew that seat, and a
+  // whole quarter of the picture (the corners of a square meadow) left empty.
+  const seats = 12;
+  const round = makeRound(Array.from({ length: seats }, () => "rider"), DEFAULT_RULES, mulberry32(23));
   const g = round.board.g;
-  const slots = round.bees.map((b) => b.cell - g.offset[g.maxRing]).sort((x, y) => x - y);
-  const gaps = slots.slice(1).map((s, i) => s - slots[i]);
-  assert.ok(Math.max(...gaps) - Math.min(...gaps) <= 1, `uneven start: ${gaps}`);
+  const cells = round.bees.map((b) => b.cell);
+
+  assert.equal(new Set(cells).size, seats, "no two bees may start in the same cell");
+
+  const bearing = (c: number) => {
+    const r = ringOf(g, c);
+    return ((c - g.offset[r]) / g.size[r]) * 360;
+  };
+  const doors = [...Array(g.cells).keys()].filter((c) => round.board.mouth[c]).map(bearing);
+
+  for (const c of cells) {
+    const gap = Math.min(...doors.map((d) => {
+      const t = Math.abs(bearing(c) - d);
+      return Math.min(t, 360 - t);
+    }));
+    assert.ok(gap > 15, `a bee starts ${gap.toFixed(0)} degrees off a door — near enough to be handed it`);
+  }
+
+  // Four clusters, because there are four corners.
+  const sorted = cells.map(bearing).sort((a, b) => a - b);
+  const gaps = sorted.map((v, i) => (i ? v - sorted[i - 1] : v + 360 - sorted[seats - 1]));
+  const wide = gaps.filter((x) => x > 25).length;
+  assert.equal(wide, 4, `expected four clusters, found ${wide} gaps between them`);
 });
 
 test("a rival empties the flower you were flying to", () => {

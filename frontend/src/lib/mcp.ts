@@ -24,12 +24,17 @@ import { signInlineProof } from "./inlineProof";
 const SLUG = "beesknees";
 
 const _envUrl = (import.meta.env.VITE_MCP_URL as string | undefined) ?? "";
+// Resolved lazily: this module is imported by components that a server render
+// touches, and `window` does not exist there. Reading it at module scope threw
+// before any component had a chance to run.
 const MCP_URL = _envUrl.startsWith("/")
-  ? `${window.location.origin}${_envUrl}`
+  ? typeof window === "undefined"
+    ? _envUrl
+    : `${window.location.origin}${_envUrl}`
   : _envUrl;
 
-const NPUB_STORAGE_KEY = "roastify:patron_npub:v1";
-const PROOF_STORAGE_KEY = "roastify:proof_token:v1";
+const NPUB_STORAGE_KEY = "beesknees:patron_npub:v1";
+const PROOF_STORAGE_KEY = "beesknees:proof_token:v1";
 
 let client: Client | null = null;
 let connecting: Promise<void> | null = null;
@@ -82,7 +87,7 @@ export function setStoredProof(proof: string): void {
 // expiresAt) tuples so a returning patron re-enters on the cached proof
 // until the server-side cache actually expires.
 
-const RECENT_LOGINS_KEY = "roastify:recent-logins:v1";
+const RECENT_LOGINS_KEY = "beesknees:recent-logins:v1";
 const MAX_RECENT_LOGINS = 5;
 
 export interface RecentLogin {
