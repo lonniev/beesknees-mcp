@@ -74,6 +74,10 @@ _DDL: list[str] = [
         f"CREATE TABLE IF NOT EXISTS {MATCHES} ("
         "  match_id TEXT PRIMARY KEY,"
         "  state TEXT NOT NULL DEFAULT 'forming',"
+        # The obstructions are generated from this on BOTH sides rather than
+        # stored, so a match is reproducible and the client can draw the walls
+        # without fetching them.
+        "  seed BIGINT NOT NULL DEFAULT 0,"
         # Every mutation bumps this. A client polls with the last one it saw, so
         # it can be told "nothing has changed" without shipping the whole board.
         "  seq BIGINT NOT NULL DEFAULT 0,"
@@ -145,6 +149,7 @@ _MIGRATIONS: list[str] = [
     # column needs its own ALTER. This is precisely the gap that broke operator
     # adoption fleet-wide for ten weeks.
     f"ALTER TABLE {BEES} ADD COLUMN IF NOT EXISTS came_inward BOOLEAN NOT NULL DEFAULT FALSE",
+    f"ALTER TABLE {MATCHES} ADD COLUMN IF NOT EXISTS seed BIGINT NOT NULL DEFAULT 0",
     f"CREATE INDEX IF NOT EXISTS bk_matches_state_idx ON {MATCHES} (state, created_at DESC)",
     f"CREATE INDEX IF NOT EXISTS bk_bees_npub_idx ON {BEES} (npub, match_id)",
     f"CREATE INDEX IF NOT EXISTS bk_fares_match_idx ON {FARES} (match_id)",
@@ -212,10 +217,31 @@ def new_match_id() -> str:
 
 
 async def open_match() -> str:
-    """Start a match forming. Idempotent by intent, not by key."""
+    """Start a match forming, with the seed that shapes its hives."""
     mid = new_match_id()
-    await _exec(f"INSERT INTO {MATCHES} (match_id, state) VALUES ($1, 'forming')", [mid])
+    seed = secrets.randbelow(2**31)
+    await _exec(
+        f"INSERT INTO {MATCHES} (match_id, state, seed) VALUES ($1, 'forming', $2)", [mid, seed]
+    )
     return mid
+
+
+def obstructions(seed: int, hive: int) -> set[int]:
+    """The impassable cells of one hive.
+
+    Each hive gets its own derived seed, so the five boards in a match differ —
+    which is the variability the obstructions exist for. Cached because this is
+    consulted on every single move.
+    """
+    key = (int(seed), int(hive))
+    hit = _obstruction_cache.get(key)
+    if hit is None:
+        hit = geo.blocked_cells(geo.make_geometry(), (int(seed) * 31 + int(hive) * 7919) % (2**31))
+        _obstruction_cache[key] = hit
+    return hit
+
+
+_obstruction_cache: dict[tuple[int, int], set[int]] = {}
 
 
 async def forming_match() -> dict[str, Any] | None:
@@ -364,6 +390,8 @@ async def fly(
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
+    m = await get_match(match_id)
+    _require_passable(int((m or {}).get("seed") or 0), int(bee["hive"]), to_cell)
     _require_stagger(g, bee, to_cell)
 
     phase = _phase_after(g, str(bee["phase"]), to_cell, on_flower)
@@ -482,6 +510,12 @@ async def seal(match_id: str, npub: str, at_cell: int) -> dict[str, Any]:
 def _require_adjacent(g: geo.Geometry, cur: int, to_cell: int) -> None:
     if to_cell not in geo.neighbors(g, cur):
         raise BoardError("a bee moves one cell at a time")
+
+
+def _require_passable(seed: int, hive: int, to_cell: int) -> None:
+    """Obstructions are absolute — no fare, no cooldown, no way through."""
+    if to_cell in obstructions(seed, hive):
+        raise BoardError("that cell is capped brood — there is no cutting through it")
 
 
 def _require_stagger(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:

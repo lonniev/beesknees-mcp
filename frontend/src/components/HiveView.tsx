@@ -13,7 +13,7 @@ import { OPEN, ringOf } from "../game/rules.ts";
 import type { Bee } from "../game/rules.ts";
 import type { Hive } from "../game/match.ts";
 import { isHot, seated } from "../game/match.ts";
-import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius } from "../lib/polar.ts";
+import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius, slotAngle, xy } from "../lib/polar.ts";
 
 interface Props {
   hive: Hive;
@@ -75,11 +75,32 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
   );
 
   const wallR = ringRadius(g, g.R + 1);
+
+  // The wall as arcs between the doors. A door was a coloured cell on an
+  // unbroken ring, which reads as decoration; a GAP reads as a way in.
+  const mouths: number[] = [];
+  for (let c = 0; c < g.cells; c++) if (board.mouth[c]) mouths.push(c);
+  const wallArcs: string[] = [];
+  {
+    const n = g.size[g.R];
+    const slots = mouths.map((c) => c - g.offset[g.R]).sort((a, b) => a - b);
+    for (let k = 0; k < slots.length; k++) {
+      // From just past this door to just before the next one.
+      const a0 = slotAngle(n, slots[k] + 1);
+      const a1 = slotAngle(n, slots[(k + 1) % slots.length] + (k + 1 === slots.length ? n : 0));
+      const [x0, y0] = xy(wallR, a0);
+      const [x1, y1] = xy(wallR, a1);
+      const large = a1 - a0 > Math.PI ? 1 : 0;
+      wallArcs.push(`M${x0.toFixed(2)} ${y0.toFixed(2)}A${wallR.toFixed(2)} ${wallR.toFixed(2)} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`);
+    }
+  }
   const openCells: number[] = [];
   const flowers: number[] = [];
+  const blockedCells: number[] = [];
   for (let c = 0; c < g.cells; c++) {
     if (ringOf(g, c) <= g.R && board.state[c] === OPEN) openCells.push(c);
     if (board.flower[c]) flowers.push(c);
+    if (board.blocked[c]) blockedCells.push(c);
   }
 
   return (
@@ -104,24 +125,30 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={focused ? 6 : 6}
-            opacity={0.95}
+            opacity={board.pollen[c] ? 0.95 : 0.28}
           >
             🪻
           </text>
         );
       })}
 
-      {/* The solid comb: one disc, not 857 wedges. The wall carries the hive's
-       * temperature — red once anyone is near the queen, green while the hive
-       * is yours and calm. It is the one signal readable at thumbnail size. */}
-      <circle
-        cx={0}
-        cy={0}
-        r={wallR}
-        fill="var(--color-comb)"
-        stroke={hot ? "var(--color-hot)" : mine ? "var(--color-hive-mine)" : "var(--color-wax)"}
-        strokeWidth={hot ? 1.8 : mine ? 1.2 : 0.6}
-      />
+      {/* The comb fill: one disc, not hundreds of wedges. */}
+      <circle cx={0} cy={0} r={wallR} fill="var(--color-comb)" />
+
+      {/* The wall, drawn as arcs BETWEEN the doors so a door is a gap rather
+       * than a marking on an unbroken ring. It also carries the hive's
+       * temperature — red once anyone is near the queen, its own blue while the
+       * hive is yours and calm. */}
+      {wallArcs.map((d, k) => (
+        <path
+          key={`w${k}`}
+          d={d}
+          fill="none"
+          stroke={hot ? "var(--color-hot)" : mine ? "var(--color-hive-mine)" : "var(--color-wax)"}
+          strokeWidth={hot ? 2.4 : 1.8}
+          strokeLinecap="round"
+        />
+      ))}
 
       {/* The comb's cells — one path for all 857 of them.
        *
@@ -149,6 +176,17 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
           />
         ))
       )}
+
+      {/* Capped brood. Drawn, because a wall the player cannot see is a move
+       * refused for no reason they can work out from the screen. */}
+      {blockedCells.map((c) => (
+        <path
+          key={`x${c}`}
+          d={cellPath(g, ringOf(g, c), c - g.offset[ringOf(g, c)])}
+          fill="#000"
+          opacity={0.55}
+        />
+      ))}
 
       {openCells.map((c) => (
         <path

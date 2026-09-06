@@ -15,6 +15,7 @@ from beesknees_mcp.geometry import (
     COMB,
     OPEN,
     Geometry,
+    blocked_cells,
     can_seal,
     idx,
     initial_state,
@@ -22,6 +23,7 @@ from beesknees_mcp.geometry import (
     is_meadow,
     make_geometry,
     mouth_cells,
+    mulberry32,
     neighbors,
     outward,
     ring_of,
@@ -144,3 +146,49 @@ def test_a_bee_can_always_reach_the_queen_by_digging(g: Geometry) -> None:
                 seen.add(n)
                 frontier.append(n)
     assert len(seen) == g.cells, f"{g.cells - len(seen)} cells unreachable from the queen"
+
+
+# Draws taken from the TypeScript engine and pasted here on purpose.
+#
+# Obstructions are generated from a match seed on BOTH sides rather than stored
+# and shipped, so the two generators must agree bit for bit. A near-enough
+# random would put a wall on the server that the player cannot see, and reject
+# moves for no reason anyone could work out from the screen. Golden values are
+# the only way to catch a drift that produces perfectly plausible numbers.
+_TS_DRAWS: dict[int, list[float]] = {
+    1: [0.627073940588, 0.00273572118, 0.52744703996, 0.981050967472, 0.968377898214, 0.281103502959, 0.612838860601, 0.720743141137],
+    42: [0.60110375192, 0.448290558998, 0.85246579349, 0.669734041439, 0.174813898746, 0.526592542185, 0.27322799433, 0.624744653935],
+    999: [0.969905822305, 0.634779409738, 0.309331906959, 0.772693989333, 0.456634212285, 0.576896743849, 0.047645400977, 0.579938591924],
+    123456789: [0.257790743839, 0.970772111556, 0.785328014288, 0.206164579839, 0.303071887465, 0.747066047043, 0.778733652085, 0.284509629011],
+}
+
+
+def test_the_prng_matches_the_client_exactly() -> None:
+    for seed, expected in _TS_DRAWS.items():
+        rnd = mulberry32(seed)
+        got = [round(rnd(), 12) for _ in expected]
+        assert got == expected, f"seed {seed} drifted from the client"
+
+
+def test_obstructions_never_wall_the_queen_in() -> None:
+    """A round nobody can win is worse than a boring one."""
+    g = make_geometry()
+    for seed in range(60):
+        blocked = blocked_cells(g, seed)
+        seen = {0}
+        stack = [0]
+        while stack:
+            for nb in neighbors(g, stack.pop()):
+                if nb not in seen and nb not in blocked:
+                    seen.add(nb)
+                    stack.append(nb)
+        # Every cell that is not itself an obstruction must be reachable.
+        stranded = [c for c in range(g.cells) if c not in blocked and c not in seen]
+        assert not stranded, f"seed {seed} stranded {len(stranded)} cells"
+
+
+def test_obstructions_are_sparse_enough_to_finish_a_round() -> None:
+    """Five percent was measured; ten pushes rounds into the ceiling."""
+    g = make_geometry()
+    shares = [len(blocked_cells(g, s)) / g.cells for s in range(40)]
+    assert max(shares) < 0.09, f"too dense: {max(shares):.3f}"

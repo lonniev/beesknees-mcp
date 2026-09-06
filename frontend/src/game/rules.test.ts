@@ -82,7 +82,7 @@ test("tangential movement wraps the ring", () => {
 
 test("the hive starts solid and the meadow starts open", () => {
   const g = makeGeometry(22, 4);
-  const b = makeBoard(g, { mouths: 4, flowers: 20, rng: mulberry32(3) });
+  const b = makeBoard(g, { mouths: 4, flowers: 20, blockShare: 0, rng: mulberry32(3) });
   for (let r = g.R + 1; r <= g.maxRing; r++)
     for (let i = 0; i < g.size[r]; i++) assert.equal(b.state[idx(g, r, i)], OPEN);
   for (let r = 0; r < g.R; r++)
@@ -160,7 +160,10 @@ test("collapse re-seals a cell and the distance field notices", () => {
 });
 
 test("the distance field is cached on board version, not stale across a dig", () => {
-  const round = makeRound(["digger"], DEFAULT_RULES, mulberry32(19));
+  // An obstruction-free board on purpose. This is testing cache invalidation,
+  // and a random wall on the probe's route makes the measured difference depend
+  // on the seed rather than on the thing under test.
+  const round = makeRound(["digger"], { ...DEFAULT_RULES, blockShare: 0 }, mulberry32(19));
   const g = round.board.g;
   const probe = idx(g, g.R, 7);
   const step = inward(g, g.R, 7)!;
@@ -184,4 +187,46 @@ test("bees start evenly spread, so nobody is born next to a door", () => {
   const slots = round.bees.map((b) => b.cell - g.offset[g.maxRing]).sort((x, y) => x - y);
   const gaps = slots.slice(1).map((s, i) => s - slots[i]);
   assert.ok(Math.max(...gaps) - Math.min(...gaps) <= 1, `uneven start: ${gaps}`);
+});
+
+test("a rival empties the flower you were flying to", () => {
+  // The meadow's only real decision. Without depletion every flower is
+  // identical and the first act is a pure distance calculation.
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(29));
+  const g = round.board.g;
+  const flower = [...Array(g.cells).keys()].find((c) => round.board.pollen[c])!;
+  const [a, b] = round.bees;
+
+  a.cell = flower;
+  a.phase = "forage";
+  b.cell = flower;
+  b.phase = "forage";
+
+  // The first to land takes it.
+  const near = neighbors(g, flower).find((n) => round.board.state[n] === OPEN)!;
+  a.cell = near;
+  assert.ok(apply(round, a, { kind: "fly", to: flower }));
+  assert.equal(a.phase, "return", "the first bee loads pollen");
+  assert.equal(round.board.pollen[flower], 0, "and empties the flower");
+
+  b.cell = near;
+  b.nextMoveTick = round.tick;
+  assert.ok(apply(round, b, { kind: "fly", to: flower }));
+  assert.equal(b.phase, "forage", "the second bee arrives to nothing and must find another");
+  assert.equal(round.board.flower[flower], 1, "the flower stays visible — an empty one is information");
+});
+
+test("no bee may enter an obstruction", () => {
+  const round = makeRound(["rider"], DEFAULT_RULES, mulberry32(31));
+  const g = round.board.g;
+  const wall = [...Array(g.cells).keys()].find((c) => round.board.blocked[c]);
+  if (wall === undefined) return; // this seed drew none
+  const bee = round.bees[0];
+  const from = neighbors(g, wall)[0];
+  bee.cell = from;
+  bee.phase = "tunnel";
+  bee.cameInward = false;
+  assert.equal(apply(round, bee, { kind: "dig", to: wall }), false, "capped brood cannot be cut");
+  assert.equal(apply(round, bee, { kind: "fly", to: wall }), false, "nor flown through");
+  assert.equal(bee.cell, from);
 });

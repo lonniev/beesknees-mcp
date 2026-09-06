@@ -30,7 +30,9 @@ function goals(round: Round, bee: Bee): number[] {
   const g = board.g;
   const out: number[] = [];
   if (bee.phase === "forage") {
-    for (let c = 0; c < g.cells; c++) if (board.flower[c]) out.push(c);
+    // Only flowers that still hold pollen are worth flying to.
+    for (let c = 0; c < g.cells; c++) if (board.pollen[c]) out.push(c);
+    if (!out.length) for (let c = 0; c < g.cells; c++) if (board.flower[c]) out.push(c);
     return out;
   }
   if (bee.phase === "return") {

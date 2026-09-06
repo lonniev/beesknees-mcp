@@ -43,6 +43,15 @@ OPEN = 1
 # cut down, shift along, cut down again.
 STAGGER_REQUIRED = True
 
+# Share of comb that is impassable — capped brood, stone-hard old wax.
+#
+# Without it the comb is uniform, and a uniform comb has one gradient: radial.
+# Every sideways step is then as good as every other, so a bee under the stagger
+# rule simply spirals — measured at 18 cells travelled round with 0.7 reversals
+# of direction. Five percent takes that to 5.4 reversals with the round length
+# unchanged; ten begins pushing rounds into the ceiling.
+BLOCK_SHARE = 0.05
+
 
 @dataclass(frozen=True)
 class Geometry:
@@ -75,6 +84,27 @@ def make_geometry(
         size.append(n)
         total += n
     return Geometry(wall, meadow_rings, max_ring, tuple(size), tuple(offset), total)
+
+
+def mulberry32(seed: int):
+    """The client's PRNG, ported exactly.
+
+    Obstructions are generated from the match's seed on BOTH sides rather than
+    stored and shipped — which means the two generators have to agree bit for
+    bit. A near-enough random would put a wall on the server that the player
+    cannot see, and reject moves for no visible reason.
+    """
+    a = seed & 0xFFFFFFFF
+
+    def rnd() -> float:
+        nonlocal a
+        a = (a + 0x6D2B79F5) & 0xFFFFFFFF
+        t = a
+        t = (t ^ (t >> 15)) * (1 | t) & 0xFFFFFFFF
+        t = (t + ((t ^ (t >> 7)) * (61 | t) & 0xFFFFFFFF)) & 0xFFFFFFFF ^ t
+        return ((t ^ (t >> 14)) & 0xFFFFFFFF) / 4294967296
+
+    return rnd
 
 
 def idx(g: Geometry, r: int, i: int) -> int:
@@ -152,6 +182,43 @@ def neighbors(g: Geometry, cell: int) -> list[int]:
 def is_meadow(g: Geometry, cell: int) -> bool:
     """Open air, above the wall — never dug, never sealed."""
     return ring_of(g, cell) > g.wall
+
+
+def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int]:
+    """The impassable cells for a match, from its seed.
+
+    Ring 1 is never blocked: with only six cells there, two obstructions could
+    wall the queen in and end a round nobody could win. The reachability sweep
+    afterwards opens the fewest cells that restore the connection.
+    """
+    rnd = mulberry32(seed)
+    blocked: set[int] = set()
+    for r in range(2, g.wall + 1):
+        for i in range(g.size[r]):
+            if rnd() < share:
+                blocked.add(idx(g, r, i))
+    _open_until_queen_is_reachable(g, blocked)
+    return blocked
+
+
+def _open_until_queen_is_reachable(g: Geometry, blocked: set[int]) -> None:
+    """Unblock the fewest cells that reconnect the chamber to the board."""
+    for _ in range(200):
+        seen = {0}
+        stack = [0]
+        while stack:
+            for nb in neighbors(g, stack.pop()):
+                if nb not in seen and nb not in blocked:
+                    seen.add(nb)
+                    stack.append(nb)
+        if all(c in seen or c in blocked for c in range(g.cells)) and len(seen) > g.cells // 2:
+            return
+        for c in sorted(blocked):
+            if any(nb in seen for nb in neighbors(g, c)):
+                blocked.discard(c)
+                break
+        else:
+            return
 
 
 def initial_state(g: Geometry, mouths: int = 4) -> bytearray:

@@ -7,7 +7,7 @@
  * asked for the next move.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import { stepToward } from "./game/bots.ts";
@@ -32,12 +32,24 @@ const VERBS = [
   { id: "seal", label: "Fill!", Icon: Mountain, hint: "Bring down an open tunnel" },
 ] as const;
 
+/**
+ * The same motion is called something different inside the hive.
+ *
+ * A bee in the meadow flies; a bee in a tunnel crawls. It is one verb in the
+ * rules and two words on the button, because "Fly" over a bee that is
+ * underground reads as a bug rather than as a synonym.
+ */
+function verbLabel(id: Verb, inHive: boolean): string {
+  if (id === "fly") return inHive ? "Crawl!" : "Fly!";
+  return VERBS.find((v) => v.id === id)!.label;
+}
+
 type Verb = (typeof VERBS)[number]["id"];
 
 const PHASE_WORD: Record<string, string> = {
   forage: "Find a flower",
-  return: "Carry it home",
-  tunnel: "Dig for the queen",
+  return: "Carry it to a door",
+  tunnel: "Reach the queen",
   done: "At the queen",
 };
 
@@ -129,10 +141,25 @@ export default function App() {
   const rivals = match.hives.filter((h) => h.id !== focus);
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
+  const inHive =
+    !!you && !!yourHive && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
 
   // A tap only AIMS. The board can be studied without spending anything, and
   // the commit is a deliberate press rather than a slip of the finger.
   const onTapCell = useCallback((cell: number) => setTarget(cell), []);
+
+  /**
+   * Drop an aim that has become pointless.
+   *
+   * A flower a rival emptied first is the case this exists for: without it the
+   * bee keeps flying at a spent flower and the player has to notice for
+   * themselves that the thing they aimed at is gone.
+   */
+  useEffect(() => {
+    if (target === null || !yourHive || !you) return;
+    const b = yourHive.round.board;
+    if (you.phase === "forage" && b.flower[target] && !b.pollen[target]) setTarget(null);
+  }, [frame, target, you, yourHive]);
 
   /**
    * The move the button would make, or the reason it cannot.
@@ -313,7 +340,7 @@ export default function App() {
           <span
             className={`relative ${pending.action && ready ? "text-[var(--color-wax)]" : "text-white/70"}`}
           >
-            {VERBS.find((v) => v.id === verb)!.label}
+            {verbLabel(verb, inHive)}
           </span>
         </button>
 
@@ -323,8 +350,12 @@ export default function App() {
             : pending.why
               ? pending.why
               : target === null
-                ? "Pick a move, then tap the hive to aim"
-                : `${you ? PHASE_WORD[you.phase] : ""} — press to go`}
+              ? you?.phase === "forage"
+                ? "Tap a flower that still has pollen"
+                : you?.phase === "return"
+                  ? "Tap a door in the hive wall"
+                  : "Tap where you want to go"
+              : `${you ? PHASE_WORD[you.phase] : ""} — press to go`}
         </span>
       </div>
     </div>

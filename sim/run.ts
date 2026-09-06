@@ -38,6 +38,7 @@ interface Arg {
   collapseTicks: number;
   cellW: number;
   stagger: number;
+  hard: number;
   seed: number;
 }
 
@@ -61,6 +62,7 @@ function args(): Arg {
     collapseTicks: num("collapseticks", 0),
     cellW: num("cellw", 1.4),
     stagger: num("stagger", 0),
+    hard: num("hard", 0.08),
     seed: num("seed", 1),
   };
 }
@@ -77,6 +79,9 @@ interface RoundResult {
   winnerSpend: number;
   meadowTicks: number;
   winnerMeadowShare: number;
+  turnSwitches: number;
+  netTurn: number;
+  tunnelMoves: number;
 }
 
 function playOne(cfg: Arg, seed: number): RoundResult {
@@ -87,6 +92,7 @@ function playOne(cfg: Arg, seed: number): RoundResult {
     digDelayTicks: cfg.digDelay,
     collapseTicks: cfg.collapseTicks,
     staggerRequired: cfg.stagger > 0,
+    blockShare: cfg.hard,
     costs: { fly: 1, dig: cfg.digCost, collapse: cfg.collapseCost },
   };
   const g = makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW);
@@ -153,6 +159,9 @@ function playOne(cfg: Arg, seed: number): RoundResult {
     winnerSpend: winnerBee.spend,
     meadowTicks,
     winnerMeadowShare: winnerBee.meadowMoves / Math.max(1, winnerBee.moves),
+    turnSwitches: winnerBee.turnSwitches,
+    netTurn: Math.abs(winnerBee.netTurn),
+    tunnelMoves: winnerBee.moves - winnerBee.meadowMoves,
   };
 }
 
@@ -188,7 +197,7 @@ function main() {
 
   console.log(`\nThe Bee's Knees — ${cfg.rounds} rounds, ${cfg.bees} bees (${perStrategy} per strategy)`);
   console.log(
-    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · ${makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW).cells} cells · ${elapsed}s\n`,
+    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · blocked ${(cfg.hard*100).toFixed(0)}% · ${makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW).cells} cells · ${elapsed}s\n`,
   );
 
   console.log("WIN RATE            share   vs uniform   mean spend");
@@ -217,6 +226,16 @@ function main() {
   console.log("WHERE THE ROUND GOES");
   console.log(`  meadow share of the winner's moves: ${(winnerMeadow * 100).toFixed(0)}%`);
   console.log(`  median bee is inside the wall by:    ${(meadowTimeShare * 100).toFixed(0)}% of the round\n`);
+
+  const sw = results.reduce((a, r) => a + r.turnSwitches, 0) / results.length;
+  const net = results.reduce((a, r) => a + r.netTurn, 0) / results.length;
+  const tun = results.reduce((a, r) => a + r.tunnelMoves, 0) / results.length;
+  console.log("THE WINNER'S PATH THROUGH THE COMB");
+  console.log(`  moves inside the hive:   ${tun.toFixed(0)}`);
+  console.log(`  reversals of direction:  ${sw.toFixed(1)}  ` +
+    (sw < 1 ? "— A PURE SPIRAL, it never turns back" : "— it genuinely changes its mind"));
+  console.log(`  net cells travelled round: ${net.toFixed(1)}` +
+    (net > tun * 0.6 ? "  (mostly going round, not in)" : "") + "\n");
 
   console.log("COLLAPSE");
   console.log(`  per round: ${collapses.toFixed(1)}`);
