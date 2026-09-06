@@ -1,0 +1,34 @@
+# CODEOWNERS — the human gate for the agentic pipeline.
+#
+# Files covered here require @lonniev's review before merge (enforced by branch
+# protection: "Require review from Code Owners"). Files left UNCOVERED are eligible for
+# path-gated auto-merge once CI is green and QA applies qa/pass.
+#
+# The catch-all comes first and the carve-outs come after it, because CODEOWNERS is
+# LAST-MATCH-WINS. Written the other way round — listing only the paths that need review —
+# anything not on the list is ungated, including files that do not exist yet. This repo was
+# in exactly that state: /src/, /pyproject.toml, /uv.lock and /.github/ were owned, so a new
+# top-level file would have landed unreviewed. Default-deny, then carve out.
+
+# Everything needs review …
+* @lonniev
+
+# … except the paths the pipeline is trusted to land on its own. These match
+# auto-merge.yml's low-risk allowlist, so what CODEOWNERS releases is exactly what
+# auto-merge will take.
+/tests/
+*.md
+
+# PROPAGATION NOTE: this Operator holds no local ledger — the money paths are the
+# SDK's. What it does hold is a CALIBRATION path, and that is the surface a
+# plausible-looking edit can quietly break. Field reports feed
+# `calibration.py`, which shifts the heat and frost bias for a whole block, so
+# widening MAX_HEAT_BIAS / MAX_DAY_BIAS, dropping the three-agreeing-observations
+# floor, or loosening the plausibility filters in `roster.py` would let one junk
+# observation degrade every later answer for that ground — silently, and in a way
+# that reads as a slightly different number rather than as a bug.
+#
+# The second surface is provenance. `sources.py` and `biota.py` carry each feed's
+# native resolution, and `region.py` carries the sampling floor. A change that
+# reports a resolution the data does not have sells precision that is not there.
+# Neither may be uncovered.
