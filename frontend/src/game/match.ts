@@ -77,12 +77,29 @@ export interface Match {
 /** All five are real bee forage, which is the point of the whole exercise. */
 const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage", "Heather"];
 
-/** Distinguishable names for bots, so a rival reads as somebody. */
+/** Every queen is a flower. "Queen Rose of Hive Linden." */
+const QUEEN_NAMES = ["Rose", "Iris", "Dahlia", "Poppy", "Marigold"];
+
+export function queenOf(hive: Hive): string {
+  return `Queen ${QUEEN_NAMES[hive.id % QUEEN_NAMES.length]} of Hive ${hive.name}`;
+}
+
+/**
+ * The workers are drones courting a queen, so they carry the names of Greek
+ * men who did the same and mostly regretted it. Sixty of them — one per seat
+ * across the whole match, so no two bees on the board share a name.
+ */
 const BOT_NAMES = [
-  "Ambrose", "Bramble", "Cinder", "Dapple", "Ember", "Fennel",
-  "Gossamer", "Hazel", "Ivy", "Juniper", "Kestrel", "Larkspur",
-  "Mallow", "Nettle", "Ochre", "Pippin", "Quill", "Rowan",
-  "Sorrel", "Tansy", "Umber", "Vervain", "Willow", "Yarrow",
+  "Adonis", "Achilles", "Actaeon", "Ajax", "Alastor", "Ampelos",
+  "Anchises", "Argus", "Atlas", "Bellerophon", "Boreas", "Castor",
+  "Cadmus", "Charon", "Daedalus", "Damon", "Diomedes", "Endymion",
+  "Erebus", "Eurylochus", "Ganymede", "Glaucus", "Hector", "Helios",
+  "Hesperus", "Hippolytus", "Hyacinthus", "Hylas", "Icarus", "Idas",
+  "Iolaus", "Ion", "Jason", "Laertes", "Leander", "Lycus",
+  "Menelaus", "Milo", "Narcissus", "Nestor", "Odysseus", "Oedipus",
+  "Orion", "Orpheus", "Palamedes", "Paris", "Patroclus", "Peleus",
+  "Perseus", "Phineas", "Pollux", "Priam", "Proteus", "Pygmalion",
+  "Sisyphus", "Talos", "Telemachus", "Theseus", "Triton", "Zephyrus",
 ];
 
 function emptyHive(id: number, rules: Rules, rng: () => number): Hive {

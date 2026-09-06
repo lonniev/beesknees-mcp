@@ -7,15 +7,32 @@
  * asked for the next move.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pickaxe, RotateCcw, ShieldOff, Trophy } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import { stepToward } from "./game/bots.ts";
-import { OPEN, TICK_MS, ringOf } from "./game/rules.ts";
+import type { Action } from "./game/rules.ts";
+import { COMB, OPEN, TICK_MS, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
-import { isHot, seated, standings } from "./game/match.ts";
+import { isHot, queenOf, standings } from "./game/match.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 import { useWide } from "./lib/useWide.ts";
+
+/**
+ * The three things a bee can do, named rather than inferred.
+ *
+ * Tapping used to choose the verb for you — fly if the cell was open, dig if it
+ * was not — which quietly hid the only real decision in the game. Cutting your
+ * own shaft and riding somebody else's cost differently and take different
+ * amounts of TIME, so which one you are doing should be something you say.
+ */
+const VERBS = [
+  { id: "fly", label: "Fly!", Icon: Wind, hint: "Move through open ground" },
+  { id: "dig", label: "Dig!", Icon: Shovel, hint: "Cut fresh comb — slower, and open to everyone after" },
+  { id: "seal", label: "Fill!", Icon: Mountain, hint: "Bring down an open tunnel" },
+] as const;
+
+type Verb = (typeof VERBS)[number]["id"];
 
 const PHASE_WORD: Record<string, string> = {
   forage: "Find a flower",
@@ -98,7 +115,8 @@ function RivalColumn({
 export default function App() {
   const { match, frame, you, cooldown, submit, restart } = useSoloMatch();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
-  const [armed, setArmed] = useState(false);
+  const [verb, setVerb] = useState<Verb>("fly");
+  const [target, setTarget] = useState<number | null>(null);
   const wide = useWide();
 
   // A new match re-seats you, so the view follows your bee rather than staying
@@ -112,33 +130,44 @@ export default function App() {
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
 
-  const onTapCell = useCallback(
-    (cell: number) => {
-      if (!yourHive || !you || !ready || match.state !== "running") return;
-      const round = yourHive.round;
+  // A tap only AIMS. The board can be studied without spending anything, and
+  // the commit is a deliberate press rather than a slip of the finger.
+  const onTapCell = useCallback((cell: number) => setTarget(cell), []);
 
-      if (armed) {
-        const r = ringOf(round.board.g, cell);
-        if (r >= 1 && r <= round.board.g.R && round.board.state[cell] === OPEN) {
-          submit({ kind: "collapse", at: cell });
-          setArmed(false);
-        }
-        return;
-      }
-      const action = stepToward(round, you, cell);
-      if (action) submit(action);
-    },
-    [armed, match.state, ready, submit, you, yourHive],
-  );
+  /**
+   * The move the button would make, or the reason it cannot.
+   *
+   * Worked out here rather than on press, so the control can say NOW whether it
+   * will do anything — a button that looks live and then does nothing is what
+   * made the old bar so hard to read.
+   */
+  const pending = useMemo((): { action: Action | null; why: string } => {
+    if (!yourHive || !you || match.state !== "running") return { action: null, why: "" };
+    const round = yourHive.round;
+    const g = round.board.g;
+    if (target === null) return { action: null, why: "Tap the board to aim" };
 
-  // Sealing is only ever legal inside the comb, so the control should not be
-  // offered in the meadow where it would simply do nothing when pressed.
-  const canSeal =
-    !!you && !!yourHive && you.phase === "tunnel" && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
+    if (verb === "seal") {
+      const r = ringOf(g, target);
+      if (r < 1 || r > g.R) return { action: null, why: "Only inside the hive" };
+      if (round.board.state[target] !== OPEN) return { action: null, why: "Already solid" };
+      return { action: { kind: "collapse", at: target }, why: "" };
+    }
 
-  useEffect(() => {
-    if (!canSeal && armed) setArmed(false);
-  }, [armed, canSeal]);
+    const step = stepToward(round, you, target);
+    if (!step || step.kind === "wait" || step.kind === "collapse")
+      return { action: null, why: "No way through" };
+    const solid = round.board.state[step.to] === COMB;
+    if (verb === "fly" && solid) return { action: null, why: "Comb in the way — dig it" };
+    if (verb === "dig" && !solid) return { action: null, why: "Already open — fly it" };
+    return { action: { kind: verb === "dig" ? "dig" : "fly", to: step.to }, why: "" };
+  }, [frame, match.state, target, verb, you, yourHive]);
+
+  const act = useCallback(() => {
+    if (!pending.action || !ready) return;
+    submit(pending.action);
+    if (verb === "seal") setTarget(null);
+  }, [pending, ready, submit, verb]);
 
   const board = useMemo(() => standings(match).slice(0, 6), [match, frame]);
   const elapsed = Math.floor((match.tick * TICK_MS) / 1000);
@@ -165,8 +194,8 @@ export default function App() {
        * should not be a hunt through the gutters. */}
       {focus !== null && (
         <div className="flex shrink-0 items-center justify-between px-1 text-xs">
-          <span className="font-medium">
-            {match.hives[focus].name}
+          <span className="min-w-0 truncate font-medium">
+            {queenOf(match.hives[focus])}
             {match.you?.hive === focus && (
               <span className="ml-1.5 text-[var(--color-you)]">your hive</span>
             )}
@@ -206,7 +235,7 @@ export default function App() {
               frame={frame}
               youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
               focused
-              armed={armed}
+              armed={verb === "seal"}
               onTapCell={onTapCell}
             />
           )}
@@ -217,7 +246,7 @@ export default function App() {
               <div className="text-center">
                 <div className="text-xl font-semibold">{match.winner.label}</div>
                 <div className="text-sm text-white/60">
-                  reached the queen in {match.hives[match.winner.hive].name}
+                  reached {queenOf(match.hives[match.winner.hive])}
                 </div>
               </div>
               <button
@@ -270,36 +299,50 @@ export default function App() {
         })}
       </div>
 
-      {/* Controls. */}
-      <div className="flex shrink-0 items-center gap-2">
-        <div className="flex-1 rounded-xl bg-white/5 px-3 py-2">
-          <div className="text-[11px] text-white/50">{you ? PHASE_WORD[you.phase] : "—"}</div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-[var(--color-wax)] transition-[width] duration-100"
-              style={{ width: `${Math.max(0, Math.min(1, 1 - cooldown)) * 100}%` }}
-            />
-          </div>
+      {/* Controls — three chiclets that name the verb, one button that does it.
+       *
+       * The old control was a full-width cooldown bar with a lone icon beside
+       * it, and it read as decoration rather than as the thing to press. The
+       * cooldown now fills the button it gates, so the affordance and the wait
+       * are the same object, and the label says which of the three motions you
+       * are about to pay for. */}
+      <div className="flex shrink-0 items-center gap-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex gap-1 rounded-xl bg-white/5 p-1">
+          {VERBS.map(({ id, Icon, hint }) => (
+            <button
+              key={id}
+              onClick={() => setVerb(id)}
+              title={hint}
+              aria-pressed={verb === id}
+              className={`flex h-11 w-11 items-center justify-center rounded-lg transition ${
+                verb === id ? "bg-[var(--color-wax)] text-black" : "text-white/60 hover:bg-white/10"
+              }`}
+            >
+              <Icon size={18} />
+            </button>
+          ))}
         </div>
-        <button
-          disabled={!canSeal}
-          onClick={() => setArmed((a) => !a)}
-          className={`flex h-14 w-14 items-center justify-center rounded-xl transition disabled:opacity-25 ${
-            armed ? "bg-[var(--color-queen)] text-black" : "bg-white/10"
-          }`}
-          title="Seal a tunnel behind you"
-        >
-          {armed ? <ShieldOff size={20} /> : <Pickaxe size={20} />}
-        </button>
-      </div>
 
-      <p className="shrink-0 px-1 pb-[env(safe-area-inset-bottom)] text-center text-[11px] text-white/35">
-        {armed
-          ? "Tap an open tunnel to bring it down"
-          : yourHive && seated(yourHive).length
-            ? "Tap where you want to go"
-            : ""}
-      </p>
+        <button
+          onClick={act}
+          disabled={!pending.action || !ready}
+          className="relative min-w-40 overflow-hidden rounded-xl bg-white/10 px-6 py-3 font-semibold transition disabled:opacity-45"
+        >
+          <span
+            className="absolute inset-y-0 left-0 bg-[var(--color-wax)]/25 transition-[width] duration-100"
+            style={{ width: `${Math.max(0, Math.min(1, 1 - cooldown)) * 100}%` }}
+          />
+          <span
+            className={`relative ${pending.action && ready ? "text-[var(--color-wax)]" : "text-white/70"}`}
+          >
+            {VERBS.find((v) => v.id === verb)!.label}
+          </span>
+        </button>
+
+        <span className="min-w-0 flex-1 truncate text-[11px] text-white/45">
+          {!ready ? "Catching breath…" : pending.why || (you ? PHASE_WORD[you.phase] : "")}
+        </span>
+      </div>
     </div>
   );
 }
