@@ -13,10 +13,20 @@ import { OPEN, ringOf } from "../game/rules.ts";
 import type { Bee } from "../game/rules.ts";
 import type { Hive } from "../game/match.ts";
 import { seated } from "../game/match.ts";
-import { VIEW, cellAt, cellCentre, cellPath, ringRadius } from "../lib/polar.ts";
+import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius } from "../lib/polar.ts";
 
 interface Props {
   hive: Hive;
+  /**
+   * The match's tick counter.
+   *
+   * Not read — it exists so `memo` has something that actually changes. The
+   * board is mutated in place inside a stable `hive` object, so every prop a
+   * thumbnail receives is reference-equal frame to frame and memo would be
+   * entitled to skip the re-render. Passing the frame makes the dependency
+   * explicit rather than relying on some other prop happening to churn.
+   */
+  frame: number;
   /** The bee this player is flying, when it is in this hive. */
   youId: number | null;
   focused: boolean;
@@ -29,7 +39,8 @@ function beeGlyph(bee: Bee): string {
   return bee.phase === "done" ? "👑" : "🐝";
 }
 
-function HiveViewInner({ hive, youId, focused, armed, onTapCell, onTapHive }: Props) {
+function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHive }: Props) {
+  void frame;
   const svgRef = useRef<SVGSVGElement>(null);
   const g = hive.round.board.g;
   const board = hive.round.board;
@@ -82,19 +93,32 @@ function HiveViewInner({ hive, youId, focused, armed, onTapCell, onTapHive }: Pr
       {/* The solid comb: one disc, not 857 wedges. */}
       <circle cx={0} cy={0} r={wallR} fill="var(--color-comb)" stroke="var(--color-wax)" strokeWidth={0.6} />
 
-      {/* Faint rings, so a player can read depth without every cell being drawn. */}
-      {focused &&
-        Array.from({ length: g.R + 1 }, (_, r) => (
+      {/* The comb's cells — one path for all 857 of them.
+       *
+       * Only on the focused board: at thumbnail size the lattice turns to mud
+       * and costs more than it says. The thumbnails get a handful of depth
+       * rings instead, which is all they need to show how far in a rival is. */}
+      {focused ? (
+        <path
+          d={combLattice(g)}
+          fill="none"
+          stroke="var(--color-comb-edge)"
+          strokeWidth={0.22}
+          opacity={0.85}
+        />
+      ) : (
+        Array.from({ length: 5 }, (_, k) => (
           <circle
-            key={`r${r}`}
+            key={`r${k}`}
             cx={0}
             cy={0}
-            r={ringRadius(g, r)}
+            r={ringRadius(g, Math.round(((k + 1) * g.R) / 6))}
             fill="none"
             stroke="var(--color-comb-edge)"
-            strokeWidth={0.25}
+            strokeWidth={0.5}
           />
-        ))}
+        ))
+      )}
 
       {openCells.map((c) => (
         <path

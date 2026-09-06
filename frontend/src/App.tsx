@@ -26,7 +26,6 @@ export default function App() {
   const { match, frame, you, cooldown, submit, restart } = useSoloMatch();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [armed, setArmed] = useState(false);
-  void frame; // the board is mutable; this is what makes React look again
 
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
@@ -96,7 +95,13 @@ export default function App() {
                   isYours ? "border-[var(--color-you)]/60" : "border-white/10"
                 }`}
               >
-                <HiveView hive={h} youId={isYours ? (match.you?.beeId ?? null) : null} focused={false} armed={false} />
+                <HiveView
+                  hive={h}
+                  frame={frame}
+                  youId={isYours ? (match.you?.beeId ?? null) : null}
+                  focused={false}
+                  armed={false}
+                />
                 <div className="pointer-events-none -mt-4 pb-0.5 text-[10px] text-white/50">{h.name}</div>
               </button>
             );
@@ -130,6 +135,7 @@ export default function App() {
         {focus !== null && (
           <HiveView
             hive={match.hives[focus]}
+            frame={frame}
             youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
             focused
             armed={armed}

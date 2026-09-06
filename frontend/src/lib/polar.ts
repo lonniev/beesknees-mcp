@@ -66,6 +66,55 @@ export function cellCentre(g: Geometry, cell: number): [number, number] {
 }
 
 /**
+ * The whole comb's cell boundaries as ONE path.
+ *
+ * Un-dug comb was a flat brown disc, which is most of the board and reads as
+ * empty background rather than as something to be cut through. Drawing the
+ * lattice fixes that, but 857 cells is 857 DOM nodes per hive and there are
+ * four hives — so every ring arc and every radial divider is concatenated into
+ * a single `d` string instead. One node, the whole honeycomb.
+ *
+ * Geometry never changes during a match, so the result is cached rather than
+ * rebuilt each frame.
+ */
+const latticeCache = new Map<string, string>();
+
+export function combLattice(g: Geometry): string {
+  const key = `${g.R}:${g.maxRing}:${g.cells}`;
+  const hit = latticeCache.get(key);
+  if (hit) return hit;
+
+  const p: string[] = [];
+  const f = (n: number) => n.toFixed(1);
+
+  // Ring boundaries, as two half-arcs each (a full circle needs two, since an
+  // arc of exactly 360 degrees is degenerate and draws nothing).
+  for (let r = 1; r <= g.R + 1; r++) {
+    const rr = ringRadius(g, r);
+    p.push(`M${f(-rr)} 0A${f(rr)} ${f(rr)} 0 1 0 ${f(rr)} 0A${f(rr)} ${f(rr)} 0 1 0 ${f(-rr)} 0`);
+  }
+
+  // Radial dividers between neighbouring cells in each ring. Slot counts differ
+  // per ring, so these deliberately do NOT line up across rings — that stagger
+  // is the funnel made visible.
+  for (let r = 1; r <= g.R; r++) {
+    const r0 = ringRadius(g, r);
+    const r1 = ringRadius(g, r + 1);
+    const n = g.size[r];
+    for (let i = 0; i < n; i++) {
+      const a = slotAngle(n, i);
+      const [x0, y0] = xy(r0, a);
+      const [x1, y1] = xy(r1, a);
+      p.push(`M${f(x0)} ${f(y0)}L${f(x1)} ${f(y1)}`);
+    }
+  }
+
+  const d = p.join("");
+  latticeCache.set(key, d);
+  return d;
+}
+
+/**
  * Which cell a point in view coordinates falls in, or null beyond the meadow.
  *
  * Computed rather than hit-tested against the DOM: there are 857 cells in a
