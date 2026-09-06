@@ -17,7 +17,7 @@ import { renderToString } from "react-dom/server";
 globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 
-const HIVES = 4;
+const HIVES = 5;
 const SEATS = 12;
 
 const server = await createServer({

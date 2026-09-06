@@ -1,16 +1,20 @@
 /**
- * A match is four hives racing.
+ * A match is five hives racing.
  *
  * Twelve seats each, and the whole thing starts as soon as ANY hive has eight
- * bees in it. The split is not cosmetic: simulation showed that fifty bees
+ * bees in it. The split is not cosmetic: simulation showed that sixty bees
  * racing to one queen is close to a lottery, because first-past-the-post among
- * fifty near-identical racers is an extreme-value draw and those are decided by
- * variance rather than by skill. Twelve to a hive puts the judgement back.
+ * that many near-identical racers is an extreme-value draw and those are decided
+ * by variance rather than by skill. Twelve to a hive puts the judgement back.
  *
- * One queen is reached first across all four hives and that bee takes the
+ * One queen is reached first across all five hives and that bee takes the
  * round. Winning your own hive is skill-weighted; which hive finishes first is
- * a fair draw among four leaders, so the skill signal survives the second stage
- * intact.
+ * a fair draw among five leaders, and an unbiased second stage does not erode
+ * the first — so the skill signal survives intact.
+ *
+ * Five rather than four is a screen decision that costs the game nothing: two
+ * hives flank the board you are playing on either side, which is balanced, and
+ * per-hive dynamics are untouched because the tuning is per hive.
  */
 
 import {
@@ -23,13 +27,23 @@ import {
   makeRound,
   mulberry32,
   progress,
+  ringOf,
 } from "./rules.ts";
 import { STRATEGIES, chooseAction } from "./bots.ts";
 
-export const HIVES = 4;
+export const HIVES = 5;
 export const SEATS = 12;
 /** Bees in any one hive that get the whole match moving. */
 export const QUORUM = 8;
+/**
+ * How close to the queen counts as the exciting part.
+ *
+ * The inner rings are where the field narrows and the race is actually decided,
+ * so a hive with somebody down there is worth looking at whether or not it is
+ * yours. Five of twenty-four, which is roughly the point where a bee has fewer
+ * cells to choose between than it has rivals.
+ */
+export const HOT_RING = 5;
 
 export type MatchState = "forming" | "running" | "ended";
 
@@ -60,7 +74,8 @@ export interface Match {
   rng: () => number;
 }
 
-const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage"];
+/** All five are real bee forage, which is the point of the whole exercise. */
+const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage", "Heather"];
 
 /** Distinguishable names for bots, so a rival reads as somebody. */
 const BOT_NAMES = [
@@ -211,6 +226,22 @@ export function step(match: Match, humanAction: ReturnType<typeof chooseAction> 
     }
     match.state = "ended";
   }
+}
+
+/** The lowest ring any bee in this hive has reached. */
+export function deepestRing(hive: Hive): number {
+  const g = hive.round.board.g;
+  let best = g.maxRing;
+  for (const bee of seated(hive)) {
+    const r = ringOf(g, bee.cell);
+    if (r < best) best = r;
+  }
+  return best;
+}
+
+/** Is somebody in this hive close enough to the queen to be worth watching? */
+export function isHot(hive: Hive): boolean {
+  return deepestRing(hive) <= HOT_RING;
 }
 
 /** Every seated bee across every hive, nearest the queen first. */

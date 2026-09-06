@@ -12,8 +12,10 @@ import { Pickaxe, RotateCcw, ShieldOff, Trophy } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import { stepToward } from "./game/bots.ts";
 import { OPEN, TICK_MS, ringOf } from "./game/rules.ts";
-import { seated, standings } from "./game/match.ts";
+import type { Hive, Match } from "./game/match.ts";
+import { isHot, seated, standings } from "./game/match.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
+import { useWide } from "./lib/useWide.ts";
 
 const PHASE_WORD: Record<string, string> = {
   forage: "Find a flower",
@@ -22,10 +24,82 @@ const PHASE_WORD: Record<string, string> = {
   done: "At the queen",
 };
 
+/**
+ * One rival hive, small.
+ *
+ * Its whole job is to answer "is anything happening over there" at a glance —
+ * which is why the wall carries the hive's temperature rather than the tile's
+ * border doing it: the border is a few pixels of chrome, the wall is the shape
+ * the eye already lands on.
+ */
+function RivalTile({
+  hive,
+  match,
+  frame,
+  onPick,
+}: {
+  hive: Hive;
+  match: Match;
+  frame: number;
+  onPick: (id: number) => void;
+}) {
+  const isYours = match.you?.hive === hive.id;
+  const hot = isHot(hive);
+  return (
+    <button
+      onClick={() => onPick(hive.id)}
+      title={isYours ? `${hive.name} — your hive` : hive.name}
+      className={`relative aspect-square h-full overflow-hidden rounded-lg border transition ${
+        hot
+          ? "border-[var(--color-hot)]"
+          : isYours
+            ? "border-[var(--color-you)]"
+            : "border-white/10"
+      }`}
+    >
+      <HiveView
+        hive={hive}
+        frame={frame}
+        youId={isYours ? (match.you?.beeId ?? null) : null}
+        focused={false}
+        armed={false}
+      />
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/50 text-[9px] leading-tight text-white/75">
+        {hive.name}
+      </span>
+    </button>
+  );
+}
+
+/** A gutter of rivals, stacked. */
+function RivalColumn({
+  hives,
+  match,
+  frame,
+  onPick,
+}: {
+  hives: Hive[];
+  match: Match;
+  frame: number;
+  onPick: (id: number) => void;
+}) {
+  if (!hives.length) return null;
+  return (
+    <div className="flex w-24 shrink-0 flex-col justify-center gap-2 lg:w-32 xl:w-40">
+      {hives.map((h) => (
+        <div key={h.id} className="h-24 lg:h-32 xl:h-40">
+          <RivalTile hive={h} match={match} frame={frame} onPick={onPick} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const { match, frame, you, cooldown, submit, restart } = useSoloMatch();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [armed, setArmed] = useState(false);
+  const wide = useWide();
 
   // A new match re-seats you, so the view follows your bee rather than staying
   // parked on whichever rival you were watching when the last round ended.
@@ -34,6 +108,7 @@ export default function App() {
     setFocus(0);
   }, [restart]);
 
+  const rivals = match.hives.filter((h) => h.id !== focus);
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
 
@@ -85,44 +160,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* The OTHER hives — a glance, not a display.
-       *
-       * Sized by HEIGHT, not width. As a `grid-cols-3` of `aspect-square` these
-       * were width-driven, so on a wide screen three rivals grew to some 660px
-       * each and the board you are actually playing got whatever vertical space
-       * was left — which was almost none. The hive that matters is the big one. */}
-      <div className="flex h-20 shrink-0 justify-center gap-2 sm:h-24">
-        {match.hives
-          .filter((h) => h.id !== focus)
-          .map((h) => {
-            const isYours = match.you?.hive === h.id;
-            return (
-              <button
-                key={h.id}
-                onClick={() => setFocus(h.id)}
-                title={isYours ? `${h.name} — your hive` : h.name}
-                className={`relative aspect-square h-full overflow-hidden rounded-lg border transition ${
-                  isYours ? "border-[var(--color-you)]" : "border-white/10"
-                }`}
-              >
-                <HiveView
-                  hive={h}
-                  frame={frame}
-                  youId={isYours ? (match.you?.beeId ?? null) : null}
-                  focused={false}
-                  armed={false}
-                />
-                <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/45 text-[9px] leading-tight text-white/70">
-                  {h.name}
-                </span>
-              </button>
-            );
-          })}
-      </div>
-
       {/* Which hive you are looking at — and a way straight back to your own,
        * since watching a rival is a click away and finding your way home
-       * should not be a hunt through the strip. */}
+       * should not be a hunt through the gutters. */}
       {focus !== null && (
         <div className="flex shrink-0 items-center justify-between px-1 text-xs">
           <span className="font-medium">
@@ -142,35 +182,72 @@ export default function App() {
         </div>
       )}
 
-      {/* The hive in play — the biggest thing on the screen, always. */}
-      <div className="relative min-h-0 flex-1">
-        {focus !== null && (
-          <HiveView
-            hive={match.hives[focus]}
+      {/* Two rivals down each gutter, the board you are flying in the middle.
+       *
+       * The gutters were dead space — a centred circle on a wide screen leaves
+       * a third of the window empty on either side. Filling them with the other
+       * hives costs no room the board was using and puts every hive in the match
+       * on one screen. Below `md` there is no gutter to spare, so the rivals fall
+       * back to a strip above the board. */}
+      <div className="flex min-h-0 flex-1 gap-2">
+        {wide && (
+          <RivalColumn
+            hives={rivals.slice(0, Math.ceil(rivals.length / 2))}
+            match={match}
             frame={frame}
-            youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
-            focused
-            armed={armed}
-            onTapCell={onTapCell}
+            onPick={setFocus}
           />
         )}
 
-        {match.state === "ended" && match.winner && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
-            <Trophy size={40} className="text-[var(--color-wax)]" />
-            <div className="text-center">
-              <div className="text-xl font-semibold">{match.winner.label}</div>
-              <div className="text-sm text-white/60">reached the queen in {match.hives[match.winner.hive].name}</div>
+        <div className="relative min-h-0 flex-1">
+          {focus !== null && (
+            <HiveView
+              hive={match.hives[focus]}
+              frame={frame}
+              youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
+              focused
+              armed={armed}
+              onTapCell={onTapCell}
+            />
+          )}
+
+          {match.state === "ended" && match.winner && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+              <Trophy size={40} className="text-[var(--color-wax)]" />
+              <div className="text-center">
+                <div className="text-xl font-semibold">{match.winner.label}</div>
+                <div className="text-sm text-white/60">
+                  reached the queen in {match.hives[match.winner.hive].name}
+                </div>
+              </div>
+              <button
+                onClick={newMatch}
+                className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
+              >
+                Again
+              </button>
             </div>
-            <button
-              onClick={newMatch}
-              className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
-            >
-              Again
-            </button>
-          </div>
+          )}
+        </div>
+
+        {wide && (
+          <RivalColumn
+            hives={rivals.slice(Math.ceil(rivals.length / 2))}
+            match={match}
+            frame={frame}
+            onPick={setFocus}
+          />
         )}
       </div>
+
+      {/* Narrow screens have no gutters, so the rivals go back on top. */}
+      {!wide && (
+        <div className="flex h-16 shrink-0 justify-center gap-1.5">
+          {rivals.map((h) => (
+            <RivalTile key={h.id} hive={h} match={match} frame={frame} onPick={setFocus} />
+          ))}
+        </div>
+      )}
 
       {/* Standings — who is nearest a queen, anywhere. */}
       <div className="flex shrink-0 gap-1 overflow-x-auto px-0.5 pb-0.5 text-[11px]">

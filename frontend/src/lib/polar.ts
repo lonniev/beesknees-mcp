@@ -14,9 +14,23 @@ export const TAU = Math.PI * 2;
 /** The viewBox is -100..100 on both axes, so the outermost ring ends at 100. */
 export const VIEW = 100;
 
+/**
+ * Share of the radius given to the hive, leaving the rest to the meadow.
+ *
+ * Deliberately NOT the ring count's own proportion. There are 25 comb rings to
+ * 4 meadow ones, which would leave the meadow a sliver — and the meadow is
+ * where every bee starts, where the flowers are, and where the whole first act
+ * happens. Widening it costs the comb nothing legible, because comb rings only
+ * need to be big enough to tell a dug cell from a solid one.
+ */
+export const COMB_SHARE = 0.8;
+
 /** Radius in view units where a ring begins. */
 export function ringRadius(g: Geometry, r: number): number {
-  return (r / (g.maxRing + 1)) * VIEW;
+  const wallEdge = g.R + 1;
+  if (r <= wallEdge) return (r / wallEdge) * COMB_SHARE * VIEW;
+  const meadow = g.maxRing + 1 - wallEdge;
+  return (COMB_SHARE + ((r - wallEdge) / meadow) * (1 - COMB_SHARE)) * VIEW;
 }
 
 /** Slot 0 starts at twelve o'clock, which is where a person expects it. */
@@ -123,8 +137,15 @@ export function combLattice(g: Geometry): string {
  * slideshow on a phone.
  */
 export function cellAt(g: Geometry, x: number, y: number): number | null {
-  const radius = Math.hypot(x, y);
-  const r = Math.floor((radius / VIEW) * (g.maxRing + 1));
+  const frac = Math.hypot(x, y) / VIEW;
+  const wallEdge = g.R + 1;
+  // The inverse of ringRadius, and it MUST stay the inverse: the moment these
+  // two disagree, taps land on a different cell than the finger is over.
+  const r =
+    frac <= COMB_SHARE
+      ? Math.floor((frac / COMB_SHARE) * wallEdge)
+      : wallEdge +
+        Math.floor(((frac - COMB_SHARE) / (1 - COMB_SHARE)) * (g.maxRing + 1 - wallEdge));
   if (r < 0 || r > g.maxRing) return null;
   if (r === 0) return 0;
   const n = g.size[r];

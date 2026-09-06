@@ -12,7 +12,7 @@ import { memo, useCallback, useRef } from "react";
 import { OPEN, ringOf } from "../game/rules.ts";
 import type { Bee } from "../game/rules.ts";
 import type { Hive } from "../game/match.ts";
-import { seated } from "../game/match.ts";
+import { isHot, seated } from "../game/match.ts";
 import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius } from "../lib/polar.ts";
 
 interface Props {
@@ -46,6 +46,11 @@ function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHiv
   const board = hive.round.board;
   const bees = seated(hive);
   const youBee = youId === null ? null : bees.find((b) => b.id === youId) ?? null;
+  // Red beats green: a hive of yours with the race reaching its queen is hot
+  // first and yours second, because the thing you need to know is that it is
+  // being decided right now.
+  const hot = isHot(hive);
+  const mine = youId !== null;
 
   const handle = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
@@ -83,15 +88,38 @@ function HiveViewInner({ hive, frame, youId, focused, armed, onTapCell, onTapHiv
       onPointerDown={handle}
     >
       <circle cx={0} cy={0} r={VIEW} fill="var(--color-meadow)" />
+
+      {/* Flowers were gold dots, which at this size is exactly what a distant
+       * bee looks like — so the meadow read as forty bees rather than twelve
+       * bees among flowers. A glyph settles it at a glance. */}
       {flowers.map((c) => {
         const [x, y] = cellCentre(g, c);
         return (
-          <circle key={`f${c}`} cx={x} cy={y} r={focused ? 1.8 : 2.6} fill="var(--color-wax)" opacity={0.75} />
+          <text
+            key={`f${c}`}
+            x={x}
+            y={y}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={focused ? 4 : 5}
+            opacity={0.9}
+          >
+            🌼
+          </text>
         );
       })}
 
-      {/* The solid comb: one disc, not 857 wedges. */}
-      <circle cx={0} cy={0} r={wallR} fill="var(--color-comb)" stroke="var(--color-wax)" strokeWidth={0.6} />
+      {/* The solid comb: one disc, not 857 wedges. The wall carries the hive's
+       * temperature — red once anyone is near the queen, green while the hive
+       * is yours and calm. It is the one signal readable at thumbnail size. */}
+      <circle
+        cx={0}
+        cy={0}
+        r={wallR}
+        fill="var(--color-comb)"
+        stroke={hot ? "var(--color-hot)" : mine ? "var(--color-you)" : "var(--color-wax)"}
+        strokeWidth={hot ? 1.8 : mine ? 1.2 : 0.6}
+      />
 
       {/* The comb's cells — one path for all 857 of them.
        *

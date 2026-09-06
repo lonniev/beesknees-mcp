@@ -10,6 +10,8 @@
   --color-queen: #ff5fa2;
   /* Your own bee. Deliberately the one hue nothing else on the board uses. */
   --color-you: #7dd3fc;
+  /* A hive where somebody has reached the inner rings. */
+  --color-hot: #ff4d4d;
 }
 
 :root {
