@@ -17,13 +17,19 @@ export const VIEW = 100;
 /**
  * Share of the radius given to the hive, leaving the rest to the meadow.
  *
+ * Raised from 0.68 once the flowers moved off the outer two meadow rings for a
+ * fair start: that left a wide band of empty green doing nothing while the comb
+ * cells — where the whole second half of the game happens, and where a finger
+ * has to land on one cell in particular — were smaller than they needed to be.
+ * Same number of cells, about a fifth more room each.
+ *
  * Deliberately NOT the ring count's own proportion. There are 15 comb rings to
  * 4 meadow ones, which would leave the meadow a sliver — and the meadow is
  * where every bee starts, where the flowers are, and where the whole first act
  * happens. Widening it costs the comb nothing legible, because comb rings only
  * need to be big enough to tell a dug cell from a solid one.
  */
-export const COMB_SHARE = 0.68;
+export const COMB_SHARE = 0.8;
 
 /** Radius in view units where a ring begins. */
 export function ringRadius(g: Geometry, r: number): number {
