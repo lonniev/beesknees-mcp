@@ -38,16 +38,32 @@ try {
   const boards = count(/class="hive/g);
   const bees = count(/🐝/g);
 
+  // The aim must reach the screen. The halo, the state and the tap handler were
+  // each correct on their own while the prop between two of them was never
+  // passed — so the only check that catches it is one that renders the board
+  // WITH an aim and confirms more appears than without.
+  const { HiveView } = await server.ssrLoadModule("/src/components/HiveView.tsx");
+  const { makeSoloMatch } = await server.ssrLoadModule("/src/game/match.ts");
+  const hive = makeSoloMatch("You", 2).hives[0];
+  const draw = (target) =>
+    renderToString(
+      createElement(HiveView, { hive, frame: 1, youId: 0, target, focused: true, armed: false, onTapCell: () => {} }),
+    );
+  const aimMarks = (h) => (h.match(/--color-you/g) || []).length;
+  const aimed = aimMarks(draw(120));
+  const unaimed = aimMarks(draw(null));
+
+  const problems = [];
   // Your own bee gets a spoke and a halo nothing else on the board uses; if it
   // is missing, a player cannot find themselves among twelve identical glyphs.
   const youMarks = count(/--color-you/g);
 
   console.log(
     `rendered ${html.length} bytes · ${boards} boards · ${bees} bees · ` +
-      `${count(/👑/g)} queens · ${youMarks} "you" marks`,
+      `${count(/👑/g)} queens · ${youMarks} "you" marks · aim ${unaimed}->${aimed}`,
   );
 
-  const problems = [];
+  if (aimed <= unaimed) problems.push(`aiming draws nothing (${unaimed} -> ${aimed} marks)`);
   // Four hives, four circles. The focused hive used to be drawn in the strip
   // AS WELL as full size, which put the same hive on screen twice and read as a
   // fifth one. This is the assertion that would have caught it.

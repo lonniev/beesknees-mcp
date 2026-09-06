@@ -17,8 +17,15 @@ import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius, slotAngle,
 
 interface Props {
   hive: Hive;
-  /** Where the player has aimed, drawn so the two-step move is visible. */
-  target?: number | null;
+  /**
+   * Where the player has aimed, drawn so the two-step move is visible.
+   *
+   * REQUIRED, not optional. It was optional, a patch failed to add it to the
+   * focused board, and the compiler said nothing — so every tap set state that
+   * nothing rendered and the game was unplayable with no error anywhere. A prop
+   * the component cannot do its job without is not optional.
+   */
+  target: number | null;
   /**
    * The match's tick counter.
    *

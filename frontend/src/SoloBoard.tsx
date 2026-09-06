@@ -97,6 +97,7 @@ function RivalTile({
         hive={hive}
         frame={frame}
         youId={isYours ? (match.you?.beeId ?? null) : null}
+        target={null}
         focused={false}
         armed={false}
       />
@@ -302,6 +303,7 @@ export default function App() {
               hive={match.hives[focus]}
               frame={frame}
               youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
+              target={match.you?.hive === focus ? target : null}
               focused
               armed={verb === "seal"}
               onTapCell={onTapCell}
