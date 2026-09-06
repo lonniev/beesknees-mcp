@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/hiveview.tsx","./src/game/bots.ts","./src/game/match.ts","./src/game/rules.test.ts","./src/game/rules.ts","./src/lib/polar.test.ts","./src/lib/polar.ts","./src/lib/usematch.ts"],"version":"5.9.3"}
