@@ -41,8 +41,13 @@ const VERBS = [
  * underground reads as a bug rather than as a synonym.
  */
 function verbLabel(id: Verb, inHive: boolean): string {
-  if (id === "fly") return inHive ? "Crawl!" : "Fly!";
+  if (id === "fly") return `${moveWord(inHive)}!`;
   return VERBS.find((v) => v.id === id)!.label;
+}
+
+/** The motion's name, wherever it is spoken. Wings above ground, feet below. */
+function moveWord(inHive: boolean): string {
+  return inHive ? "Crawl" : "Fly";
 }
 
 /** Wings above ground, feet below. A bee in a tunnel is not flying. */
@@ -61,7 +66,12 @@ type Verb = (typeof VERBS)[number]["id"];
  * A prompt that reports the engine's opinion rather than the player's next move
  * is worse than none.
  */
-function NEXT_STEP(phase: string | undefined, target: number | null, why: string): string {
+function NEXT_STEP(
+  phase: string | undefined,
+  target: number | null,
+  why: string,
+  inHive: boolean,
+): string {
   if (phase === "done") return "At the queen.";
   if (target === null) {
     if (phase === "forage") return "Tap a flower that still has pollen.";
@@ -69,8 +79,9 @@ function NEXT_STEP(phase: string | undefined, target: number | null, why: string
     return "Tap one of the highlighted cells.";
   }
   if (why) return why;
-  if (phase === "forage") return "Flower chosen — press to fly.";
-  if (phase === "return") return "Door chosen — press to fly.";
+  const word = moveWord(inHive).toLowerCase();
+  if (phase === "forage") return `Flower chosen — press to ${word}.`;
+  if (phase === "return") return `Door chosen — press to ${word}.`;
   return "Press to move there.";
 }
 
@@ -164,6 +175,8 @@ export default function App() {
   const rivals = match.hives.filter((h) => h.id !== focus);
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
+  const inHive =
+    !!you && !!yourHive && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
 
   /**
    * The moves available to your bee right now, under the verb you have chosen.
@@ -187,8 +200,7 @@ export default function App() {
     });
   }, [frame, match.state, verb, you, yourHive]);
 
-  const inHive =
-    !!you && !!yourHive && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
+
 
   /**
    * A tap AIMS, and it aims at the thing you meant.
@@ -283,10 +295,16 @@ export default function App() {
     if (!step || step.kind === "wait" || step.kind === "collapse")
       return { action: null, why: "No way through" };
     const solid = round.board.state[step.to] === COMB;
-    if (verb === "fly" && solid) return { action: null, why: "Comb in the way — dig it" };
-    if (verb === "dig" && !solid) return { action: null, why: "Already open — fly it" };
+    // Named for where the bee actually is. A bee underground does not fly, and
+    // telling it to is the same slip the button already had.
+    if (verb === "fly" && solid) return { action: null, why: "Comb in the way — dig it." };
+    if (verb === "dig" && !solid)
+      return {
+        action: null,
+        why: inHive ? "It's open! Crawl." : "Already open — fly in.",
+      };
     return { action: { kind: verb === "dig" ? "dig" : "fly", to: step.to }, why: "" };
-  }, [frame, match.state, target, verb, you, yourHive]);
+  }, [frame, inHive, match.state, target, verb, you, yourHive]);
 
   const act = useCallback(() => {
     if (!pending.action || !ready) return;
@@ -413,7 +431,7 @@ export default function App() {
               Resting {(cooldownMs / 1000).toFixed(1)}s
             </span>
           ) : (
-            NEXT_STEP(you?.phase, target, pending.why)
+            NEXT_STEP(you?.phase, target, pending.why, inHive)
           )}
         </span>
 
