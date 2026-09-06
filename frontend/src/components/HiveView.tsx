@@ -279,21 +279,50 @@ function HiveViewInner({ hive, frame, youId, target, focused, armed, onTapCell, 
         </g>
       )}
 
-      {/* The aim. Without it the board gives no sign that a tap did anything,
-       * and the button looked like the only control that existed. */}
+      {/* The aim, and it has to be unmistakable.
+       *
+       * A tinted wedge was not enough: on a lit meadow a 22%-opacity fill over a
+       * big cell reads as a shadow, and there was no way to tell which flower
+       * you had picked. What the player chose is a FLOWER, so the mark goes
+       * round the flower — a lime ring in the same colour as their own bee,
+       * breathing, so the two read as a pair. */}
       {focused && target != null && (
         <g pointerEvents="none">
           <path
             d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
             fill="var(--color-you)"
-            opacity={0.22}
+            opacity={0.16}
           />
-          <path
-            d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
-            fill="none"
-            stroke="var(--color-you)"
-            strokeWidth={0.9}
-          />
+          {(() => {
+            const [tx, ty] = cellCentre(g, target);
+            return (
+              <>
+                <circle cx={tx} cy={ty} r={5.5} fill="var(--color-you)" opacity={0.2} className="bk-pulse" />
+                <circle
+                  cx={tx}
+                  cy={ty}
+                  r={5.5}
+                  fill="none"
+                  stroke="var(--color-you)"
+                  strokeWidth={1.3}
+                />
+                {/* A thread from your bee to what it is heading for, so the
+                    pairing is explicit rather than inferred from two rings. */}
+                {youBee && (
+                  <line
+                    x1={cellCentre(g, youBee.cell)[0]}
+                    y1={cellCentre(g, youBee.cell)[1]}
+                    x2={tx}
+                    y2={ty}
+                    stroke="var(--color-you)"
+                    strokeWidth={0.5}
+                    strokeDasharray="2 2"
+                    opacity={0.55}
+                  />
+                )}
+              </>
+            );
+          })()}
         </g>
       )}
 

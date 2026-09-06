@@ -15,6 +15,7 @@ import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
 import { isHot, queenOf } from "./game/match.ts";
+import { cellCentre } from "./lib/polar.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 import { useWide } from "./lib/useWide.ts";
 
@@ -144,9 +145,44 @@ export default function App() {
   const inHive =
     !!you && !!yourHive && ringOf(yourHive.round.board.g, you.cell) <= yourHive.round.board.g.R;
 
-  // A tap only AIMS. The board can be studied without spending anything, and
-  // the commit is a deliberate press rather than a slip of the finger.
-  const onTapCell = useCallback((cell: number) => setTarget(cell), []);
+  /**
+   * A tap AIMS, and it aims at the thing you meant.
+   *
+   * Foraging, you are choosing a flower — not the cell it happens to sit in —
+   * and a meadow cell is a few millimetres across on a phone. So the tap snaps
+   * to the nearest flower that still holds pollen, and on the way home to the
+   * nearest door. Only inside the comb is a tap a cell, because there the exact
+   * cell IS the decision.
+   */
+  const onTapCell = useCallback(
+    (cell: number) => {
+      if (!yourHive || !you) return setTarget(cell);
+      const b = yourHive.round.board;
+      const g = b.g;
+
+      const candidates: number[] = [];
+      if (you.phase === "forage") {
+        for (let c = 0; c < g.cells; c++) if (b.pollen[c]) candidates.push(c);
+      } else if (you.phase === "return") {
+        for (let c = 0; c < g.cells; c++) if (b.mouth[c]) candidates.push(c);
+      }
+      if (!candidates.length) return setTarget(cell);
+
+      const [tx, ty] = cellCentre(g, cell);
+      let best = candidates[0];
+      let bestD = Infinity;
+      for (const c of candidates) {
+        const [x, y] = cellCentre(g, c);
+        const d = (x - tx) ** 2 + (y - ty) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      setTarget(best);
+    },
+    [you, yourHive],
+  );
 
   /**
    * Drop an aim that has become pointless.

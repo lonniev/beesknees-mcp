@@ -140,17 +140,74 @@ function chasedFrom(round: Round, bee: Bee, behind: number): boolean {
 export function stepToward(round: Round, bee: Bee, target: number): Action | null {
   if (target === bee.cell) return null;
   const { rules, board } = round;
-  const dig = rules.cooldownTicks + rules.digDelayTicks;
-  const f = field(board, [target], rules.cooldownTicks, dig, `to:${target}`);
+  const g = board.g;
+
+  // A field over STATES, not cells: (cell, has-just-moved-inward).
+  //
+  // A plain cell field cannot express the stagger, and the failure is not
+  // subtle — it ping-pongs. Having stepped inward, the next inward move is
+  // barred, and the cheapest legal move is usually back OUTWARD into open
+  // tunnel rather than sideways into comb that must be cut. From there inward
+  // is legal again, so the bee oscillates between two rings forever, paying a
+  // fare each time. Traced at rings 11 and 12 for the whole of a round.
+  //
+  // Doubling the state space fixes it by construction: arriving somewhere
+  // "already committed" is a different position from arriving free, and the
+  // search can see that.
+  const N = g.cells;
+  const dist = new Float64Array(N * 2).fill(Infinity);
+  const buckets: number[][] = [];
+  const push = (state: number, d: number) => {
+    if (d >= dist[state]) return;
+    dist[state] = d;
+    (buckets[d] ||= []).push(state);
+  };
+  // Both arrival states of the target are done.
+  push(target, 0);
+  push(target + N, 0);
+
+  const fly = rules.cooldownTicks;
+  const digCost = rules.cooldownTicks + rules.digDelayTicks;
+
+  for (let d = 0; d < buckets.length; d++) {
+    const bucket = buckets[d];
+    if (!bucket) continue;
+    for (const state of bucket) {
+      if (dist[state] !== d) continue;
+      const cell = state % N;
+      // Searching BACKWARDS from the target: `armed` is the state we would be
+      // in on arriving here, so a predecessor is any cell that could step in.
+      const armedHere = state >= N;
+      for (const prev of neighbors(g, cell)) {
+        if (board.blocked[cell]) continue;
+        const wentInward = ringOf(g, cell) < ringOf(g, prev) && ringOf(g, prev) <= g.R;
+        if (wentInward !== armedHere) continue;
+        if (rules.staggerRequired && wentInward) {
+          // Only reachable from a predecessor that was NOT already committed.
+          push(prev, d + (board.state[cell] === OPEN ? fly : digCost));
+        } else {
+          const w = board.state[cell] === OPEN ? fly : digCost;
+          push(prev, d + w);
+          push(prev + N, d + w);
+        }
+      }
+    }
+  }
+
   let best = -1;
-  let bestD = f.dist[bee.cell];
-  for (const n of neighbors(board.g, bee.cell)) {
-    if (f.dist[n] < bestD) {
-      bestD = f.dist[n];
+  let bestD = Infinity;
+  for (const n of neighbors(g, bee.cell)) {
+    const kind = board.state[n] === OPEN ? "fly" : "dig";
+    if (!legal(round, bee, { kind, to: n } as Action)) continue;
+    const armedAfter =
+      ringOf(g, n) < ringOf(g, bee.cell) && ringOf(g, bee.cell) <= g.R;
+    const d = dist[armedAfter ? n + N : n];
+    if (d < bestD) {
+      bestD = d;
       best = n;
     }
   }
-  if (best < 0) return null;
+  if (best < 0 || !Number.isFinite(bestD)) return null;
   return board.state[best] === OPEN ? { kind: "fly", to: best } : { kind: "dig", to: best };
 }
 

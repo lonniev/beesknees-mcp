@@ -28,7 +28,9 @@ import {
   outward,
   ringOf,
   toQueen,
+  type Phase,
 } from "./rules.ts";
+import { stepToward } from "./bots.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
   const g = makeGeometry(22, 4);
@@ -270,4 +272,38 @@ test("a door does not arm the stagger, or every bee jams in the threshold", () =
     apply(round, bee, { kind: "dig", to: inward1 }),
     "and so the very next move may go inward",
   );
+});
+
+test("a bee that follows the pathfinder actually arrives", () => {
+  // The regression this exists for did not throw, log, or look wrong. Having
+  // stepped inward, the stagger barred another inward move, and the cheapest
+  // legal move was back OUTWARD into open tunnel rather than sideways into comb
+  // that had to be cut — from where inward was legal again. The bee oscillated
+  // between two rings for the whole round, paying a fare every time, and the
+  // board looked entirely normal throughout.
+  //
+  // A cell-based field cannot express the stagger. This asserts the outcome
+  // rather than the mechanism, so any future shortcut that reintroduces the
+  // ping-pong fails here.
+  const round = makeRound(["human"], DEFAULT_RULES, mulberry32(5));
+  const g = round.board.g;
+  const bee = round.bees[0];
+  const mouth = [...Array(g.cells).keys()].find((c) => round.board.mouth[c])!;
+  bee.cell = mouth;
+  bee.phase = "tunnel" as Phase;
+  bee.cameInward = false;
+
+  const rings: number[] = [];
+  for (let i = 0; i < 300 && bee.phase !== "done"; i++) {
+    const a = stepToward(round, bee, 0);
+    assert.ok(a, `the pathfinder gave up at ring ${ringOf(g, bee.cell)} after ${i} moves`);
+    bee.nextMoveTick = round.tick;
+    assert.ok(apply(round, bee, a!), `it proposed a move the rules refused: ${JSON.stringify(a)}`);
+    rings.push(ringOf(g, bee.cell));
+  }
+
+  assert.equal(bee.phase, "done", `never reached the queen; got to ring ${ringOf(g, bee.cell)}`);
+  // Fourteen rings under the stagger needs about twenty-eight moves. Sixty
+  // leaves room for obstructions and still fails a bee that is ping-ponging.
+  assert.ok(rings.length < 60, `took ${rings.length} moves — that is a bee going in circles`);
 });
