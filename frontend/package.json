@@ -11,7 +11,9 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "lucide-react": "^1.24.0",
+    "nostr-tools": "^2.25.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
