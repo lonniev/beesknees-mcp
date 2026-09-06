@@ -1,6 +1,10 @@
 name: Deploy Frontend
 
 on:
+  # Manual, because the first deploy of a new repo fails for want of the
+  # Cloudflare secrets and there is otherwise no way to retry it except by
+  # pushing an unrelated change to frontend/.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
