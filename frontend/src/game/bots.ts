@@ -88,9 +88,25 @@ function bore(round: Round, bee: Bee): Action {
   const i = bee.cell - g.offset[r];
   const target = inward(g, r, i);
   if (target === null) return { kind: "wait" };
-  return round.board.state[target] === OPEN
-    ? { kind: "fly", to: target }
-    : { kind: "dig", to: target };
+  const drill: Action =
+    round.board.state[target] === OPEN
+      ? { kind: "fly", to: target }
+      : { kind: "dig", to: target };
+  // Drill when the way down is open to it. Shuffle blindly when it is not.
+  //
+  // This used to return the inward move unconditionally and `apply` rejected
+  // it — changing nothing, INCLUDING the cooldown, so the bee re-offered the
+  // same illegal move every tick for the rest of the round. One sat on a hive
+  // door for 46 seconds with a rival in the single cell below it and the wall
+  // either side uncuttable, holding the entrance shut against eleven others.
+  //
+  // The fallback is deliberately a BLIND step, not `descend`. Routing round the
+  // obstacle was the obvious repair and it quietly destroyed what this bot is
+  // for: "drill, and plan when you cannot" is a good strategy, and bore went
+  // from winning 5% to winning 44% — the control beating everything it exists
+  // to be the baseline for. It has to stay stupid. It just cannot stay stupid
+  // in a doorway.
+  return legal(round, bee, drill) ? drill : randomBot(round, bee);
 }
 
 /** Weighs a dig at what it truly costs in time, so it crosses to open shafts. */

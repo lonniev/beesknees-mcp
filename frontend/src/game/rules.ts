@@ -296,6 +296,14 @@ export function neighbors(g: Geometry, cell: number): number[] {
 // ── The board ────────────────────────────────────────────────────────────
 
 export interface Board {
+  /**
+   * Which board this is. Distance fields are cached, and the cache is global —
+   * so without an identity here, five hives with five different boards shared
+   * one entry and whichever computed first won. Every other hive's bees then
+   * descended a stranger's map: they converged on doors that were open in hive
+   * 0 and solid in theirs, and all five hives showed bees in identical spots.
+   */
+  id: number;
   g: Geometry;
   state: Uint8Array;
   /**
@@ -335,12 +343,22 @@ export interface Board {
 export interface BoardOpts {
   mouths: number;
   flowers: number;
-  /** How many bees will start, so their corners can be kept clear of flowers. */
-  seats: number;
+  /**
+   * Where the bees will start, so their squares can be kept clear of flowers.
+   *
+   * Passed in rather than recomputed. The starts are drawn from the same RNG
+   * the board is, so working them out twice would draw twice and the two
+   * answers would disagree — the flowers would be cleared around one opening
+   * and the bees placed in another.
+   */
+  starts: number[];
   /** Share of comb cells that are impassable. 0 makes every hive identical. */
   blockShare: number;
   rng: () => number;
 }
+
+/** Monotonic, so two boards are never confused for one another in a cache. */
+let nextBoardId = 1;
 
 export function makeBoard(g: Geometry, o: BoardOpts): Board {
   const state = new Uint8Array(g.cells);
@@ -366,7 +384,7 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
   // touching it. A bee that opens on its own pollen, or one press away, has won
   // the first act before pressing anything — so the shortest possible forage is
   // two presses, for everybody.
-  const starts = new Set(cornerStarts(g, o.seats));
+  const starts = new Set(o.starts);
   const nearStart = new Set<number>();
   for (const st of starts) {
     nearStart.add(st);
@@ -407,7 +425,7 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
       if (o.rng() < o.blockShare && !spared.has(c)) blocked[c] = 1;
     }
 
-  const board = { g, state, flower, pollen, mouth, blocked, version: 0 };
+  const board = { id: nextBoardId++, g, state, flower, pollen, mouth, blocked, version: 0 };
   clearBlocksUntilQueenIsReachable(board);
   return board;
 }
@@ -746,7 +764,11 @@ export function field(
   digWeight: number,
   key: string,
 ): Field {
-  const cached = fieldCache.get(key);
+  // Scoped to the BOARD. The caller's key describes what is being asked for
+  // (phase, dig weight); it cannot describe which of five hives is asking, and
+  // the version counters of two fresh boards are both zero.
+  const scoped = `${board.id}:${key}`;
+  const cached = fieldCache.get(scoped);
   if (cached && cached.version === board.version) return cached;
 
   const g = board.g;
@@ -775,7 +797,7 @@ export function field(
   }
 
   const f = { dist, version: board.version };
-  fieldCache.set(key, f);
+  fieldCache.set(scoped, f);
   return f;
 }
 
@@ -812,7 +834,7 @@ export function progress(board: Board, bee: Bee, rules: Rules): number {
  * each diagonal on adjacent slots, spread rather than stacked, which also puts
  * them in the corners of a square meadow where there was previously nothing.
  */
-export function cornerStarts(g: Geometry, seats: number): number[] {
+export function cornerStarts(g: Geometry, seats: number, rng?: () => number): number[] {
   // The four corners of the square, in view coordinates.
   const corners: [number, number][] = [
     [VIEW_HALF, -VIEW_HALF],
@@ -820,6 +842,16 @@ export function cornerStarts(g: Geometry, seats: number): number[] {
     [-VIEW_HALF, VIEW_HALF],
     [-VIEW_HALF, -VIEW_HALF],
   ];
+  // Which corner a seat draws is dealt, not fixed. Without this the twelve
+  // bees opened in the same twelve cells in every hive of every match — the
+  // obstructions varied and the opening never did, so each round began by
+  // looking exactly like the last one.
+  if (rng) {
+    for (let i = corners.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [corners[i], corners[j]] = [corners[j], corners[i]];
+    }
+  }
 
   // Every meadow square is a candidate; the hive is not.
   const usable: number[] = [];
@@ -829,36 +861,25 @@ export function cornerStarts(g: Geometry, seats: number): number[] {
   const out: number[] = [];
   for (let i = 0; i < seats; i++) {
     const [cx, cy] = corners[i % corners.length];
-    let best = -1;
-    let bestD = Infinity;
-    for (const c of usable) {
-      if (taken.has(c)) continue;
-      const [x, y] = cellCentre(g, c);
-      const d = (x - cx) ** 2 + (y - cy) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = c;
-      }
-    }
+    // The nearest free square to that corner, or — when there is randomness to
+    // spend — one of the nearest few. Strictly nearest packs every bee into the
+    // same tight clump against the point; a little spread keeps them in the
+    // corner without making the opening a fixed picture.
+    const ranked = usable
+      .filter((c) => !taken.has(c))
+      .map((c) => {
+        const [x, y] = cellCentre(g, c);
+        return { c, d: (x - cx) ** 2 + (y - cy) ** 2 };
+      })
+      .sort((a, b) => a.d - b.d);
+    if (!ranked.length) break;
+    const pool = rng ? Math.min(3, ranked.length) : 1;
+    const best = ranked[rng ? Math.floor(rng() * pool) : 0].c;
     if (best < 0) break;
     taken.add(best);
     out.push(best);
   }
   return out;
-}
-
-/**
- * Where a bee begins: in a corner of the square, never in front of a door.
- *
- * Doors sit at the four cardinal points of the wall, so a corner is as far from
- * every one of them as the board allows — nobody is handed an entrance, and the
- * flight in is a real journey rather than a step off the wall. Seats are dealt
- * round-robin so the four corners fill evenly, and each takes the nearest cell
- * still free, which spreads them without stacking.
- */
-export function startCell(g: Geometry, seat: number, seats: number): number {
-  const starts = cornerStarts(g, seats);
-  return starts[seat] ?? starts[starts.length - 1] ?? g.hiveCells;
 }
 
 export function makeRound(
@@ -868,11 +889,14 @@ export function makeRound(
   geo?: Geometry,
 ): Round {
   const g = geo ?? makeGeometry();
-  const board = makeBoard(g, { mouths: 4, flowers: 24, seats: strategies.length, blockShare: rules.blockShare, rng });
+  // Drawn ONCE, then used both to keep flowers off the opening and to place the
+  // bees on it. Same list, same draw, no chance of the two disagreeing.
+  const starts = cornerStarts(g, strategies.length, rng);
+  const board = makeBoard(g, { mouths: 4, flowers: 24, starts, blockShare: rules.blockShare, rng });
   const bees: Bee[] = strategies.map((strategy, id) => ({
     id,
     strategy,
-    cell: startCell(g, id, strategies.length),
+    cell: starts[id] ?? starts[starts.length - 1] ?? g.hiveCells,
     prevCell: -1,
     cameInward: false,
     netTurn: 0,

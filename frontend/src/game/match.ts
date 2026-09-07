@@ -217,7 +217,15 @@ export function step(match: Match, humanAction: ReturnType<typeof chooseAction> 
         if (humanAction) apply(round, bee, humanAction);
         continue;
       }
-      apply(round, bee, chooseAction(round, bee));
+      // A rejected action must still cost the clock.
+      //
+      // `apply` returning false changed nothing at all — not the position, not
+      // the cooldown — so a bot that offered an illegal move re-offered it on
+      // every single tick, free, for ever. That is how a bee came to hold a
+      // door shut for 46 seconds. Whatever a bot gets wrong, it now waits a
+      // beat like everybody else and the cell it is standing on gets released
+      // in finite time.
+      if (!apply(round, bee, chooseAction(round, bee))) apply(round, bee, { kind: "wait" });
     }
 
     if (round.winner >= 0 && !match.winner) {

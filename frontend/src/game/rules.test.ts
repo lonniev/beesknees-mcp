@@ -25,6 +25,7 @@ import {
   makeRound,
   mulberry32,
   neighbors,
+  cornerStarts,
   outward,
   ringOf,
   slotOf,
@@ -91,7 +92,7 @@ test("tangential movement wraps the ring", () => {
 
 test("the hive starts solid and the meadow starts open", () => {
   const g = makeGeometry(22);
-  const b = makeBoard(g, { mouths: 4, flowers: 20, seats: 12, blockShare: 0, rng: mulberry32(3) });
+  const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0, rng: mulberry32(3) });
   for (let c = g.hiveCells; c < g.cells; c++) assert.equal(b.state[c], OPEN);
   for (let r = 0; r < g.R; r++)
     for (let i = 0; i < g.size[r]; i++) assert.equal(b.state[idx(g, r, i)], COMB);
@@ -413,7 +414,7 @@ test("an obstruction never bricks a door, nor the cell it opens onto", () => {
   // player as a deadlock at the doorway.
   const g = makeGeometry();
   for (let seed = 1; seed <= 40; seed++) {
-    const b = makeBoard(g, { mouths: 4, flowers: 20, seats: 12, blockShare: 0.05, rng: mulberry32(seed) });
+    const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(seed) });
     const doors = [...Array(g.cells).keys()].filter((c) => b.mouth[c]);
     assert.equal(doors.length, 4);
     for (const d of doors) {
@@ -475,4 +476,79 @@ test("a bee waiting behind a rival is not sent shuffling sideways for ever", () 
   a.cell = outside;
   a.phase = "return" as Phase;
   assert.equal(approach(round, a, door), null, "nothing gets it closer, so it waits");
+});
+
+test("two hives do not share one distance field", () => {
+  // The cache is global and its key was the CALLER's — "forage:20" — which
+  // cannot say which of five hives is asking, and two fresh boards both have
+  // version 0. So whichever hive computed first won, and every other hive's
+  // bees descended a stranger's map: converging on doors that were open in
+  // hive 0 and solid in theirs. On screen all five hives showed bees frozen in
+  // identical positions, which is how it was noticed — never by a failure.
+  const g = makeGeometry();
+  const a = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(1) });
+  const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(999) });
+
+  assert.notEqual(a.id, b.id, "two boards must not share an identity");
+  assert.equal(a.version, b.version, "and both are fresh, which is what defeated the old key");
+
+  const fa = field(a, [0], 20, 80, "same-key");
+  const fb = field(b, [0], 20, 80, "same-key");
+  assert.notEqual(fa, fb, "the same key on two boards must not return one field");
+
+  // Different obstructions have to produce a different map somewhere.
+  let differs = 0;
+  for (let c = 0; c < g.cells; c++) if (fa.dist[c] !== fb.dist[c]) differs++;
+  assert.ok(differs > 0, "two differently blocked hives cannot have identical distances");
+});
+
+test("the opening is dealt, not fixed", () => {
+  // Obstructions varied from the first day and the opening never did, so every
+  // round began looking exactly like the last one. Twelve bees, same twelve
+  // cells, every hive, every match.
+  const g = makeGeometry();
+  const layouts = new Set<string>();
+  for (let seed = 1; seed <= 12; seed++) {
+    layouts.add(cornerStarts(g, 12, mulberry32(seed)).slice().sort((a, b) => a - b).join(","));
+  }
+  assert.ok(layouts.size > 1, `12 seeds produced ${layouts.size} distinct openings`);
+
+  // Still a legal opening every time: distinct meadow squares, out in the
+  // corners, and never handed a door.
+  for (let seed = 1; seed <= 12; seed++) {
+    const st = cornerStarts(g, 12, mulberry32(seed));
+    assert.equal(new Set(st).size, 12, `seed ${seed}: two bees share a cell`);
+    for (const c of st) {
+      assert.ok(c >= g.hiveCells, `seed ${seed}: a bee starts inside the hive`);
+      const [x, y] = cellCentre(g, c);
+      assert.ok(
+        Math.abs(x) > VIEW_HALF * 0.4 && Math.abs(y) > VIEW_HALF * 0.4,
+        `seed ${seed}: a bee starts at ${x.toFixed(0)},${y.toFixed(0)} — not in a corner`,
+      );
+    }
+  }
+});
+
+test("a rejected action still costs the clock", () => {
+  // `apply` returning false changed NOTHING — not the position, not the
+  // cooldown — so a bot that offered an illegal move re-offered it every tick,
+  // free, for ever. A bee sat on a hive door for 46 seconds that way, with a
+  // rival in the one cell below it and the wall either side uncuttable, holding
+  // the entrance shut against eleven others. Rounds reaching the queen went
+  // from 69% to 100% when the clock started advancing.
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(71));
+  const g = round.board.g;
+  const [a, b] = round.bees;
+  const cell = g.hiveCells + Math.floor(g.meadowCells / 2);
+  b.cell = cell;
+  a.cell = neighbors(g, cell).find((n) => ringOf(g, n) > g.R)!;
+
+  const before = a.nextMoveTick;
+  assert.equal(apply(round, a, { kind: "fly", to: cell }), false, "the move really is illegal");
+  assert.equal(a.nextMoveTick, before, "a refused move is not itself a turn");
+
+  // Which is exactly why the caller must spend one. `match.step` does this for
+  // every bot; here it is asserted as the rule it stands on.
+  assert.ok(apply(round, a, { kind: "wait" }));
+  assert.ok(a.nextMoveTick > before, "waiting must move the clock, or nothing ever unblocks");
 });
