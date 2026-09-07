@@ -13,17 +13,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, LogOut, RefreshCw, Zap } from "lucide-react";
-import Avatar from "../components/Avatar.tsx";
+import { LogOut, RefreshCw, Zap } from "lucide-react";
 import NostrProfilePanel from "../components/NostrProfilePanel.tsx";
 import Winnings from "../components/Winnings.tsx";
 import { checkBalance, checkPayment, purchaseCredits } from "../lib/mcp";
-import { avatarFor } from "../lib/avatar";
 import type { Session } from "../lib/session.ts";
-
-function short(npub: string): string {
-  return npub.length > 20 ? `${npub.slice(0, 12)}…${npub.slice(-6)}` : npub;
-}
 
 /** A dash, not a zero. See the note at the top of this file. */
 function sats(n: number | null): string {
@@ -116,31 +110,15 @@ export default function Profile({ session }: { session: Session }) {
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
-      <div className="flex items-center gap-3">
-        <Avatar value={avatarFor(session.npub)} size={52} />
-        <div className="min-w-0 flex-1">
-          <div className="font-mono text-xs text-white/70">{short(session.npub)}</div>
-          <div className="text-[11px] text-white/40">
-            {session.canSign
-              ? "Signing with a session key held in this tab."
-              : "Signed in on a cached proof, which expires."}
-          </div>
-        </div>
-        <button
-          onClick={() => navigator.clipboard?.writeText(session.npub)}
-          title="Copy your npub"
-          className="rounded-lg p-2 text-white/50 hover:bg-white/10"
-        >
-          <Copy size={16} />
-        </button>
-        <button
-          onClick={session.signOut}
-          title="Sign out"
-          className="rounded-lg p-2 text-white/50 hover:bg-white/10"
-        >
-          <LogOut size={16} />
-        </button>
-      </div>
+      {/* Identity first, and it is the panel's job now.
+        *
+        * The page used to open with its own avatar, npub and copy button, and
+        * then the Nostr card below repeated all three — three avatars on one
+        * screen, only one of which could actually change anything. The panel
+        * shows the avatar you can pick, the name you can publish, and the npub
+        * you can copy, so the page keeps only what the panel has no business
+        * knowing: how this session is signing, and how to end it. */}
+      <NostrProfilePanel npub={session.npub} />
 
       <section className="rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
@@ -207,7 +185,19 @@ export default function Profile({ session }: { session: Session }) {
 
       <Winnings npub={session.npub} />
 
-      <NostrProfilePanel npub={session.npub} />
+      <div className="flex items-center gap-3 px-1 pb-2">
+        <span className="min-w-0 flex-1 text-[11px] leading-snug text-white/35">
+          {session.canSign
+            ? "Signing with a session key held in this tab."
+            : "Signed in on a cached proof, which expires."}
+        </span>
+        <button
+          onClick={session.signOut}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/55 hover:bg-white/10"
+        >
+          <LogOut size={14} /> Sign out
+        </button>
+      </div>
     </div>
   );
 }
