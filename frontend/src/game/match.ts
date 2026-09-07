@@ -75,10 +75,10 @@ export interface Match {
 }
 
 /** All five are real bee forage, which is the point of the whole exercise. */
-const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage", "Heather"];
+export const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage", "Heather"];
 
 /** Every queen is a flower. "Queen Rose of Hive Linden." */
-const QUEEN_NAMES = ["Rose", "Iris", "Dahlia", "Poppy", "Marigold"];
+export const QUEEN_NAMES = ["Rose", "Iris", "Dahlia", "Poppy", "Marigold"];
 
 export function queenOf(hive: Hive): string {
   return `Queen ${QUEEN_NAMES[hive.id % QUEEN_NAMES.length]} of Hive ${hive.name}`;

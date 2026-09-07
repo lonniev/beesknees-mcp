@@ -87,6 +87,7 @@ async function call(bot: Bot | null, tool: string, args: Record<string, unknown>
     const sc = d.result?.structuredContent;
     if (sc) return { ...sc, _ms: ms };
     const t = d.result?.content?.[0]?.text ?? JSON.stringify(d.error ?? d.result);
+    if (process.env.BK_RAW) console.log(`    RAW ${tool}: ${JSON.stringify(d).slice(0, 700)}`);
     try {
       return { ...JSON.parse(t), _ms: ms };
     } catch {
@@ -206,6 +207,7 @@ async function main() {
             : await call(bot, "fly", { to_cell: a.to });
       const r = res as Record<string, unknown>;
       if (r.error) console.log(`  ${bot.label}: ${String(r.error).slice(0, 90)}`);
+      else if (r.refused) console.log(`  ${bot.label}: refused — ${r.refused}`);
       else if (r.moved === false) console.log(`  ${bot.label}: lost the race — ${r.reason}`);
       else if (r.pollen === true) console.log(`  ${bot.label}: took pollen at ${a.kind === "collapse" ? a.at : a.to}`);
     }

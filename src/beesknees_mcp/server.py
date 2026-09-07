@@ -13,6 +13,7 @@ Run locally:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import Annotated, Any
 
@@ -441,20 +442,43 @@ async def join_match(
     return {"success": True, **seat}
 
 
+#: The motion tools, by capability name, so a refund can name its own tool.
+_MOTION_UUIDS = {"fly": FLY_UUID, "dig": DIG_UUID, "seal": SEAL_UUID}
+
+
 async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
     """Shared shell for fly / dig / seal.
 
-    A malformed request RAISES, so `paid_tool` rolls the fare back — the patron
-    got nothing and it would be trivially spammable. A LOST RACE returns instead
-    and is charged: the board moved, the attempt was real, and somebody else
-    simply got there first.
+    Three outcomes, and they are not the same thing:
+
+    - **The move happened.** Charged, and the board moved.
+    - **A LOST RACE.** Returned, and charged: the board moved, the attempt was
+      real, and somebody else simply got there first.
+    - **The rules refused it** — not adjacent, a rival in the cell, capped brood,
+      the stagger. Refunded, and the REASON is returned.
+
+    That last case used to raise. `paid_tool` rolled the fare back, which was
+    right, but the message died with it: every ordinary rejection reached the
+    player as "Tool execution failed. Check operator logs.", which says nothing
+    and reads like the service fell over. A bee refused for standing behind
+    another bee is not a crash, and telling somebody their game broke when it
+    did exactly what it should is worse than the refusal.
     """
     live = await board_store.live_matches()
     running = [m for m in live if str(m["state"]) == "running"]
     if not running:
         raise ValueError("no match is running")
     mid = str(running[0]["match_id"])
-    result = await run(mid)
+    try:
+        result = await run(mid)
+    except board_store.BoardError as exc:
+        # Refunded by hand, because we are returning rather than raising and
+        # `paid_tool` only rolls back on the way out through an exception.
+        uuid = _MOTION_UUIDS.get(tool_name)
+        if uuid:
+            with contextlib.suppress(Exception):
+                await runtime.rollback_debit(uuid, npub)
+        return {"success": False, "match_id": mid, "moved": False, "refused": str(exc)}
     await _charged(npub, mid, tool_name)
     await match_flow.advance()
     return {"success": True, "match_id": mid, **result}
