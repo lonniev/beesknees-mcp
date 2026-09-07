@@ -16,6 +16,7 @@
 import type { ReactNode } from "react";
 import { RotateCcw, Trophy } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
+import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
 import { useWide } from "../lib/useWide.ts";
@@ -101,6 +102,10 @@ function RivalTile({
     <button
       onClick={() => onPick(hive.id)}
       title={yours ? `${hive.name} — your hive` : hive.name}
+      /* Where the foragers in `Meadow` think this hive is. Read from the
+       * rendered element rather than assumed: the gutters collapse below `md`
+       * and the tiles move with them. */
+      data-hive=""
       className={`relative aspect-square h-full overflow-hidden rounded-lg border transition ${
         hive.hot
           ? "border-[var(--color-hot)]"
@@ -221,79 +226,94 @@ export default function BoardScreen(p: BoardScreenProps) {
        * hives costs no room the board was using and puts every hive in the match
        * on one screen. Below `md` there is no gutter to spare, so the rivals fall
        * back to a strip above the board. */}
-      <div className="flex min-h-0 flex-1 gap-2">
-        {wide && (
-          <RivalColumn
-            hives={rivals.slice(0, Math.ceil(rivals.length / 2))}
-            yourHive={p.yourHive}
-            youId={p.youId}
-            frame={p.frame}
-            onPick={p.onFocus}
-          />
-        )}
+      <div className="relative isolate flex min-h-0 flex-1 flex-col gap-2">
+        {/* The meadow the hives sit in.
+          *
+          * `relative` so the flight measures against the hives rather than the
+          * window, and `isolate` so its negative z stays in here. It spans the
+          * narrow-screen rival strip as well as the gutters, so the traffic
+          * crosses all five hives on a phone rather than orbiting the one in
+          * the middle. */}
+        <Meadow />
 
-        <div className="relative min-h-0 flex-1">
-          {shown && (
-            <HiveView
-              board={shown.board}
-              bees={shown.bees}
-              hot={shown.hot}
-              frame={p.frame}
-              youId={mineHere ? p.youId : null}
-              target={mineHere ? p.target : null}
-              route={mineHere ? p.route : []}
-              options={mineHere ? p.options : []}
-              focused
-              armed={p.verb === "seal"}
-              onTapCell={p.onTapCell}
-            />
-          )}
-
-          {p.winner && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
-              <Trophy size={40} className="text-[var(--color-wax)]" />
-              <div className="text-center">
-                <div className="text-xl font-semibold">{p.winner.label}</div>
-                <div className="text-sm text-white/60">{p.winner.detail}</div>
-              </div>
-              {p.onNewMatch && (
-                <button
-                  onClick={p.onNewMatch}
-                  className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
-                >
-                  Again
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {wide && (
-          <RivalColumn
-            hives={rivals.slice(Math.ceil(rivals.length / 2))}
-            yourHive={p.yourHive}
-            youId={p.youId}
-            frame={p.frame}
-            onPick={p.onFocus}
-          />
-        )}
-      </div>
-
-      {/* Narrow screens have no gutters, so the rivals go back on top. */}
-      {!wide && (
-        <div className="flex h-16 shrink-0 justify-center gap-1.5">
-          {rivals.map((h) => (
-            <RivalTile
-              key={h.id}
-              hive={h}
-              yours={p.yourHive === h.id}
+        <div className="flex min-h-0 flex-1 gap-2">
+          {wide && (
+            <RivalColumn
+              hives={rivals.slice(0, Math.ceil(rivals.length / 2))}
+              yourHive={p.yourHive}
               youId={p.youId}
               frame={p.frame}
               onPick={p.onFocus}
             />
-          ))}
+          )}
+
+          {/* The focused board. Its ELEMENT is wider than the hive drawn in
+            * it — a square viewBox letterboxed in a wide box — which is what
+            * `drawnHive` corrects for so a bee homes to the hive rather than
+            * to the empty band beside it. */}
+          <div className="relative min-h-0 flex-1" data-hive="">
+            {shown && (
+              <HiveView
+                board={shown.board}
+                bees={shown.bees}
+                hot={shown.hot}
+                frame={p.frame}
+                youId={mineHere ? p.youId : null}
+                target={mineHere ? p.target : null}
+                route={mineHere ? p.route : []}
+                options={mineHere ? p.options : []}
+                focused
+                armed={p.verb === "seal"}
+                onTapCell={p.onTapCell}
+              />
+            )}
+
+            {p.winner && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+                <Trophy size={40} className="text-[var(--color-wax)]" />
+                <div className="text-center">
+                  <div className="text-xl font-semibold">{p.winner.label}</div>
+                  <div className="text-sm text-white/60">{p.winner.detail}</div>
+                </div>
+                {p.onNewMatch && (
+                  <button
+                    onClick={p.onNewMatch}
+                    className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
+                  >
+                    Again
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {wide && (
+            <RivalColumn
+              hives={rivals.slice(Math.ceil(rivals.length / 2))}
+              yourHive={p.yourHive}
+              youId={p.youId}
+              frame={p.frame}
+              onPick={p.onFocus}
+            />
+          )}
         </div>
-      )}
+
+        {/* Narrow screens have no gutters, so the rivals go in a strip below. */}
+        {!wide && (
+          <div className="flex h-16 shrink-0 justify-center gap-1.5">
+            {rivals.map((h) => (
+              <RivalTile
+                key={h.id}
+                hive={h}
+                yours={p.yourHive === h.id}
+                youId={p.youId}
+                frame={p.frame}
+                onPick={p.onFocus}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Controls. The prompt sits on the LEFT, where reading starts — after
        * the button it was an answer arriving behind its question. */}
