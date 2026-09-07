@@ -8,10 +8,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Footprints, Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
+import { Footprints, Mountain, RotateCcw, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import Scoreboard from "./components/Scoreboard.tsx";
-import { approach, stepToward } from "./game/bots.ts";
+import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
@@ -28,9 +28,21 @@ import { useWide } from "./lib/useWide.ts";
  * own shaft and riding somebody else's cost differently and take different
  * amounts of TIME, so which one you are doing should be something you say.
  */
+/**
+ * Two modes, not three — and only one of them is a decision.
+ *
+ * Fly and Dig were separate buttons the player had to choose BETWEEN before
+ * tapping, which made them a mode error waiting to happen: whether a step is a
+ * crawl or a cut is decided by the cell, not by the person, and with "Fly"
+ * selected the diggable cells were not offered at all, so a perfectly good
+ * comb face read as a dead end. Moving is now one verb that names itself from
+ * the cell it is about to enter.
+ *
+ * Seal stays its own mode because it genuinely is one: it is the only thing
+ * here that destroys rather than travels, and it must never be a mis-tap.
+ */
 const VERBS = [
-  { id: "fly", label: "Fly!", Icon: Wind, hint: "Move through open ground" },
-  { id: "dig", label: "Dig!", Icon: Shovel, hint: "Cut fresh comb — slower, and open to everyone after" },
+  { id: "move", label: "Go!", Icon: Wind, hint: "Travel — cut fresh comb where you must" },
   { id: "seal", label: "Fill!", Icon: Mountain, hint: "Bring down an open tunnel" },
 ] as const;
 
@@ -42,7 +54,7 @@ const VERBS = [
  * underground reads as a bug rather than as a synonym.
  */
 function verbLabel(id: Verb, word: string): string {
-  if (id === "fly") return `${word}!`;
+  if (id === "move") return `${word}!`;
   return VERBS.find((v) => v.id === id)!.label;
 }
 
@@ -61,7 +73,7 @@ function moveWord(destInHive: boolean): string {
 
 /** Wings above ground, feet below. A bee going into a tunnel is not flying. */
 function verbIcon(id: Verb, word: string) {
-  if (id === "fly") return word === "Crawl" ? Footprints : Wind;
+  if (id === "move") return word === "Crawl" ? Footprints : Wind;
   return VERBS.find((v) => v.id === id)!.Icon;
 }
 
@@ -85,13 +97,15 @@ function NEXT_STEP(
   if (target === null) {
     if (phase === "forage") return "Tap a flower that still has pollen.";
     if (phase === "return") return "Choose a door now — tap a gap in the hive wall.";
-    return "Tap one of the highlighted cells.";
+    return "Tap where you want to end up — the queen, or anywhere on the way.";
   }
   if (why) return why;
   const verb = word.toLowerCase();
   if (phase === "forage") return `Flower chosen — press to ${verb}.`;
   if (phase === "return") return `Door chosen — press to ${verb}.`;
-  return "Press to move there.";
+  // The route is drawn, so the prompt says what the NEXT press costs rather
+  // than repeating the destination the player can already see marked.
+  return word === "Crawl" ? "Press to crawl the line." : "Press to fly the line.";
 }
 
 
@@ -170,7 +184,7 @@ function RivalColumn({
 export default function App() {
   const { match, frame, you, cooldown, cooldownMs, submit, restart } = useSoloMatch();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
-  const [verb, setVerb] = useState<Verb>("fly");
+  const [verb, setVerb] = useState<Verb>("move");
   const [target, setTarget] = useState<number | null>(null);
   const wide = useWide();
 
@@ -202,9 +216,9 @@ export default function App() {
     const g = round.board.g;
     return neighbors(g, you.cell).filter((n) => {
       if (verb === "seal") return ringOf(g, n) >= 1 && ringOf(g, n) <= g.R && round.board.state[n] === OPEN;
+      // Every legal step, whichever kind it is. Filtering these by a chosen
+      // verb is what made a wall of diggable comb look like a dead end.
       const kind = round.board.state[n] === OPEN ? "fly" : "dig";
-      if (verb === "fly" && kind !== "fly") return false;
-      if (verb === "dig" && kind !== "dig") return false;
       return legal(round, you, { kind, to: n } as Action);
     });
   }, [frame, match.state, verb, you, yourHive]);
@@ -231,10 +245,19 @@ export default function App() {
         for (let c = 0; c < g.cells; c++) if (b.pollen[c]) candidates.push(c);
       } else if (you.phase === "return") {
         for (let c = 0; c < g.cells; c++) if (b.mouth[c]) candidates.push(c);
-      } else {
-        // In the comb a tap selects a MOVE, so only legal ones are on offer.
-        // Aiming at an unreachable cell is what produced "No way through".
+      } else if (verb === "seal") {
+        // Sealing acts on ONE cell, so the tap is that cell and nothing else.
         candidates.push(...options);
+      } else {
+        // A tap in the comb picks a DESTINATION, exactly as a tap in the meadow
+        // picks a flower — not the next cell along.
+        //
+        // It used to offer only the four to six cells touching the bee, so the
+        // player had to re-aim before every single press. A winning bee makes
+        // 43 moves inside the comb: that was 86 interactions, one every two
+        // seconds, to express a route they had already decided on. The skill is
+        // reading the comb and choosing a line; the tapping was never the game.
+        for (let c = 0; c < g.cells; c++) if (!b.blocked[c]) candidates.push(c);
       }
       if (!candidates.length) return setTarget(null);
 
@@ -287,6 +310,12 @@ export default function App() {
    * will do anything — a button that looks live and then does nothing is what
    * made the old bar so hard to read.
    */
+  /** The path the aim commits to, recomputed as the comb changes under it. */
+  const route = useMemo(() => {
+    if (!yourHive || !you || target === null || verb === "seal") return [];
+    return routeToward(yourHive.round, you, target);
+  }, [frame, target, verb, you, yourHive]);
+
   const pending = useMemo((): { action: Action | null; why: string; word: string } => {
     const fallback = moveWord(inHive);
     if (!yourHive || !you || match.state !== "running")
@@ -317,12 +346,10 @@ export default function App() {
     // The word is named for where the step ENDS: into the hive is a crawl, out
     // of it is a flight, whichever side of the threshold the bee is standing on.
     const word = moveWord(ringOf(g, step.to) <= g.R);
+    // And the KIND is named by the cell, not by the player. Solid comb is cut,
+    // open tunnel is travelled, and nobody has to declare which in advance.
     const solid = round.board.state[step.to] === COMB;
-    if (verb === "fly" && solid)
-      return { action: null, why: "Comb in the way — dig it.", word };
-    if (verb === "dig" && !solid)
-      return { action: null, why: `It's open! ${word}.`, word };
-    const action = { kind: verb === "dig" ? "dig" : "fly", to: step.to } as Action;
+    const action = { kind: solid ? "dig" : "fly", to: step.to } as Action;
     return {
       action,
       why: queueing ? `That door is taken — ${word.toLowerCase()} up beside it.` : "",
@@ -403,6 +430,7 @@ export default function App() {
               frame={frame}
               youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
               target={match.you?.hive === focus ? target : null}
+              route={match.you?.hive === focus ? route : []}
               options={match.you?.hive === focus ? options : []}
               focused
               armed={verb === "seal"}
@@ -457,7 +485,9 @@ export default function App() {
               Resting {(cooldownMs / 1000).toFixed(1)}s
             </span>
           ) : (
-            NEXT_STEP(you?.phase, target, pending.why, pending.word)
+            pending.action?.kind === "dig"
+              ? "Press to cut the next cell — a dig costs four rests."
+              : NEXT_STEP(you?.phase, target, pending.why, pending.word)
           )}
         </span>
 

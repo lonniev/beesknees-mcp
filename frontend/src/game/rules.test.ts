@@ -34,7 +34,7 @@ import {
   toQueen,
   type Phase,
 } from "./rules.ts";
-import { approach, stepToward } from "./bots.ts";
+import { approach, routeToward, stepToward } from "./bots.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
   const g = makeGeometry(22);
@@ -551,4 +551,56 @@ test("a rejected action still costs the clock", () => {
   // every bot; here it is asserted as the rule it stands on.
   assert.ok(apply(round, a, { kind: "wait" }));
   assert.ok(a.nextMoveTick > before, "waiting must move the clock, or nothing ever unblocks");
+});
+
+test("a route reaches the target, obeys the stagger, and never doubles back", () => {
+  // A tap in the comb now sets a DESTINATION, so the player commits to a line
+  // they cannot otherwise see. If the drawn line is not the line the bee walks,
+  // the picture is a lie and the decision it invites is worthless.
+  const round = makeRound(["rider"], DEFAULT_RULES, mulberry32(83));
+  const g = round.board.g;
+  const bee = round.bees[0];
+  bee.cell = idx(g, g.R, 0); // in a doorway, heading down
+  bee.phase = "tunnel" as Phase;
+  bee.cameInward = false;
+
+  const path = routeToward(round, bee, 0);
+  assert.ok(path.length > 0, "no route to the queen from a door");
+  assert.equal(path[path.length - 1], 0, "the route must actually arrive");
+  assert.equal(new Set(path).size, path.length, "a route must not revisit a cell");
+
+  let prev = bee.cell;
+  let armed = false;
+  for (const c of path) {
+    assert.ok(neighbors(g, prev).includes(c), `${prev} -> ${c} is not a step`);
+    assert.equal(round.board.blocked[c], 0, `the route runs through an obstruction at ${c}`);
+    const inward = ringOf(g, c) < ringOf(g, prev) && ringOf(g, prev) <= g.R;
+    assert.ok(!(armed && inward), `the drawn route cuts two levels in a row at ${c}`);
+    armed = inward;
+    prev = c;
+  }
+});
+
+test("a route redraws when the comb changes under it", () => {
+  // The point of drawing it: something lands on your line and you can SEE the
+  // plan break. A route computed once and cached would keep showing a path
+  // through a cell nobody can enter any more.
+  const round = makeRound(["rider"], DEFAULT_RULES, mulberry32(89));
+  const g = round.board.g;
+  const bee = round.bees[0];
+  bee.cell = idx(g, g.R, 0);
+  bee.phase = "tunnel" as Phase;
+
+  const before = routeToward(round, bee, 0);
+  assert.ok(before.length > 3, "need a route long enough to break");
+
+  // Put capped brood squarely in the middle of it.
+  const broken = before[Math.floor(before.length / 2)];
+  round.board.blocked[broken] = 1;
+  round.board.version++;
+
+  const after = routeToward(round, bee, 0);
+  assert.ok(!after.includes(broken), "the route still runs through the obstruction");
+  assert.ok(after.length > 0, "and it must find another way, not give up");
+  assert.equal(after[after.length - 1], 0, "which still ends at the queen");
 });

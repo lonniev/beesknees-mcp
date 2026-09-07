@@ -45,6 +45,15 @@ interface Props {
    */
   target: number | null;
   /**
+   * The cells the bee will actually pass through to reach `target`.
+   *
+   * A tap in the comb now sets a DESTINATION rather than the next cell, so the
+   * player has committed to a route they would otherwise not be able to see —
+   * and the moment it matters is the moment a rival collapses part of it or
+   * parks in the shaft. Empty while there is no aim.
+   */
+  route?: number[];
+  /**
    * The match's tick counter.
    *
    * Not read — it exists so `memo` has something that actually changes. The
@@ -66,7 +75,7 @@ function beeGlyph(bee: Bee): string {
   return bee.phase === "done" ? "👑" : "🐝";
 }
 
-function HiveViewInner({ hive, frame, youId, target, options, focused, armed, onTapCell, onTapHive }: Props) {
+function HiveViewInner({ hive, frame, youId, target, route, options, focused, armed, onTapCell, onTapHive }: Props) {
   void frame;
   const svgRef = useRef<SVGSVGElement>(null);
   const g = hive.round.board.g;
@@ -341,7 +350,6 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
       {focused && target != null && (
         <g pointerEvents="none">
           {(() => {
-            const [tx, ty] = cellCentre(g, target);
             return (
               <>
                 {/* The destination is the CELL, outlined, in white — a different
@@ -360,18 +368,43 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
                   strokeWidth={1.4}
                   className="bk-pulse"
                 />
-                {/* A thread from your bee to what it is heading for. */}
-                {youBee && (
-                  <line
-                    x1={cellCentre(g, youBee.cell)[0]}
-                    y1={cellCentre(g, youBee.cell)[1]}
-                    x2={tx}
-                    y2={ty}
-                    stroke="#fff"
-                    strokeWidth={0.5}
-                    strokeDasharray="2 2"
-                    opacity={0.45}
-                  />
+                {/* The ROUTE, not a straight thread to the destination.
+                 *
+                 * A straight line across the comb says "there", which the player
+                 * already knows — it is the only thing they chose. What they
+                 * cannot see is the line the bee will actually take: where the
+                 * stagger makes it step sideways, where it detours round capped
+                 * brood, and which of those cells it still has to cut. That is
+                 * the plan, and watching a rival break it is the game. */}
+                {youBee && route && route.length > 0 && (
+                  <>
+                    <polyline
+                      points={[youBee.cell, ...route]
+                        .map((c) => cellCentre(g, c).map((v) => v.toFixed(1)).join(","))
+                        .join(" ")}
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth={0.6}
+                      strokeDasharray="2 2"
+                      opacity={0.5}
+                      strokeLinejoin="round"
+                    />
+                    {/* Cells still to be CUT, marked apart from cells to be
+                     * travelled: the difference is 8 seconds against 2, which
+                     * is the whole cost of the line the player picked. */}
+                    {route
+                      .filter((c) => board.state[c] !== OPEN)
+                      .map((c) => (
+                        <path
+                          key={`cut${c}`}
+                          d={cellShape(g, c)}
+                          fill="none"
+                          stroke="#fff"
+                          strokeWidth={0.35}
+                          opacity={0.4}
+                        />
+                      ))}
+                  </>
                 )}
               </>
             );

@@ -317,3 +317,52 @@ export function chooseAction(round: Round, bee: Bee, opts = DEFAULT_BOT_OPTS): A
 }
 
 export { COMB, OPEN };
+
+/**
+ * The whole path a bee would take to `target`, not just its next step.
+ *
+ * Once a tap sets a DESTINATION rather than a neighbour, the player has
+ * committed to a route they cannot see — and the moment that route matters is
+ * the moment a rival collapses part of it or parks in the shaft. Drawing it is
+ * what turns "press the button forty times" back into a decision you can watch
+ * being kept or broken.
+ *
+ * Planned as though nobody were in the way, deliberately. Bodies move between
+ * now and then, so routing around where a bee happens to be standing would draw
+ * a detour that is already wrong by the time the player reads it. What the line
+ * shows is intent; `stepToward` is what actually respects the traffic.
+ */
+export function routeToward(round: Round, bee: Bee, target: number, max = 80): number[] {
+  const g = round.board.g;
+  const N = g.cells;
+  if (target === bee.cell) return [];
+  const dist = costToTarget(round, bee, target, true);
+
+  const path: number[] = [];
+  const seen = new Set<number>([bee.cell]);
+  let cell = bee.cell;
+  let armed = bee.cameInward;
+
+  for (let i = 0; i < max && cell !== target; i++) {
+    let best = -1;
+    let bestD = Infinity;
+    for (const n of neighbors(g, cell)) {
+      if (round.board.blocked[n]) continue;
+      const wentInward = ringOf(g, n) < ringOf(g, cell) && ringOf(g, cell) <= g.R;
+      // The stagger shapes the drawn line too, or it would promise a straight
+      // shaft the rules will not let the bee cut.
+      if (round.rules.staggerRequired && armed && wentInward) continue;
+      const d = dist[wentInward ? n + N : n];
+      if (d < bestD) {
+        bestD = d;
+        best = n;
+      }
+    }
+    if (best < 0 || !Number.isFinite(bestD) || seen.has(best)) break;
+    path.push(best);
+    seen.add(best);
+    armed = ringOf(g, best) < ringOf(g, cell) && ringOf(g, cell) <= g.R;
+    cell = best;
+  }
+  return path;
+}
