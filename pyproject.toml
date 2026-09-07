@@ -17,7 +17,10 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
-    "tollbooth-dpyc[nostr]==0.89.1",
+    # [modal] for the sim-bee runner: the swarm that fills a thin hive lives in a
+    # Modal app, and the extra is what puts the client in the same resolution the
+    # MCP already uses rather than a second list that drifts from it.
+    "tollbooth-dpyc[nostr,modal]==0.89.1",
 ]
 
 [project.optional-dependencies]

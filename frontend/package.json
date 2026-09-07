@@ -10,7 +10,8 @@
     "test": "node --test src/game/*.test.ts src/lib/*.test.ts",
     "smoke": "node scripts/smoke.mjs",
     "routes": "node scripts/routes.mjs",
-    "live-bots": "tsx scripts/live-bots.ts"
+    "live-bots": "npx tsx scripts/live-bots.ts",
+    "botdump": "npx tsx scripts/botdump.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

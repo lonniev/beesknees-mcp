@@ -16,6 +16,7 @@ import {
   field,
   legal,
   inward,
+  isHive,
   neighbors,
   ringOf,
 } from "./rules.ts";
@@ -84,7 +85,11 @@ function bore(round: Round, bee: Bee): Action {
   const r = ringOf(g, bee.cell);
   // In the meadow there is nothing to bore through, so even the control has to
   // find a flower and a door. It does so on hop count alone.
-  if (bee.phase !== "tunnel") return descend(round, bee, round.rules.cooldownTicks);
+  // Tunnelling AND inside. A bee in the meadow has no ring, so `g.offset[r]`
+  // is undefined there and the drill arithmetic quietly becomes NaN — harmless
+  // today because `legal` rejects it, but only by luck.
+  if (bee.phase !== "tunnel" || !isHive(g, bee.cell))
+    return descend(round, bee, round.rules.cooldownTicks);
   const i = bee.cell - g.offset[r];
   const target = inward(g, r, i);
   if (target === null) return { kind: "wait" };
@@ -286,7 +291,15 @@ function pick(round: Round, bee: Bee, dist: Float64Array): Action | null {
 }
 
 function randomBot(round: Round, bee: Bee): Action {
-  const ns = neighbors(round.board.g, bee.cell);
+  // Blind, but not illegal. It used to pick any neighbour at all, so it could
+  // offer the exact inward move the stagger had just barred — a refused move,
+  // a wasted cooldown, and on a one-second clock the whole turn. Being stupid
+  // is this bot's job; being rejected is not.
+  const ns = neighbors(round.board.g, bee.cell).filter((n) => {
+    const kind = round.board.state[n] === OPEN ? "fly" : "dig";
+    return legal(round, bee, { kind, to: n } as Action);
+  });
+  if (!ns.length) return { kind: "wait" };
   const to = ns[Math.floor(round.rng() * ns.length)];
   return round.board.state[to] === OPEN ? { kind: "fly", to } : { kind: "dig", to };
 }
