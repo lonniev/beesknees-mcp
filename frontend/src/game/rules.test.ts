@@ -33,7 +33,7 @@ import {
   toQueen,
   type Phase,
 } from "./rules.ts";
-import { stepToward } from "./bots.ts";
+import { approach, stepToward } from "./bots.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
   const g = makeGeometry(22);
@@ -244,19 +244,22 @@ test("a rival empties the flower you were flying to", () => {
   const flower = [...Array(g.cells).keys()].find((c) => round.board.pollen[c])!;
   const [a, b] = round.bees;
 
-  a.cell = flower;
+  // Two bees one step out, on opposite sides. They cannot start ON the flower,
+  // or on the same square as each other: a bee has a body out here.
+  const around = neighbors(g, flower).filter((n) => round.board.state[n] === OPEN);
+  const near = around[0];
+  a.cell = near;
   a.phase = "forage";
-  b.cell = flower;
+  b.cell = around[1];
   b.phase = "forage";
 
   // The first to land takes it.
-  const near = neighbors(g, flower).find((n) => round.board.state[n] === OPEN)!;
-  a.cell = near;
   assert.ok(apply(round, a, { kind: "fly", to: flower }));
   assert.equal(a.phase, "return", "the first bee loads pollen");
   assert.equal(round.board.pollen[flower], 0, "and empties the flower");
 
-  b.cell = near;
+  // It moves on, freeing the square, and the second bee arrives to nothing.
+  a.cell = near;
   b.nextMoveTick = round.tick;
   assert.ok(apply(round, b, { kind: "fly", to: flower }));
   assert.equal(b.phase, "forage", "the second bee arrives to nothing and must find another");
@@ -380,14 +383,96 @@ test("a bee has a body — one cell, one bee, inside the hive", () => {
   assert.ok(apply(round, a, { kind: "fly", to: cell }));
 });
 
-test("the meadow is air — bees pass each other freely above ground", () => {
-  // Enforcing bodies above the wall gridlocks the very first move: bees start
-  // stacked in the four corners by construction.
+test("a bee has a body in the meadow too — no piling into one square", () => {
+  // The meadow used to be exempt, and the exemption let five bees pile into the
+  // one square outside a door. That is what made a doorway look deadlocked: not
+  // a stuck bee, a stack of them waiting on a single cell nobody could see was
+  // full. Bees start on twelve distinct corner squares, so the reason the
+  // exemption existed — a start with everyone on one ring — is gone.
   const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(47));
   const g = round.board.g;
   const [a, b] = round.bees;
   const cell = g.hiveCells + Math.floor(g.meadowCells / 2);
   b.cell = cell;
-  a.cell = neighbors(g, cell).find((n) => ringOf(g, n) > g.R)!;
-  assert.ok(apply(round, a, { kind: "fly", to: cell }), "the air is shared");
+  const from = neighbors(g, cell).find((n) => ringOf(g, n) > g.R)!;
+  a.cell = from;
+  assert.equal(apply(round, a, { kind: "fly", to: cell }), false, "no flying through a rival");
+  assert.equal(a.cell, from, "and the refused bee has not moved");
+
+  // Once that bee is gone the square is free again — it is a queue, not a wall.
+  b.phase = "done" as Phase;
+  a.nextMoveTick = round.tick;
+  assert.ok(apply(round, a, { kind: "fly", to: cell }));
+});
+
+test("an obstruction never bricks a door, nor the cell it opens onto", () => {
+  // Obstructions were rolled over rings 2..R, and R IS the wall. Measured at 18
+  // of 240 doors blocked outright and 7 more opening onto a blocked cell — and
+  // since the wall to either side of a doorway cannot be cut, that second case
+  // is a door a bee can enter and then only reverse out of. Both read to a
+  // player as a deadlock at the doorway.
+  const g = makeGeometry();
+  for (let seed = 1; seed <= 40; seed++) {
+    const b = makeBoard(g, { mouths: 4, flowers: 20, seats: 12, blockShare: 0.05, rng: mulberry32(seed) });
+    const doors = [...Array(g.cells).keys()].filter((c) => b.mouth[c]);
+    assert.equal(doors.length, 4);
+    for (const d of doors) {
+      assert.equal(b.blocked[d], 0, `seed ${seed}: door ${d} is bricked shut`);
+      const on = neighbors(g, d).filter((n) => ringOf(g, n) < ringOf(g, d));
+      assert.ok(on.length > 0, `seed ${seed}: door ${d} opens onto nothing`);
+      assert.ok(
+        on.some((n) => !b.blocked[n]),
+        `seed ${seed}: door ${d} opens only onto an obstruction`,
+      );
+    }
+    // And the wall itself never carries one, where it could do nothing but
+    // delete a door.
+    for (let i = 0; i < g.size[g.R]; i++)
+      assert.equal(b.blocked[idx(g, g.R, i)], 0, `seed ${seed}: an obstruction landed on the wall`);
+  }
+});
+
+test("a door somebody is standing in still lets you queue up beside it", () => {
+  // "No way through" is true and useless. Every door may have a queue and this
+  // bee has to be near its own door regardless, so a rival in the doorway must
+  // yield a move that gets CLOSER, not a refusal.
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(61));
+  const g = round.board.g;
+  const [a, b] = round.bees;
+  const door = [...Array(g.cells).keys()].find((c) => round.board.mouth[c])!;
+  const outside = neighbors(g, door).find((n) => ringOf(g, n) > g.R)!;
+
+  b.cell = door; // a rival is in the doorway
+  a.cell = neighbors(g, outside).find((n) => ringOf(g, n) > g.R && n !== door)!;
+  a.phase = "return" as Phase;
+
+  assert.equal(stepToward(round, a, door), null, "the direct route really is taken");
+
+  const step = approach(round, a, door);
+  assert.ok(step, "a queued bee must still be offered a move");
+  assert.equal(step!.kind, "fly");
+  const to = (step as { to: number }).to;
+  assert.ok(
+    neighbors(g, to).includes(door) || to === outside,
+    "the move should bring the bee alongside the door",
+  );
+  assert.ok(apply(round, a, step!), "and it must be legal");
+  assert.notEqual(a.cell, door, "without ever walking through the bee standing there");
+});
+
+test("a bee waiting behind a rival is not sent shuffling sideways for ever", () => {
+  // `approach` must only offer a step that closes the gap. Without that guard a
+  // queued bee paces back and forth beside the door, paying a fare each time to
+  // end up exactly where it started.
+  const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(67));
+  const g = round.board.g;
+  const [a, b] = round.bees;
+  const door = [...Array(g.cells).keys()].find((c) => round.board.mouth[c])!;
+  const outside = neighbors(g, door).find((n) => ringOf(g, n) > g.R)!;
+
+  // a is already as close as bodies allow: right outside a door someone holds.
+  b.cell = door;
+  a.cell = outside;
+  a.phase = "return" as Phase;
+  assert.equal(approach(round, a, door), null, "nothing gets it closer, so it waits");
 });

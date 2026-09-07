@@ -199,3 +199,31 @@ def test_obstructions_are_sparse_enough_to_finish_a_round() -> None:
     g = make_geometry()
     shares = [len(blocked_cells(g, s)) / g.cells for s in range(40)]
     assert max(shares) < 0.09, f"too dense: {max(shares):.3f}"
+
+
+def test_an_obstruction_never_bricks_a_door_nor_the_cell_it_opens_onto() -> None:
+    """A door an obstruction landed on is an entrance silently deleted.
+
+    Obstructions were rolled over rings 2..wall, and the wall IS the door ring.
+    Measured on the client at 18 of 240 doors blocked outright and 7 more
+    opening only onto a blocked cell — and because the wall to either side of a
+    doorway cannot be cut, that second case is a door a bee can enter and then
+    only reverse out of. Both read to a player as a deadlock at the threshold.
+    """
+    g = make_geometry()
+    doors = mouth_cells(g)
+    for seed in range(1, 41):
+        blocked = blocked_cells(g, seed)
+        for d in doors:
+            assert d not in blocked, f"seed {seed}: door {d} is bricked shut"
+            on = [n for n in neighbors(g, d) if ring_of(g, n) < ring_of(g, d)]
+            assert on, f"seed {seed}: door {d} opens onto nothing"
+            assert any(n not in blocked for n in on), (
+                f"seed {seed}: door {d} opens only onto an obstruction"
+            )
+        # And the wall itself never carries one, where it could do nothing but
+        # delete a door.
+        for i in range(g.size[g.wall]):
+            assert idx(g, g.wall, i) not in blocked, (
+                f"seed {seed}: an obstruction landed on the wall"
+            )

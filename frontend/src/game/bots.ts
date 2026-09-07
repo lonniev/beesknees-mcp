@@ -137,8 +137,7 @@ function chasedFrom(round: Round, bee: Bee, behind: number): boolean {
  * neighbour they want would make the game a test of fingertip precision. The
  * route is recomputed every move, so a collapse ahead re-routes on its own.
  */
-export function stepToward(round: Round, bee: Bee, target: number): Action | null {
-  if (target === bee.cell) return null;
+function costToTarget(round: Round, bee: Bee, target: number, ignoreBodies: boolean): Float64Array {
   const { rules, board } = round;
   const g = board.g;
 
@@ -180,10 +179,14 @@ export function stepToward(round: Round, bee: Bee, target: number): Action | nul
       const armedHere = state >= N;
       for (const prev of neighbors(g, cell)) {
         if (board.blocked[cell]) continue;
-        // Another bee's body is a wall for as long as it stands there.
+        // Another bee's body is a wall for as long as it stands there — in the
+        // meadow as much as in the comb. `ignoreBodies` asks the other question:
+        // where would this bee go if nobody were in the way? That route is what
+        // lets a bee queue toward a door somebody is standing in, instead of
+        // being told there is no way through.
         if (
           rules.occupancy &&
-          ringOf(g, cell) <= g.R &&
+          !ignoreBodies &&
           round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === cell)
         )
           continue;
@@ -201,6 +204,54 @@ export function stepToward(round: Round, bee: Bee, target: number): Action | nul
     }
   }
 
+  return dist;
+}
+
+/**
+ * One step along the quickest route to `target`, or null if there is no route.
+ *
+ * Bodies count: a cell somebody is standing in is a wall for as long as they
+ * stand there, so this returns null when a rival is the only thing in the way.
+ * `approach` is the answer to that case.
+ */
+export function stepToward(round: Round, bee: Bee, target: number): Action | null {
+  if (target === bee.cell) return null;
+  const dist = costToTarget(round, bee, target, false);
+  return pick(round, bee, dist);
+}
+
+/**
+ * One step that gets NEARER the target, even when the route is currently taken.
+ *
+ * "No way through" is true and useless. Every door may have a queue and a bee
+ * has to be near its chosen door anyway, so when a rival is standing in the
+ * only way in, the right answer is to move up beside it and wait — not to be
+ * refused. The route is computed as though nobody were in the way, and then the
+ * step is chosen from the moves that are actually legal, so a bee never walks
+ * through anyone: it just knows which way to queue.
+ *
+ * Returns null only when no legal move gets closer at all, which is a genuine
+ * wait rather than a mistake.
+ */
+export function approach(round: Round, bee: Bee, target: number): Action | null {
+  if (target === bee.cell) return null;
+  const g = round.board.g;
+  const ghost = costToTarget(round, bee, target, true);
+  const N = g.cells;
+  const here = Math.min(ghost[bee.cell], ghost[bee.cell + N]);
+  const step = pick(round, bee, ghost);
+  if (!step || step.kind === "wait" || step.kind === "collapse") return null;
+  // It must actually close the gap. Without this a queued bee shuffles sideways
+  // for ever, paying a fare each time to stay exactly where it was.
+  const after = Math.min(ghost[step.to], ghost[step.to + N]);
+  return after < here ? step : null;
+}
+
+/** The best legal neighbour under a cost field. Shared by both callers above. */
+function pick(round: Round, bee: Bee, dist: Float64Array): Action | null {
+  const { board } = round;
+  const g = board.g;
+  const N = g.cells;
   let best = -1;
   let bestD = Infinity;
   for (const n of neighbors(g, bee.cell)) {

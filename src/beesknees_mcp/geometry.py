@@ -355,16 +355,38 @@ def is_meadow(g: Geometry, cell: int) -> bool:
 def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int]:
     """The impassable cells for a match, from its seed.
 
-    Ring 1 is never blocked: with only six cells there, two obstructions could
-    wall the queen in and end a round nobody could win. The reachability sweep
-    afterwards opens the fewest cells that restore the connection.
+    Three places never get one, each for a reason a player would recognise from
+    the board:
+
+    - Ring 1. Six cells wide, so two obstructions could wall the queen in and
+      end a round nobody could win.
+    - The WALL itself. Already impassable everywhere except its doors, so an
+      obstruction there does nothing at all — except on a door, where it
+      silently deletes an entrance. Measured at 18 of 240 doors bricked shut.
+    - The cell just inside a door. That is a doorway's only way ON, because the
+      wall to either side cannot be cut, so blocking it makes a door a bee can
+      enter and then only reverse out of. 7 of 240 doors landed on one.
+
+    The reachability sweep afterwards opens the fewest cells that restore the
+    connection.
     """
     rnd = mulberry32(seed)
+    spared = {
+        n
+        for m in mouth_cells(g)
+        for n in neighbors(g, m)
+        if ring_of(g, n) < ring_of(g, m)
+    }
     blocked: set[int] = set()
-    for r in range(2, g.wall + 1):
+    for r in range(2, g.wall):
         for i in range(g.size[r]):
-            if rnd() < share:
-                blocked.add(idx(g, r, i))
+            # The die is rolled for every candidate either way, so the sequence
+            # stays identical to rules.ts's — a spared cell must still consume
+            # its draw.
+            hit = rnd() < share
+            c = idx(g, r, i)
+            if hit and c not in spared:
+                blocked.add(c)
     _open_until_queen_is_reachable(g, blocked)
     return blocked
 

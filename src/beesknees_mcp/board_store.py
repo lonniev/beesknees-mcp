@@ -556,13 +556,14 @@ def is_blocked(seed: int, hive: int, cell: int) -> bool:
 
 
 async def _require_unoccupied(match_id: str, g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
-    """A bee has a body: inside the hive, one cell holds one of them.
+    """A bee has a body, everywhere: one cell holds one of them.
 
-    The meadow is exempt — bees pass each other in the air, and enforcing it
-    above ground gridlocks the start, where all twelve begin on one ring.
+    The meadow used to be exempt, on the grounds that enforcing bodies above
+    ground would gridlock a start where all twelve bees stood on one ring. They
+    start in the four corners now, on twelve distinct squares, so the reason is
+    gone — and the exemption let five bees pile into the one square outside a
+    door, which is what made a doorway look deadlocked.
     """
-    if geo.ring_of(g, to_cell) > g.wall:
-        return
     r = await _exec(
         f"SELECT 1 FROM {BEES} WHERE match_id = $1 AND hive = $2 AND cell = $3 "
         "AND npub <> $4 AND phase <> 'done' LIMIT 1",

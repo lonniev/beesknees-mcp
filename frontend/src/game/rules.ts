@@ -383,11 +383,29 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
       placed++;
     }
   }
-  // Obstructions. Never on ring 1 — with only six cells there, two blocks could
-  // wall the queen in and end a round nobody could win.
-  for (let r = 2; r <= g.R; r++)
-    for (let i = 0; i < g.size[r]; i++)
-      if (o.rng() < o.blockShare) blocked[idx(g, r, i)] = 1;
+  // Obstructions. Three places never get one, each for a reason a player would
+  // recognise from the board:
+  //
+  //  - Ring 1. Six cells wide, so two blocks could wall the queen in and end a
+  //    round nobody could win.
+  //  - The WALL itself. It is already impassable everywhere except its doors,
+  //    so an obstruction there does nothing at all — except on a door, where it
+  //    silently deletes an entrance. Measured at 18 of 240 doors bricked shut.
+  //  - The cell just inside a door. That is a doorway's only way ON, because
+  //    the wall to either side cannot be cut. Block it and the door is one a
+  //    bee can enter and then only reverse out of, which reads exactly like the
+  //    deadlock it nearly is. 7 of 240 doors landed on one.
+  //
+  // The die is rolled for every candidate cell either way, so the sequence is
+  // identical to geometry.py's — a skipped cell must still consume its draw.
+  const spared = new Set<number>();
+  for (let c = 0; c < g.cells; c++)
+    if (mouth[c]) for (const n of neighbors(g, c)) if (ringOf(g, n) < ringOf(g, c)) spared.add(n);
+  for (let r = 2; r < g.R; r++)
+    for (let i = 0; i < g.size[r]; i++) {
+      const c = idx(g, r, i);
+      if (o.rng() < o.blockShare && !spared.has(c)) blocked[c] = 1;
+    }
 
   const board = { g, state, flower, pollen, mouth, blocked, version: 0 };
   clearBlocksUntilQueenIsReachable(board);
@@ -527,14 +545,17 @@ export function legal(round: Round, bee: Bee, a: Action): boolean {
   if (!neighbors(g, bee.cell).includes(a.to)) return false;
   if (board.blocked[a.to]) return false;
 
-  // A bee has a body. Inside the hive a cell holds ONE of them, so a bee in
-  // front of you is an obstacle to route around or to bury — not something to
-  // walk through. The meadow is air and exempt: bees pass each other there at
-  // different heights, and enforcing it above ground only gridlocks the start,
-  // where all twelve are on one ring by construction.
+  // A bee has a body, everywhere. A cell holds ONE of them, so a bee in front of
+  // you is an obstacle to route around, to wait behind, or to bury — never
+  // something to walk through.
+  //
+  // The meadow used to be exempt, on the grounds that enforcing bodies above
+  // ground would gridlock a start where all twelve bees stood on one ring. They
+  // start in the four corners now, on twelve distinct squares, so the reason is
+  // gone — and the exemption was letting five bees pile into the one square
+  // outside a door, which is what made a doorway look deadlocked.
   if (
     rules.occupancy &&
-    ringOf(g, a.to) <= g.R &&
     round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === a.to)
   )
     return false;
