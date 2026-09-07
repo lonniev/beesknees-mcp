@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Share2, Users, Zap } from "lucide-react";
+import CharityNote, { useCharity } from "./CharityNote";
 import QuoteScroller from "./QuoteScroller.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
@@ -31,6 +32,9 @@ export default function Lobby({
   const [error, setError] = useState("");
   const [waited, setWaited] = useState(0);
   const [shared, setShared] = useState(false);
+  // Named here as well as shown, so the invitation a friend receives says who
+  // the money is for rather than gesturing at "the pollinators".
+  const who = useCharity();
 
   useEffect(() => {
     const t = setInterval(() => setWaited((s) => s + 1), 1000);
@@ -75,7 +79,7 @@ export default function Lobby({
     const url = `${window.location.origin}/play`;
     const text =
       "I'm one bee short of a race in The Bee's Knees — come play, " +
-      "80% of the pot goes to the pollinators.";
+      `80% of the pot goes to ${who?.name ?? "the pollinators"}.`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "The Bee's Knees", text, url });
@@ -191,6 +195,8 @@ export default function Lobby({
         * wearing a different hat. This game also asks people to spend money on
         * pollinators, and this minute is the one they are certain to read. */}
       <QuoteScroller className="pt-1" />
+
+      <CharityNote />
 
       <p className="text-xs leading-relaxed text-white/35">
         Nothing is spent while you wait — a seat costs a fare, and the motions cost

@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { HeartHandshake, Trophy, Coins } from "lucide-react";
+import { HeartHandshake, Trophy, Coins, ExternalLink } from "lucide-react";
 import { settlementHistory, type SettlementHistory } from "../lib/mcp";
 
 function sats(n: number): string {
@@ -42,9 +42,7 @@ export default function Ledger() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Where the money went</h1>
-      <p className="mt-1 text-sm text-white/50">
-        {data?.beneficiary ? `Beneficiary: ${data.beneficiary}` : " "}
-      </p>
+      <Beneficiary name={data?.beneficiary ?? ""} website={data?.charity?.website ?? ""} />
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Stat icon={<Coins size={16} />} label="Raised across all matches" value={`${sats(raised)} sats`} />
@@ -130,5 +128,37 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
       </div>
       <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
     </div>
+  );
+}
+
+
+/**
+ * Who the charity share goes to, and somewhere to go and check them.
+ *
+ * The link is the point. A page that names a beneficiary and gives you no way
+ * to look them up is asking to be taken on trust, which is the one thing this
+ * page exists not to do.
+ */
+function Beneficiary({ name, website }: { name: string; website: string }) {
+  // A held line rather than a guess while it loads: the name IS the claim.
+  if (!name) return <p className="mt-1 text-sm text-white/50">&nbsp;</p>;
+
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/50">
+      <span>
+        Beneficiary: <span className="text-white/75">{name}</span>
+      </span>
+      {website && (
+        <a
+          href={website}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1 text-amber-300/80 underline decoration-amber-300/30 underline-offset-2 hover:text-amber-200"
+        >
+          {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+          <ExternalLink size={12} />
+        </a>
+      )}
+    </p>
   );
 }

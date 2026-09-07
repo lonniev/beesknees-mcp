@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import { Copy, LogOut, RefreshCw, Zap } from "lucide-react";
 import Avatar from "../components/Avatar.tsx";
 import NostrProfilePanel from "../components/NostrProfilePanel.tsx";
+import Winnings from "../components/Winnings.tsx";
 import { checkBalance, checkPayment, purchaseCredits } from "../lib/mcp";
 import { avatarFor } from "../lib/avatar";
 import type { Session } from "../lib/session.ts";
@@ -203,6 +204,8 @@ export default function Profile({ session }: { session: Session }) {
         )}
         {msg && <p className="mt-3 text-xs text-white/60">{msg}</p>}
       </section>
+
+      <Winnings npub={session.npub} />
 
       <NostrProfilePanel npub={session.npub} />
     </div>

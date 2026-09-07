@@ -843,8 +843,43 @@ export async function seal(atCell: number): Promise<Record<string, unknown>> {
   return callTool("seal", { at_cell: atCell });
 }
 
-export async function claimPrize(matchId: string, choice: "keep" | "donate") {
-  return callTool("claim_prize", { match_id: matchId, choice });
+/**
+ * Take the winner's share, or send it on.
+ *
+ * Omitting the choice is not a missing answer: the server falls back to
+ * whatever the winner already set in their profile, so a player who has
+ * decided once never has to decide again with a trophy on the screen.
+ */
+export async function claimPrize(matchId: string, choice?: "keep" | "donate") {
+  return callTool("claim_prize", choice ? { match_id: matchId, choice } : { match_id: matchId });
+}
+
+export interface Charity {
+  success: boolean;
+  name: string;
+  website: string;
+  named: boolean;
+}
+
+/** Who the charity share goes to. Free, so a screen can always show it. */
+export async function charity(): Promise<Charity> {
+  return callTool<Charity>("charity", {}, { bestEffort: true });
+}
+
+export interface Payout {
+  success: boolean;
+  lightning_address: string;
+  donate: boolean;
+  /** False for somebody who has never said — which still means donate. */
+  set: boolean;
+}
+
+export async function payout(): Promise<Payout> {
+  return callTool<Payout>("payout", {}, { bestEffort: true });
+}
+
+export async function setPayout(donate: boolean, lightningAddress: string): Promise<Payout & { error?: string }> {
+  return callTool("set_payout", { donate, lightning_address: lightningAddress });
 }
 
 export interface Settlement {
@@ -862,6 +897,8 @@ export interface Settlement {
 export interface SettlementHistory {
   success: boolean;
   beneficiary: string;
+  /** The configured charity, so the ledger can link out to them. */
+  charity?: { name: string; website: string };
   accrued_sats: number;
   settlements: Settlement[];
   leaderboard: { npub: string; sats: number; wins: number }[];
