@@ -342,19 +342,15 @@ export interface Board {
 
 export interface BoardOpts {
   mouths: number;
-  flowers: number;
   /**
-   * Where the bees will start, so their squares can be kept clear of flowers.
+   * The hive this seed lays out — starts, flowers and obstructions together.
    *
-   * Passed in rather than recomputed. The starts are drawn from the same RNG
-   * the board is, so working them out twice would draw twice and the two
-   * answers would disagree — the flowers would be cleared around one opening
-   * and the bees placed in another.
+   * Passed in whole rather than rolled here, because the SERVER lays out a live
+   * hive from the match seed and the client must draw the same one. Two places
+   * generating "the same" board from the same numbers is how they drift; there
+   * is one generator now, in `hiveLayout`, and both sides call it.
    */
-  starts: number[];
-  /** Share of comb cells that are impassable. 0 makes every hive identical. */
-  blockShare: number;
-  rng: () => number;
+  layout: HiveLayout;
 }
 
 /** Monotonic, so two boards are never confused for one another in a cache. */
@@ -373,57 +369,16 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
 
   // Mouths: evenly spaced doors in the wall, open from the start. They are a
   // convenience, not a hard gate — a bee may always pay to dig its own door.
-  for (let m = 0; m < o.mouths; m++) {
-    const i = Math.floor((m * g.size[g.R]) / o.mouths);
-    const c = idx(g, g.R, i);
+  for (const c of mouthCells(g, o.mouths)) {
     state[c] = OPEN;
     mouth[c] = 1;
   }
 
-  // Flowers scatter across the meadow, but never onto a starting square or one
-  // touching it. A bee that opens on its own pollen, or one press away, has won
-  // the first act before pressing anything — so the shortest possible forage is
-  // two presses, for everybody.
-  const starts = new Set(o.starts);
-  const nearStart = new Set<number>();
-  for (const st of starts) {
-    nearStart.add(st);
-    for (const n of neighbors(g, st)) nearStart.add(n);
+  for (const c of o.layout.flowers) {
+    flower[c] = 1;
+    pollen[c] = 1;
   }
-  let placed = 0;
-  let guard = 0;
-  while (placed < o.flowers && guard++ < o.flowers * 200) {
-    const c = g.hiveCells + Math.floor(o.rng() * g.meadowCells);
-    if (nearStart.has(c)) continue;
-    if (!flower[c]) {
-      flower[c] = 1;
-      pollen[c] = 1;
-      placed++;
-    }
-  }
-  // Obstructions. Three places never get one, each for a reason a player would
-  // recognise from the board:
-  //
-  //  - Ring 1. Six cells wide, so two blocks could wall the queen in and end a
-  //    round nobody could win.
-  //  - The WALL itself. It is already impassable everywhere except its doors,
-  //    so an obstruction there does nothing at all — except on a door, where it
-  //    silently deletes an entrance. Measured at 18 of 240 doors bricked shut.
-  //  - The cell just inside a door. That is a doorway's only way ON, because
-  //    the wall to either side cannot be cut. Block it and the door is one a
-  //    bee can enter and then only reverse out of, which reads exactly like the
-  //    deadlock it nearly is. 7 of 240 doors landed on one.
-  //
-  // The die is rolled for every candidate cell either way, so the sequence is
-  // identical to geometry.py's — a skipped cell must still consume its draw.
-  const spared = new Set<number>();
-  for (let c = 0; c < g.cells; c++)
-    if (mouth[c]) for (const n of neighbors(g, c)) if (ringOf(g, n) < ringOf(g, c)) spared.add(n);
-  for (let r = 2; r < g.R; r++)
-    for (let i = 0; i < g.size[r]; i++) {
-      const c = idx(g, r, i);
-      if (o.rng() < o.blockShare && !spared.has(c)) blocked[c] = 1;
-    }
+  for (const c of o.layout.blocked) blocked[c] = 1;
 
   const board = { id: nextBoardId++, g, state, flower, pollen, mouth, blocked, version: 0 };
   clearBlocksUntilQueenIsReachable(board);
@@ -912,6 +867,80 @@ export function cornerStarts(g: Geometry, seats: number, rng?: () => number): nu
   return out;
 }
 
+/** Flowers scattered across one hive's meadow. Mirrors geometry.py's FLOWERS. */
+export const FLOWERS = 24;
+/** Seats in a hive. Mirrors match.ts's SEATS and geometry.py's. */
+export const SEATS = 12;
+
+export interface HiveLayout {
+  starts: number[];
+  flowers: number[];
+  blocked: Set<number>;
+}
+
+/**
+ * Everything about one hive that its seed decides, drawn from ONE stream.
+ *
+ * Starts, then flowers, then obstructions — the order matters, because
+ * `geometry.py` draws them in exactly this order from exactly this PRNG and the
+ * two must produce the same hive from the same seed. The server enforces this
+ * board and the client draws it; a disagreement is a bee refused a move for a
+ * reason nobody can see on screen.
+ *
+ * Nothing is stored. A hive IS its seed, which is why `match_state` has to send
+ * one.
+ */
+export function hiveLayout(g: Geometry, seed: number): HiveLayout {
+  const rng = mulberry32(seed);
+  const starts = cornerStarts(g, SEATS, rng);
+  const flowers = flowerCells(g, rng, starts);
+  const blocked = obstructions(g, rng);
+  return { starts, flowers, blocked };
+}
+
+/**
+ * Where the pollen is. Never on a starting square or one touching it — a bee
+ * that opens on its own flower has won the first act before pressing anything.
+ */
+export function flowerCells(g: Geometry, rng: () => number, starts: number[], count = FLOWERS): number[] {
+  const near = new Set<number>(starts);
+  for (const st of starts) for (const n of neighbors(g, st)) near.add(n);
+  const out: number[] = [];
+  const seen = new Set<number>();
+  let guard = 0;
+  while (out.length < count && guard < count * 200) {
+    guard++;
+    const c = g.hiveCells + Math.floor(rng() * g.meadowCells);
+    if (near.has(c) || seen.has(c)) continue;
+    seen.add(c);
+    out.push(c);
+  }
+  return out;
+}
+
+/** Impassable cells. See `makeBoard` for which places never get one, and why. */
+export function obstructions(g: Geometry, rng: () => number, share = DEFAULT_RULES.blockShare): Set<number> {
+  const spared = new Set<number>();
+  for (const m of mouthCells(g))
+    for (const n of neighbors(g, m)) if (ringOf(g, n) < ringOf(g, m)) spared.add(n);
+  const out = new Set<number>();
+  for (let r = 2; r < g.R; r++) {
+    for (let i = 0; i < g.size[r]; i++) {
+      // The die is rolled for every candidate either way, so the sequence stays
+      // identical to geometry.py's — a spared cell must still consume its draw.
+      const hit = rng() < share;
+      const c = idx(g, r, i);
+      if (hit && !spared.has(c)) out.add(c);
+    }
+  }
+  return out;
+}
+
+/** The doors, evenly spaced. Mirrors geometry.py's `mouth_cells`. */
+export function mouthCells(g: Geometry, mouths = 4): number[] {
+  return Array.from({ length: mouths }, (_, m) => idx(g, g.R, Math.floor((m * g.size[g.R]) / mouths)));
+}
+
 export function makeRound(
   strategies: string[],
   rules: Rules,
@@ -919,10 +948,11 @@ export function makeRound(
   geo?: Geometry,
 ): Round {
   const g = geo ?? makeGeometry();
-  // Drawn ONCE, then used both to keep flowers off the opening and to place the
-  // bees on it. Same list, same draw, no chance of the two disagreeing.
-  const starts = cornerStarts(g, strategies.length, rng);
-  const board = makeBoard(g, { mouths: 4, flowers: 24, starts, blockShare: rules.blockShare, rng });
+  // One seed lays out the whole hive, through the same function the server
+  // uses. Solo and live are then the same board, drawn once, by one generator.
+  const layout = hiveLayout(g, Math.floor(rng() * 2 ** 31));
+  const { starts } = layout;
+  const board = makeBoard(g, { mouths: 4, layout });
   const bees: Bee[] = strategies.map((strategy, id) => ({
     id,
     strategy,

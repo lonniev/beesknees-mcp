@@ -284,10 +284,11 @@ async def match_state(
         mid = str(m["match_id"])
         seq = int(m.get("seq") or 0)
 
-        # The tempo IS the cadence. A running match moves on a two-second
-        # cooldown, so a second is plenty; a lobby changes when somebody pays.
+        # The tempo IS the cadence. A running match moves on a one-second
+        # cooldown, so it is polled just inside that; a lobby only changes when
+        # somebody pays, and can be asked far less often.
         state = str(m.get("state") or "forming")
-        poll_ms = 900 if state == "running" else 4000
+        poll_ms = 700 if state == "running" else 4000
 
         if since_seq >= 0 and seq <= since_seq:
             return {"success": True, "match_id": mid, "seq": seq, "state": state,
@@ -307,6 +308,19 @@ async def match_state(
             "seats": board_store.SEATS,
             "bees": bees,
             "open_cells": cells,
+            # The SEED, without which a client cannot draw this board at all.
+            #
+            # Obstructions, flowers and starting squares are all derived from it
+            # and none of them are stored; the client runs the same generator on
+            # the same number and gets the same hive. Sending them cell by cell
+            # would be hundreds of integers per poll for something both sides can
+            # compute — and leaving it out, which is what happened, meant a live
+            # client drew a board with no capped brood and no flowers on it and
+            # had moves refused for reasons nothing on screen explained.
+            "seed": int(m.get("seed") or 0),
+            # Placement is derived; the TAKING is not. This is the one piece of
+            # meadow state a rival can change under you.
+            "taken_pollen": await board_store.taken_pollen(mid),
             "geometry": {"wall": geometry.WALL_RING, "grid_n": geometry.GRID_N,
                          "cell_width": geometry.CELL_WIDTH},
         }
@@ -458,12 +472,12 @@ async def fly(
     Args:
         to_cell: The neighbouring cell to move into.
     """
-    g = geometry.make_geometry()
-
     async def run(mid: str) -> dict[str, Any]:
-        bee = await board_store.bee_of(mid, npub)
-        on_flower = bool(bee) and geometry.is_meadow(g, to_cell)
-        return await board_store.fly(mid, npub, to_cell, on_flower=on_flower)
+        # Whether this lands on a flower is the SERVER's to know. It used to be
+        # `is_meadow(to_cell)` — every square in the meadow counted, so a bee
+        # loaded pollen on its first move and the whole forage act, the meadow's
+        # only real decision, did not exist.
+        return await board_store.fly(mid, npub, to_cell)
 
     return await _motion(npub, "fly", run)
 

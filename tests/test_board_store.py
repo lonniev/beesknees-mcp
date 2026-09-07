@@ -41,6 +41,7 @@ class FakeVault:
         self.bees: dict[tuple, dict] = {}
         self.cells: set[tuple] = set()
         self.fares: list[dict] = []
+        self.pollen: set[tuple] = set()
         self.settlements: dict[str, dict] = {}
 
     def _t(self, table: str) -> str:
@@ -136,7 +137,9 @@ class FakeVault:
             hits = [b for b in self.bees.values() if b["match_id"] == p[0]]
             return {"rows": hits, "rowCount": len(hits)}
 
-        if s.startswith("SELECT hive, cell FROM"):
+        # Named table, not a shape. Two tables answer "hive, cell" now, and the
+        # looser match silently swallowed the pollen read.
+        if s.startswith(f"SELECT hive, cell FROM {store.CELLS}"):
             hits = [{"hive": h, "cell": c} for (m, h, c) in sorted(self.cells) if m == p[0]]
             return {"rows": hits, "rowCount": len(hits)}
 
@@ -160,6 +163,28 @@ class FakeVault:
             b.update(cell=p[2], phase=p[3], moves=b["moves"] + 1, ready=False)
             return {"rows": [{"hive": b["hive"], "seat": b["seat"], "cell": b["cell"],
                               "phase": b["phase"]}], "rowCount": 1}
+
+        if s.startswith("WITH ok AS") and store.POLLEN in s:  # land on a flower
+            eligible = [b for b in self.bees.values()
+                        if b["match_id"] == p[0] and b["npub"] == p[1]
+                        and b["cell"] == p[3] and b["ready"] and b["phase"] == "forage"]
+            took = 0
+            if eligible and (p[0], p[4], p[2]) not in self.pollen:
+                self.pollen.add((p[0], p[4], p[2]))
+                took = 1
+            if not eligible:
+                return {"rows": [{"took": 0, "hive": None, "seat": None,
+                                  "cell": None, "phase": None}], "rowCount": 1}
+            b = eligible[0]
+            # The loser still MOVES — a wasted trip is a real trip.
+            b.update(cell=p[2], moves=b["moves"] + 1, ready=False,
+                     phase="return" if took else b["phase"])
+            return {"rows": [{"took": took, "hive": b["hive"], "seat": b["seat"],
+                              "cell": b["cell"], "phase": b["phase"]}], "rowCount": 1}
+
+        if s.startswith(f"SELECT hive, cell FROM {store.POLLEN}"):
+            hits = [{"hive": h, "cell": c} for (m, h, c) in sorted(self.pollen) if m == p[0]]
+            return {"rows": hits, "rowCount": len(hits)}
 
         if s.startswith("WITH ok AS") and "INSERT INTO" in s:  # dig
             eligible = [b for b in self.bees.values()
@@ -484,3 +509,41 @@ def test_the_fingerprint_changes_when_the_board_does(monkeypatch) -> None:
     before = geo.board_fingerprint()
     monkeypatch.setattr(geo, "GRID_N", geo.GRID_N + 1)
     assert geo.board_fingerprint() != before, "a different meadow is a different board"
+
+
+def test_two_bees_racing_for_one_flower_only_one_gets_the_pollen(vault) -> None:
+    """The meadow's one real decision, and it has to survive a dead heat.
+
+    A flower is taken by whoever lands first. Two bees arriving together must
+    not both leave loaded — but the loser must still MOVE, because flying to a
+    flower a rival emptied is a legal wasted trip, and telling that patron their
+    move was refused would be a lie about what happened to their fare.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        g = geo.make_geometry()
+        m = vault.matches[mid]
+        flowers = geo.hive_board(g, store.hive_seed(int(m["seed"]), 0)).flowers
+        flower = flowers[0]
+        # Both bees one step short of the same flower, both due to move.
+        neighbours = [n for n in geo.neighbors(g, flower) if geo.is_meadow(g, n)]
+        for i, (npub, cell) in enumerate(zip(["npubA", "npubB"], neighbours[:2], strict=True)):
+            await store.take_seat(mid, npub, f"bee{i}", 0)
+            vault.bees[(mid, 0, i)].update(cell=cell, phase="forage", ready=True)
+
+        a = await store.fly(mid, "npubA", flower)
+        b = await store.fly(mid, "npubB", flower)
+
+        assert a["moved"] and b["moved"], "both bees really did fly there"
+        assert a["pollen"] is True, "the first to land takes it"
+        assert b["pollen"] is False, "and the second finds it empty"
+        assert a["phase"] == "return", "loaded, and heading home"
+        assert b["phase"] == "forage", "unloaded, and must find another"
+        assert len([x for x in vault.pollen if x[2] == flower]) == 1, "emptied exactly once"
+
+        taken = await store.taken_pollen(mid)
+        assert {"hive": 0, "cell": flower} in taken, "and the board says which"
+        assert len(taken) == 1, f"only one flower should be spent, got {taken}"
+
+    asyncio.run(go())

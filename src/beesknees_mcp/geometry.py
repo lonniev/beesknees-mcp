@@ -364,7 +364,67 @@ def is_meadow(g: Geometry, cell: int) -> bool:
     return ring_of(g, cell) > g.wall
 
 
-def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int]:
+#: Flowers scattered across the meadow of one hive.
+FLOWERS = 24
+#: Seats in a hive. Mirrors board_store.SEATS; here so the geometry can lay a
+#: whole board out from a seed without importing the store.
+SEATS = 12
+
+
+@dataclass(frozen=True)
+class HiveBoard:
+    """Everything about one hive that a seed decides, and nothing it does not.
+
+    Starts, flowers and obstructions all come off ONE stream in this order,
+    because that is the order the client's `makeRound` draws them in and the two
+    must produce the same board from the same seed. The server enforces this
+    board; the client draws it; a disagreement is a bee refused a move for a
+    reason nobody can see on screen.
+
+    Nothing here is stored. A hive is its seed — which is why `match_state` must
+    send the seed, and why a match records the geometry it was opened on.
+    """
+
+    starts: tuple[int, ...]
+    flowers: tuple[int, ...]
+    blocked: frozenset[int]
+
+
+def hive_board(g: Geometry, seed: int) -> HiveBoard:
+    """Lay out one hive from its seed. The client does exactly this."""
+    rnd = mulberry32(seed)
+    starts = corner_starts(g, SEATS, rnd)
+    flowers = flower_cells(g, rnd, starts)
+    blocked = _obstructions(g, rnd)
+    _open_until_queen_is_reachable(g, blocked)
+    return HiveBoard(tuple(starts), tuple(flowers), frozenset(blocked))
+
+
+def flower_cells(g: Geometry, rnd, starts: list[int], count: int = FLOWERS) -> list[int]:
+    """Where the pollen is.
+
+    Never on a starting square or one touching it: a bee that opens on its own
+    flower, or one press away, has won the first act before pressing anything.
+    The guard bounds the search rather than the placement, so a hive that cannot
+    fit them all gets fewer flowers instead of looping.
+    """
+    near = set(starts)
+    for st in starts:
+        near.update(neighbors(g, st))
+    out: list[int] = []
+    seen: set[int] = set()
+    guard = 0
+    while len(out) < count and guard < count * 200:
+        guard += 1
+        c = g.hive_cells + int(rnd() * g.meadow_cells)
+        if c in near or c in seen:
+            continue
+        seen.add(c)
+        out.append(c)
+    return out
+
+
+def _obstructions(g: Geometry, rnd, share: float = BLOCK_SHARE) -> set[int]:
     """The impassable cells for a match, from its seed.
 
     Three places never get one, each for a reason a player would recognise from
@@ -382,7 +442,6 @@ def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int
     The reachability sweep afterwards opens the fewest cells that restore the
     connection.
     """
-    rnd = mulberry32(seed)
     spared = {
         n
         for m in mouth_cells(g)
@@ -399,6 +458,14 @@ def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int
             c = idx(g, r, i)
             if hit and c not in spared:
                 blocked.add(c)
+    return blocked
+
+
+def blocked_cells(g: Geometry, seed: int, share: float = BLOCK_SHARE) -> set[int]:
+    """Obstructions from a seed on their own, for tests and for callers that
+    want nothing else. A live hive uses `hive_board`, which draws these from the
+    same stream as its starts and flowers."""
+    blocked = _obstructions(g, mulberry32(seed), share)
     _open_until_queen_is_reachable(g, blocked)
     return blocked
 
@@ -454,7 +521,7 @@ def can_seal(g: Geometry, cell: int, mouths: int = 4) -> bool:
     return 1 <= r <= g.wall and cell not in mouth_cells(g, mouths)
 
 
-def corner_starts(g: Geometry, seats: int) -> list[int]:
+def corner_starts(g: Geometry, seats: int, rnd=None) -> list[int]:
     """Where bees begin: out at the corners, never in front of a door.
 
     Doors sit at the cardinal points of the wall, so a corner is as far from
@@ -472,21 +539,31 @@ def corner_starts(g: Geometry, seats: int) -> list[int]:
         (-VIEW_HALF, VIEW_HALF),
         (-VIEW_HALF, -VIEW_HALF),
     ]
-    usable = range(g.hive_cells, g.cells)
+    # Which corner a seat draws is dealt, not fixed — mirroring the client
+    # exactly, including the order the draws are consumed in.
+    if rnd is not None:
+        for i in range(len(corners) - 1, 0, -1):
+            j = int(rnd() * (i + 1))
+            corners[i], corners[j] = corners[j], corners[i]
+
+    usable = list(range(g.hive_cells, g.cells))
     taken: set[int] = set()
     out: list[int] = []
     for i in range(seats):
         cx, cy = corners[i % len(corners)]
-        best, best_d = -1, float("inf")
-        for c in usable:
-            if c in taken:
-                continue
-            x, y = cell_centre(g, c)
-            d = (x - cx) ** 2 + (y - cy) ** 2
-            if d < best_d:
-                best_d, best = d, c
-        if best < 0:
+        ranked = sorted(
+            (
+                ((x - cx) ** 2 + (y - cy) ** 2, c)
+                for c in usable
+                if c not in taken
+                for x, y in (cell_centre(g, c),)
+            ),
+            key=lambda t: t[0],
+        )
+        if not ranked:
             break
+        pool = min(3, len(ranked)) if rnd is not None else 1
+        best = ranked[int(rnd() * pool) if rnd is not None else 0][1]
         taken.add(best)
         out.append(best)
     return out

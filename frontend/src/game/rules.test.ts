@@ -26,6 +26,8 @@ import {
   mulberry32,
   neighbors,
   cornerStarts,
+  FLOWERS,
+  hiveLayout,
   outward,
   ringOf,
   slotOf,
@@ -92,12 +94,15 @@ test("tangential movement wraps the ring", () => {
 
 test("the hive starts solid and the meadow starts open", () => {
   const g = makeGeometry(22);
-  const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0, rng: mulberry32(3) });
+  const b = makeBoard(g, { mouths: 4, layout: hiveLayout(g, 3) });
   for (let c = g.hiveCells; c < g.cells; c++) assert.equal(b.state[c], OPEN);
   for (let r = 0; r < g.R; r++)
     for (let i = 0; i < g.size[r]; i++) assert.equal(b.state[idx(g, r, i)], COMB);
   assert.equal([...b.mouth].filter(Boolean).length, 4);
-  assert.equal([...b.flower].filter(Boolean).length, 20);
+  // Read from the shipped constant, not restated: the count is the board's
+  // now, not a per-call option, and a test that names its own number cannot
+  // notice the board changing.
+  assert.equal([...b.flower].filter(Boolean).length, FLOWERS);
 });
 
 test("a dig opens the cell for everyone, and costs the digger extra time", () => {
@@ -414,7 +419,7 @@ test("an obstruction never bricks a door, nor the cell it opens onto", () => {
   // player as a deadlock at the doorway.
   const g = makeGeometry();
   for (let seed = 1; seed <= 40; seed++) {
-    const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(seed) });
+    const b = makeBoard(g, { mouths: 4, layout: hiveLayout(g, seed) });
     const doors = [...Array(g.cells).keys()].filter((c) => b.mouth[c]);
     assert.equal(doors.length, 4);
     for (const d of doors) {
@@ -486,8 +491,8 @@ test("two hives do not share one distance field", () => {
   // hive 0 and solid in theirs. On screen all five hives showed bees frozen in
   // identical positions, which is how it was noticed — never by a failure.
   const g = makeGeometry();
-  const a = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(1) });
-  const b = makeBoard(g, { mouths: 4, flowers: 20, starts: cornerStarts(g, 12), blockShare: 0.05, rng: mulberry32(999) });
+  const a = makeBoard(g, { mouths: 4, layout: hiveLayout(g, 1) });
+  const b = makeBoard(g, { mouths: 4, layout: hiveLayout(g, 999) });
 
   assert.notEqual(a.id, b.id, "two boards must not share an identity");
   assert.equal(a.version, b.version, "and both are fresh, which is what defeated the old key");

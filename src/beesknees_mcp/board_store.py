@@ -40,6 +40,8 @@ BEES = "bk_bees"
 CELLS = "bk_cells"
 FARES = "bk_fares"
 SETTLEMENTS = "bk_settlements"
+# A row here means that flower has been EMPTIED. No row, no rival got there first.
+POLLEN = "bk_pollen"
 
 HIVES = 5
 SEATS = 12
@@ -131,6 +133,18 @@ _DDL: list[str] = [
         "  cell INTEGER NOT NULL,"
         "  dug_by TEXT NOT NULL DEFAULT '',"
         "  dug_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+        "  PRIMARY KEY (match_id, hive, cell))"
+    ),
+    (
+        # A row MEANS the flower is spent. Placement is derived from the seed and
+        # never stored — only the taking is a fact the board has to remember, and
+        # it is the one piece of meadow state two bees can race for.
+        f"CREATE TABLE IF NOT EXISTS {POLLEN} ("
+        "  match_id TEXT NOT NULL,"
+        "  hive INTEGER NOT NULL,"
+        "  cell INTEGER NOT NULL,"
+        "  taken_by TEXT NOT NULL DEFAULT '',"
+        "  taken_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
         "  PRIMARY KEY (match_id, hive, cell))"
     ),
     (
@@ -297,22 +311,31 @@ async def retire_stale_boards() -> dict[str, int]:
     return {"deleted": len(drop), "abandoned": len(keep)}
 
 
-def obstructions(seed: int, hive: int) -> set[int]:
-    """The impassable cells of one hive.
+def hive_seed(seed: int, hive: int) -> int:
+    """Each hive gets its own derived seed, so the five boards in a match differ.
 
-    Each hive gets its own derived seed, so the five boards in a match differ —
-    which is the variability the obstructions exist for. Cached because this is
-    consulted on every single move.
+    The client derives it the same way from the match seed it is sent, which is
+    the whole reason `match_state` sends one.
     """
+    return (int(seed) * 31 + int(hive) * 7919) % (2**31)
+
+
+def layout(seed: int, hive: int) -> geo.HiveBoard:
+    """One hive's starts, flowers and obstructions. Cached: every move reads it."""
     key = (int(seed), int(hive))
-    hit = _obstruction_cache.get(key)
+    hit = _layout_cache.get(key)
     if hit is None:
-        hit = geo.blocked_cells(geo.make_geometry(), (int(seed) * 31 + int(hive) * 7919) % (2**31))
-        _obstruction_cache[key] = hit
+        hit = geo.hive_board(geo.make_geometry(), hive_seed(seed, hive))
+        _layout_cache[key] = hit
     return hit
 
 
-_obstruction_cache: dict[tuple[int, int], set[int]] = {}
+def obstructions(seed: int, hive: int) -> frozenset[int]:
+    """The impassable cells of one hive."""
+    return layout(seed, hive).blocked
+
+
+_layout_cache: dict[tuple[int, int], geo.HiveBoard] = {}
 
 
 async def forming_match() -> dict[str, Any] | None:
@@ -360,15 +383,14 @@ async def seat_counts(match_id: str) -> dict[int, int]:
     return {int(row["hive"]): int(row["n"]) for row in _rows(r)}
 
 
-def _start_cell(g: geo.Geometry, seat: int) -> int:
+def _start_cell(starts: tuple[int, ...], seat: int) -> int:
     """A corner of the meadow, as far from every door as the board allows.
 
-    Evenly spaced around a ring put somebody directly in front of each door —
-    a free entrance for whoever drew that seat — and left the corners of the
-    square empty. `geo.corner_starts` is the client's own function, ported, so
-    the bee the server places is the bee the client draws.
+    Evenly spaced around a ring put somebody directly in front of each door — a
+    free entrance for whoever drew that seat — and left the corners of the square
+    empty. The list comes from `geo.hive_board`, the client's own layout ported,
+    so the bee the server places is the bee the client draws.
     """
-    starts = geo.corner_starts(g, SEATS)
     return starts[seat] if seat < len(starts) else starts[-1]
 
 
@@ -379,7 +401,8 @@ async def take_seat(match_id: str, npub: str, label: str, hive: int) -> dict[str
     patrons arriving together cannot be handed the same seat: the primary key
     rejects the loser, who retries into the next seat.
     """
-    g = geo.make_geometry()
+    m = await get_match(match_id)
+    starts = layout(int((m or {}).get("seed") or 0), hive).starts
     for _ in range(SEATS + 2):
         counts = await seat_counts(match_id)
         seat = counts.get(hive, 0)
@@ -390,7 +413,7 @@ async def take_seat(match_id: str, npub: str, label: str, hive: int) -> dict[str
             "VALUES ($1, $2, $3, $4, $5, $6, now()) "
             "ON CONFLICT (match_id, hive, seat) DO NOTHING "
             "RETURNING hive, seat",
-            [match_id, hive, seat, npub, label, _start_cell(g, seat)],
+            [match_id, hive, seat, npub, label, _start_cell(starts, seat)],
         )
         rows = _rows(r)
         if rows:
@@ -457,7 +480,7 @@ def _phase_after(g: geo.Geometry, phase: str, cell: int, on_flower: bool) -> str
 
 
 async def fly(
-    match_id: str, npub: str, to_cell: int, *, on_flower: bool = False
+    match_id: str, npub: str, to_cell: int
 ) -> dict[str, Any]:
     """Move into a cell that is already open.
 
@@ -479,7 +502,17 @@ async def fly(
     if is_blocked(seed, int(bee["hive"]), to_cell):
         raise BoardError("that cell is capped brood — nothing flies through it")
 
-    phase = _phase_after(g, str(bee["phase"]), to_cell, on_flower)
+    # Is this a flower, and is it still holding? Placement comes from the seed;
+    # only the TAKING is stored, because it is the one piece of meadow state two
+    # bees can race each other for.
+    hive = int(bee["hive"])
+    lay = layout(seed, hive)
+    on_flower = str(bee["phase"]) == "forage" and to_cell in lay.flowers
+
+    if on_flower:
+        return await _fly_and_take_pollen(match_id, npub, cur, to_cell, hive)
+
+    phase = _phase_after(g, str(bee["phase"]), to_cell, False)
     needs_open = not geo.is_meadow(g, to_cell)
     gate = (
         f" AND EXISTS (SELECT 1 FROM {CELLS} c WHERE c.match_id = $1 "
@@ -503,6 +536,64 @@ async def fly(
         return {"moved": False, "reason": "not your turn, or the way is not open"}
     await bump(match_id)
     return {"moved": True, **rows[0]}
+
+
+async def _fly_and_take_pollen(
+    match_id: str, npub: str, cur: int, to_cell: int, hive: int
+) -> dict[str, Any]:
+    """Land on a flower and empty it, in ONE statement.
+
+    A flower is taken by whoever reaches it first, so two bees arriving together
+    must not both leave loaded. The insert is the fence: its primary key lets
+    exactly one through, and the bee's phase only advances if that insert was
+    the one that landed. The loser still MOVES — flying to a flower a rival
+    emptied is a legal, wasted trip, and telling the patron their move was
+    refused would be a lie about what happened.
+
+    Ordered as claim-then-move inside one CTE for the same reason `dig` is: with
+    no transaction available, two statements can leave the pollen spent and the
+    bee still standing where it was.
+    """
+    r = await _exec(
+        f"WITH ok AS ("
+        f"  SELECT 1 FROM {BEES} WHERE match_id = $1 AND npub = $2 AND cell = $4"
+        "   AND next_move_at <= now() AND phase = 'forage'), "
+        f"took AS ("
+        f"  INSERT INTO {POLLEN} (match_id, hive, cell, taken_by)"
+        "   SELECT $1, $5, $3, $2 WHERE EXISTS (SELECT 1 FROM ok)"
+        "   ON CONFLICT (match_id, hive, cell) DO NOTHING RETURNING cell), "
+        f"moved AS ("
+        f"  UPDATE {BEES} SET cell = $3, moves = moves + 1, came_inward = FALSE,"
+        "     phase = CASE WHEN EXISTS (SELECT 1 FROM took) THEN 'return' ELSE phase END,"
+        f"     next_move_at = now() + interval '{COOLDOWN_S} seconds'"
+        "   WHERE match_id = $1 AND npub = $2 AND cell = $4"
+        "     AND next_move_at <= now() AND phase = 'forage'"
+        "   RETURNING hive, seat, cell, phase) "
+        "SELECT (SELECT count(*) FROM took) AS took, "
+        "       (SELECT hive FROM moved) AS hive, (SELECT seat FROM moved) AS seat, "
+        "       (SELECT cell FROM moved) AS cell, (SELECT phase FROM moved) AS phase",
+        [match_id, npub, to_cell, cur, hive],
+    )
+    row = (_rows(r) or [{}])[0]
+    if row.get("cell") is None:
+        return {"moved": False, "reason": "not your turn, or the way is not open"}
+    await bump(match_id)
+    return {
+        "moved": True,
+        "hive": row["hive"],
+        "seat": row["seat"],
+        "cell": row["cell"],
+        "phase": row["phase"],
+        "pollen": bool(int(row.get("took") or 0)),
+    }
+
+
+async def taken_pollen(match_id: str) -> list[dict[str, int]]:
+    """Which flowers are already spent. An empty flower is information."""
+    r = await _exec(
+        f"SELECT hive, cell FROM {POLLEN} WHERE match_id = $1 ORDER BY hive, cell", [match_id]
+    )
+    return [{"hive": int(x["hive"]), "cell": int(x["cell"])} for x in _rows(r)]
 
 
 async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
