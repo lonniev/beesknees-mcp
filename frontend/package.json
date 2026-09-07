@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test && tsc -b && vite build",
+    "build": "npm run test && tsc -b && npm run smoke && npm run routes && vite build",
     "preview": "vite preview",
     "test": "node --test src/game/*.test.ts src/lib/*.test.ts",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "routes": "node scripts/routes.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

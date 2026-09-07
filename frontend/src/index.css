@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* This app is dark. Not "dark if your laptop is".
+ *
+ * The identity screens were copied in from sibling services that support both
+ * themes, so they carry ~50 `dark:` classes. Tailwind v4 resolves that variant
+ * from `prefers-color-scheme` unless told otherwise — and nothing here sets a
+ * `dark` class — so a visitor whose OS is in light mode would have got white
+ * cards and stone-grey text sitting on this page's near-black ground. The board
+ * has one palette and no light mode, so the variant is simply always on. */
+@custom-variant dark (&);
+
 @theme {
   --color-comb: #2f2410;
   --color-comb-edge: #4a3819;

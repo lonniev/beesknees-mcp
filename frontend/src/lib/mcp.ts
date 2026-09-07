@@ -65,21 +65,45 @@ async function getClient(): Promise<Client> {
 }
 
 // ─── Stored identity ─────────────────────────────────────────────────────
+//
+// Every read and write goes through these two, because `localStorage` is not
+// the certainty it looks like. It is absent when the app is rendered off a
+// browser (the route check does exactly that, and this file used to throw), and
+// merely TOUCHING it raises in a browser with site data blocked or in some
+// privacy modes. An identity helper that can take down the whole page on a
+// setting the visitor chose is not one worth having, so a failure here reads as
+// "nothing stored" and the app carries on asking them to sign in.
+
+function readStored(key: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* a visitor who blocks site data simply signs in again next time */
+  }
+}
 
 export function getStoredNpub(): string {
-  return window.localStorage.getItem(NPUB_STORAGE_KEY) ?? "";
+  return readStored(NPUB_STORAGE_KEY);
 }
 
 export function setStoredNpub(npub: string): void {
-  window.localStorage.setItem(NPUB_STORAGE_KEY, npub);
+  writeStored(NPUB_STORAGE_KEY, npub);
 }
 
 export function getStoredProof(): string {
-  return window.localStorage.getItem(PROOF_STORAGE_KEY) ?? "";
+  return readStored(PROOF_STORAGE_KEY);
 }
 
 export function setStoredProof(proof: string): void {
-  window.localStorage.setItem(PROOF_STORAGE_KEY, proof);
+  writeStored(PROOF_STORAGE_KEY, proof);
 }
 
 // ─── Recent logins (skip the DM on return) ───────────────────────────────
