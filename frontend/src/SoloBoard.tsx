@@ -13,7 +13,7 @@ import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
-import { isHot, queenName, queenOf, seated } from "./game/match.ts";
+import { isHot, queenName, queenOf, seated, youWon } from "./game/match.ts";
 import { cellCentre } from "./lib/polar.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 
@@ -359,7 +359,7 @@ export default function App() {
       restLeft={ready ? 0 : cooldown}
       winner={
         match.state === "ended" && match.winner
-          ? match.winner.beeId === match.you?.beeId
+          ? youWon(match)
             ? {
                 label: `Consort to ${queenName(match.hives[match.winner.hive])}`,
                 detail: `Hive ${match.hives[match.winner.hive].name} is yours — first bee home`,
