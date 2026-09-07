@@ -127,6 +127,21 @@ export function makeMatch(rules: Rules = DEFAULT_RULES, seed = Date.now()): Matc
 }
 
 /** The bees actually in play — a seat that nobody bought does not fly. */
+/**
+ * Did the player's own bee win?
+ *
+ * Both halves, always. `beeId` is a seat INDEX within one hive — `hive.seats.length`
+ * at the time of sitting — so every hive has a bee 0, and comparing the id alone
+ * hands a rival's win in another hive the player's own coronation. The board
+ * renderer one screen away already checks the hive first for exactly this reason;
+ * the finale did not, and a wrong answer there is a crown over somebody else's queen.
+ */
+export function youWon(match: Match): boolean {
+  const { winner, you } = match;
+  if (!winner || !you) return false;
+  return winner.hive === you.hive && winner.beeId === you.beeId;
+}
+
 export function seated(hive: Hive): Bee[] {
   return hive.seats.map((s) => hive.round.bees[s.beeId]);
 }
