@@ -50,9 +50,15 @@ QUORUM = 8
 # with one uniform cooldown, fares do not win races, so riding a rival's shaft
 # was strictly worse than boring your own and the whole dig-or-ride choice was
 # inert. Measured in `sim/`, not chosen by taste.
-COOLDOWN_S = 2.0
-DIG_EXTRA_S = 6.0
-SEAL_S = 2.0
+#
+# These MUST equal the client's DEFAULT_RULES in frontend/src/game/rules.ts:
+# cooldownTicks 10, digDelayTicks 30, collapseTicks 10, at TICK_MS 100. They
+# agree today by having been typed the same twice, which is not a mechanism —
+# `tests/test_cadence.py` at least makes a change to one side fail loudly on
+# this one, until the live board serves its cadence to the client outright.
+COOLDOWN_S = 1.0
+DIG_EXTRA_S = 3.0
+SEAL_S = 1.0
 """One cooldown, the same as a move.
 
 Sealing was free in time, as the one place spending bought position outright.

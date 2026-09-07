@@ -515,11 +515,25 @@ export interface Rules {
 
 export const DEFAULT_RULES: Rules = {
   costs: DEFAULT_COSTS,
-  cooldownTicks: 20, // 20 x 100ms = 2s
-  digDelayTicks: 60, // a dug cell costs four cooldowns in all
+  // The whole clock, halved — and halved TOGETHER, which is the point.
+  //
+  // An eight-second rest after cutting one cell reads as a stall, and the
+  // obvious fix is to make digging cheaper. Measured, that is the wrong knob:
+  // taking the dig alone from 8s to 5s collapses `rider` from 17% to 4% and
+  // halves the routing (9.6 changes of mind to 5.7). Riding somebody else's
+  // shaft is only worth doing while cutting your own is dear — the 4:1 ratio is
+  // the game's one real dilemma, not a comfort setting.
+  //
+  // Halving every delay keeps that ratio and buys the same relief: the longest
+  // rest is 4s instead of 8s, a round runs 1:50 instead of 3:38, and the win
+  // shares barely move (digger 47%, sealer 31%, rider 13%). A round still costs
+  // about the same in fares, because it is the same number of moves — it just
+  // stops spending two thirds of itself watching a ring.
+  cooldownTicks: 10, // 10 x 100ms = 1s
+  digDelayTicks: 30, // a dug cell costs four cooldowns in all — 4s
   maxTicks: 6000, // 10 minutes
   collapseRange: "anywhere",
-  collapseTicks: 20,
+  collapseTicks: 10,
   staggerRequired: true,
   blockShare: 0.05,
   occupancy: true,
