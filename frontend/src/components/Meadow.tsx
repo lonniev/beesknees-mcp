@@ -53,6 +53,8 @@ interface Forager {
   scale: number;
   /** Per-bee speed variation — a meadow is not a formation. */
   vigour: number;
+  /** Which rally this bee has already answered. See `rally` below. */
+  called: number;
 }
 
 /**
@@ -71,23 +73,28 @@ interface Field {
   w: number;
   h: number;
   hives: Hive[];
+  /** The hive being played, if one is marked. Where a rally goes. */
+  focus: Hive | null;
 }
 
 /** Every hive on screen, measured together, or nothing before first paint. */
 function measure(host: HTMLElement): Field {
   const box = host.getBoundingClientRect();
-  if (!box.width || !box.height) return { w: 0, h: 0, hives: [] };
+  if (!box.width || !box.height) return { w: 0, h: 0, hives: [], focus: null };
   const layer = { w: box.width, h: box.height };
+  let focus: Hive | null = null;
   const hives = Array.from(host.parentElement?.querySelectorAll("[data-hive]") ?? [])
     .map((el) => {
       const r = el.getBoundingClientRect();
-      return drawnHive(
+      const h = drawnHive(
         { x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height },
         layer,
       );
+      if (el.getAttribute("data-hive") === "focus") focus = h;
+      return h;
     })
     .filter((h) => h.hx > 0.001 && h.hy > 0.001);
-  return { ...layer, hives };
+  return { ...layer, hives, focus };
 }
 
 /**
@@ -126,14 +133,33 @@ function spawn(n: number, hs: Hive[]): Forager[] {
       buzz: rnd(0, 6.28),
       scale: rnd(0.8, 1.25),
       vigour: rnd(0.8, 1.25),
+      called: 0,
     };
   });
 }
 
-export default function Meadow({ count = 8 }: { count?: number }) {
+export default function Meadow({ count = 8, rally = false }: { count?: number; rally?: boolean }) {
   const layer = useRef<HTMLDivElement | null>(null);
   const raf = useRef<number>(0);
   const pointer = useRef<{ x: number; y: number; until: number } | null>(null);
+
+  /**
+   * The meadow comes to the wedding.
+   *
+   * When a race ends, every forager breaks off and makes for the hive being
+   * played. Answered ONCE per call rather than re-aimed every frame, or a bee
+   * would pick a new door sixty times a second and shiver in place instead of
+   * flying anywhere. The counter is what a bee compares itself against, so a
+   * second win later in the session calls them out again.
+   *
+   * A ref, not state: this must not restart the flight, which is exactly what
+   * putting it in the effect's deps would do — every bee back to a door, mid
+   * celebration.
+   */
+  const call = useRef({ on: false, seq: 0 });
+  if (rally !== call.current.on) {
+    call.current = { on: rally, seq: call.current.seq + (rally ? 1 : 0) };
+  }
 
   // Bees veer off from a looming hand and these do too. Passive, on window, and
   // never preventDefault — the layer is pointer-events:none throughout, so
@@ -218,12 +244,30 @@ export default function Meadow({ count = 8 }: { count?: number }) {
       bees.forEach((b, i) => {
         b.timer -= dt;
 
+        // ── Called to the wedding ──────────────────────────────────────
+        if (call.current.on && field.focus && b.called !== call.current.seq) {
+          const d = doorOn(field.focus, rnd(0, Math.PI * 2));
+          b.tx = d.x;
+          b.ty = d.y;
+          b.phase = "returning";
+          b.called = call.current.seq;
+        }
+
         // ── The trip ───────────────────────────────────────────────────
         if (b.phase === "resting" && b.timer <= 0) {
-          const p = patch(field.hives);
-          b.tx = p.x;
-          b.ty = p.y;
-          b.phase = "leaving";
+          if (call.current.on && field.focus) {
+            // Nobody goes back to work during a coronation. They circle the
+            // doors instead — a crowd gathering rather than a queue standing.
+            const d = doorOn(field.focus, rnd(0, Math.PI * 2));
+            b.tx = d.x;
+            b.ty = d.y;
+            b.phase = "returning";
+          } else {
+            const p = patch(field.hives);
+            b.tx = p.x;
+            b.ty = p.y;
+            b.phase = "leaving";
+          }
         } else if (b.phase === "leaving" && Math.hypot(b.tx - b.x, b.ty - b.y) < 0.05) {
           b.phase = "foraging";
           b.timer = rnd(5, 14); // stay and work it

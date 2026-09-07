@@ -285,12 +285,19 @@ export default function LiveBoard({ session }: { session: Session }) {
       restLeft={left > 0 ? left / servedMs : 0}
       winner={
         winnerBee
-          ? {
-              label: iWon ? "You reached the queen" : winnerBee.label || winnerBee.npub.slice(0, 12),
-              detail: iWon
-                ? `Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]} is yours${claimed}`
-                : `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
-            }
+          ? iWon
+            ? {
+                label: `Consort to Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]}`,
+                detail: `Hive ${HIVE_NAMES[winnerBee.hive]} is yours — first bee home`,
+                // Where the winner's share went, on its own line rather than
+                // tacked onto the sentence with a second dash.
+                note: claimed ? claimed.replace(/^\s*—\s*/, "") : undefined,
+                yours: true,
+              }
+            : {
+                label: winnerBee.label || winnerBee.npub.slice(0, 12),
+                detail: `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
+              }
           : null
       }
       // Leaving is the winner's own move: the result stays until they are done

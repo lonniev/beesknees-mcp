@@ -14,8 +14,9 @@
  */
 
 import type { ReactNode } from "react";
-import { RotateCcw, Trophy } from "lucide-react";
+import { Crown, RotateCcw, Trophy } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
+import Coronation from "./Coronation.tsx";
 import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
@@ -82,7 +83,11 @@ export interface BoardScreenProps {
   /** Fraction of the current rest still to serve, 1 → 0. Drawn on the button. */
   restLeft: number;
 
-  winner?: { label: string; detail: string } | null;
+  /**
+   * The end of the race. `yours` turns the flourish up — it is still the end
+   * of the race when a rival wins, but it is not your wedding.
+   */
+  winner?: { label: string; detail: string; note?: string; yours?: boolean } | null;
 }
 
 function RivalTile({
@@ -234,7 +239,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           * narrow-screen rival strip as well as the gutters, so the traffic
           * crosses all five hives on a phone rather than orbiting the one in
           * the middle. */}
-        <Meadow />
+        <Meadow rally={Boolean(p.winner)} />
 
         <div className="flex min-h-0 flex-1 gap-2">
           {wide && (
@@ -251,7 +256,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             * it — a square viewBox letterboxed in a wide box — which is what
             * `drawnHive` corrects for so a bee homes to the hive rather than
             * to the empty band beside it. */}
-          <div className="relative min-h-0 flex-1" data-hive="">
+          <div className="relative min-h-0 flex-1" data-hive="focus">
             {shown && (
               <HiveView
                 board={shown.board}
@@ -268,12 +273,30 @@ export default function BoardScreen(p: BoardScreenProps) {
               />
             )}
 
+            {/* The flourish plays on the CLEAR board; the card follows. Both
+              * are keyed on the winner's line so a fresh win replays them
+              * rather than showing a finished animation and a new name. */}
+            {p.winner && <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />}
+
             {p.winner && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
-                <Trophy size={40} className="text-[var(--color-wax)]" />
+              <div
+                key={`card:${p.winner.detail}`}
+                className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm"
+              >
+                {p.winner.yours ? (
+                  <Crown size={44} className="bk-pulse text-[var(--color-wax)]" />
+                ) : (
+                  <Trophy size={38} className="text-white/70" />
+                )}
                 <div className="text-center">
                   <div className="text-xl font-semibold">{p.winner.label}</div>
-                  <div className="text-sm text-white/60">{p.winner.detail}</div>
+                  <div className="mt-0.5 text-sm text-white/60">{p.winner.detail}</div>
+                  {/* The money, on its own line. It was appended to the detail
+                    * with a second dash, which read as an afterthought about
+                    * the thing the whole game is for. */}
+                  {p.winner.note && (
+                    <div className="mt-2 text-[13px] text-[var(--color-wax)]/80">{p.winner.note}</div>
+                  )}
                 </div>
                 {p.onNewMatch && (
                   <button

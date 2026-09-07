@@ -105,3 +105,119 @@ svg.hive {
     opacity: 0.22;
   }
 }
+
+/* ── The coronation ───────────────────────────────────────────────────────
+ *
+ * A bee crosses a meadow, carries pollen home through a door somebody else is
+ * standing in, and digs thirty cells of comb to reach the queen — and the
+ * reward was a trophy glyph and a line of grey text. The end of a race is the
+ * one moment in this game that is allowed to be loud.
+ *
+ * Everything here is geometry and opacity, in keeping with the rest: no
+ * illustration, no sound, nothing that outlives its two seconds. */
+
+/* A wave out of the queen chamber, through the comb, over the wall. Sized
+   against the hive's own square, so it arrives at the wall on every screen. */
+@keyframes bk-wave {
+  0% {
+    transform: scale(0.06);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.8;
+  }
+  100% {
+    /* The hive wall sits at about 0.8 of the square's half-side and the meadow
+       fills the rest, so 1 is the verge. The first pass ran to 1.45 and the
+       wave was off the board and into the page background before the crown had
+       landed — it read as a stray ring, not as the hive lighting up. */
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.bk-wave {
+  animation: bk-wave 1.6s cubic-bezier(0.12, 0.75, 0.3, 1) both;
+}
+
+/* The crown, arriving with weight. It overshoots and settles rather than
+   fading up: a crown that eases in politely is a notification. */
+@keyframes bk-crown {
+  0% {
+    transform: scale(0.2) translateY(14%);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.18) translateY(-4%);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.96) translateY(0);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.bk-crown {
+  animation: bk-crown 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) 0.12s both;
+}
+
+/* The hive empties out to celebrate. Bees RISE — falling confetti is the
+   wrong physics for the one animal this whole screen is about. Each carries
+   its own drift and spin inline so no two take the same line. */
+@keyframes bk-rise {
+  0% {
+    transform: translate(0, 0) scale(0.35) rotate(0deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(var(--spin));
+    opacity: 0;
+  }
+}
+
+.bk-rise {
+  animation: bk-rise var(--life) cubic-bezier(0.2, 0.6, 0.35, 1) var(--wait) both;
+}
+
+/* The result card, held back so the board gets its moment first. It covers
+   the hive, so arriving on the same frame as the wave would hide the wave. */
+@keyframes bk-settle {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bk-settle {
+  animation: bk-settle 0.55s ease-out 1.15s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Stillness was asked for, so the flourish is skipped rather than slowed —
+     and the card comes straight away, because a blank pause is not a kindness. */
+  .bk-wave,
+  .bk-rise {
+    animation: none;
+    opacity: 0;
+  }
+
+  .bk-crown {
+    animation: none;
+  }
+
+  .bk-settle {
+    animation: none;
+  }
+}

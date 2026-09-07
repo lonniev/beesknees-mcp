@@ -80,8 +80,12 @@ export const HIVE_NAMES = ["Linden", "Clover", "Thistle", "Borage", "Heather"];
 /** Every queen is a flower. "Queen Rose of Hive Linden." */
 export const QUEEN_NAMES = ["Rose", "Iris", "Dahlia", "Poppy", "Marigold"];
 
+export function queenName(hive: Hive): string {
+  return `Queen ${QUEEN_NAMES[hive.id % QUEEN_NAMES.length]}`;
+}
+
 export function queenOf(hive: Hive): string {
-  return `Queen ${QUEEN_NAMES[hive.id % QUEEN_NAMES.length]} of Hive ${hive.name}`;
+  return `${queenName(hive)} of Hive ${hive.name}`;
 }
 
 /**
