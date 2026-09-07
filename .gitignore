@@ -206,3 +206,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 # uv.lock is COMMITTED — Horizon deploys from it and CI runs `uv sync --locked`.
+
+# The frontend's installed packages. `npm ci` rebuilds them from the lockfile,
+# which is the file that actually pins them; 3,782 tracked copies only made
+# every diff unreadable.
+frontend/node_modules/
+frontend/dist/
