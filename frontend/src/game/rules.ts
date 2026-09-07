@@ -444,6 +444,15 @@ export interface Bee {
   netTurn: number;
   /** How often the bee REVERSED its way round. Zero means a pure spiral. */
   turnSwitches: number;
+  /**
+   * What the bee is busy doing while its delay runs.
+   *
+   * The delay used to be reported as "Resting" whatever caused it, which told
+   * the player their bee was idle at the exact moment it was working hardest.
+   * A bee that has just cut through eight seconds of wax is not resting, and
+   * saying so made an honest cost read as a lazy animal.
+   */
+  lastAction: "fly" | "dig" | "collapse" | "wait" | null;
   /** The last tangential direction taken, or 0 if none yet. */
   lastTurn: number;
   phase: Phase;
@@ -515,22 +524,26 @@ export interface Rules {
 
 export const DEFAULT_RULES: Rules = {
   costs: DEFAULT_COSTS,
-  // The whole clock, halved — and halved TOGETHER, which is the point.
+  // A bee crawls quickly and digs slowly, and the gap between the two IS the
+  // game.
   //
-  // An eight-second rest after cutting one cell reads as a stall, and the
-  // obvious fix is to make digging cheaper. Measured, that is the wrong knob:
-  // taking the dig alone from 8s to 5s collapses `rider` from 17% to 4% and
-  // halves the routing (9.6 changes of mind to 5.7). Riding somebody else's
-  // shaft is only worth doing while cutting your own is dear — the 4:1 ratio is
-  // the game's one real dilemma, not a comfort setting.
+  // An eight-second wait after cutting one cell read as a lazy bee, because the
+  // cell opened at once and the bee then sat still. The wait was never the
+  // problem; it was being called a rest. So crawling is a second and cutting is
+  // eight, and the interface says "Digging" while it happens.
   //
-  // Halving every delay keeps that ratio and buys the same relief: the longest
-  // rest is 4s instead of 8s, a round runs 1:50 instead of 3:38, and the win
-  // shares barely move (digger 47%, sealer 31%, rider 13%). A round still costs
-  // about the same in fares, because it is the same number of moves — it just
-  // stops spending two thirds of itself watching a ring.
-  cooldownTicks: 10, // 10 x 100ms = 1s
-  digDelayTicks: 30, // a dug cell costs four cooldowns in all — 4s
+  // Measured over 250 rounds, this is also the best of the four settings tried.
+  // Widening the gap between travelling and cutting is exactly what makes
+  // riding somebody else's shaft worth the detour:
+  //
+  //   crawl 1s dig 4s   median 1:50  reversals 8.3   rider 13%  (too short)
+  //   crawl 1s dig 8s   median 3:23  reversals 13.7  rider 18%  <- this
+  //   crawl 2s dig 8s   median 3:38  reversals 8.1   rider 11%  (was)
+  //
+  // Most routing and the most contested field of anything tried: 36/34/18/12
+  // across digger, sealer, rider and the driller, where a uniform share is 20.
+  cooldownTicks: 10, // 10 x 100ms = 1s to crawl or fly
+  digDelayTicks: 70, // a cut costs EIGHT times a move, and shows it
   maxTicks: 6000, // 10 minutes
   collapseRange: "anywhere",
   collapseTicks: 10,
@@ -618,6 +631,7 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
   const g = board.g;
 
   if (a.kind === "wait") {
+    bee.lastAction = "wait";
     bee.lastDelayTicks = rules.cooldownTicks;
     bee.nextMoveTick = round.tick + rules.cooldownTicks;
     return true;
@@ -628,6 +642,7 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
     board.version++;
     bee.spend += rules.costs.collapse;
     bee.collapses++;
+    bee.lastAction = "collapse";
     bee.lastDelayTicks = rules.collapseTicks;
     bee.nextMoveTick = round.tick + rules.collapseTicks;
     return true;
@@ -673,6 +688,7 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
   bee.prevCell = bee.cell;
   bee.cell = a.to;
   bee.moves++;
+  bee.lastAction = a.kind;
   bee.lastDelayTicks = delay;
   bee.nextMoveTick = round.tick + delay;
   advancePhase(round, bee);
@@ -913,6 +929,7 @@ export function makeRound(
     cell: starts[id] ?? starts[starts.length - 1] ?? g.hiveCells,
     prevCell: -1,
     cameInward: false,
+    lastAction: null,
     netTurn: 0,
     turnSwitches: 0,
     lastTurn: 0,

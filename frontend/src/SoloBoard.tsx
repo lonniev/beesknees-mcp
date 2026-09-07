@@ -67,6 +67,25 @@ function verbLabel(id: Verb, word: string): string {
  * bee's current cell got both of those backwards, which is exactly the moment
  * the word matters: at the threshold.
  */
+/**
+ * What the bee is DOING while its clock runs down.
+ *
+ * It said "Resting" whatever the delay was for, which told the player their bee
+ * was idle at the exact moment it was working hardest — eight seconds of it,
+ * after cutting a cell. The wait was never the problem. Being told an
+ * industrious animal was having a lie-down was.
+ *
+ * The cell really does open the instant the dig is paid for, and the bee really
+ * is standing in it — that is the rule, and the server's fenced write depends on
+ * it. So this is an honest reading of the same fact rather than a fiction: the
+ * bee is in the cell it is still busy cutting its way through.
+ */
+function busyWord(action: string | null | undefined): string {
+  if (action === "dig") return "Digging";
+  if (action === "collapse") return "Sealing";
+  return "Resting";
+}
+
 function moveWord(destInHive: boolean): string {
   return destInHive ? "Crawl" : "Fly";
 }
@@ -482,11 +501,11 @@ export default function App() {
         <span className="min-w-0 flex-1 text-left text-[13px] leading-tight text-white/60">
           {!ready ? (
             <span className="text-[var(--color-you)]">
-              Resting {(cooldownMs / 1000).toFixed(1)}s
+              {busyWord(you?.lastAction)} {(cooldownMs / 1000).toFixed(1)}s
             </span>
           ) : (
             pending.action?.kind === "dig"
-              ? "Press to cut the next cell — a dig costs four rests."
+              ? "Press to cut — eight seconds of digging, against one to crawl."
               : NEXT_STEP(you?.phase, target, pending.why, pending.word)
           )}
         </span>

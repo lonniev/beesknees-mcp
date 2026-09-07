@@ -52,12 +52,12 @@ QUORUM = 8
 # inert. Measured in `sim/`, not chosen by taste.
 #
 # These MUST equal the client's DEFAULT_RULES in frontend/src/game/rules.ts:
-# cooldownTicks 10, digDelayTicks 30, collapseTicks 10, at TICK_MS 100. They
+# cooldownTicks 10, digDelayTicks 70, collapseTicks 10, at TICK_MS 100. They
 # agree today by having been typed the same twice, which is not a mechanism —
 # `tests/test_cadence.py` at least makes a change to one side fail loudly on
 # this one, until the live board serves its cadence to the client outright.
 COOLDOWN_S = 1.0
-DIG_EXTRA_S = 3.0
+DIG_EXTRA_S = 7.0
 SEAL_S = 1.0
 """One cooldown, the same as a move.
 

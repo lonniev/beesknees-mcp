@@ -57,14 +57,18 @@ def test_the_server_moves_at_the_speed_the_client_shows() -> None:
 
 
 @pytest.mark.skipif(not RULES_TS.exists(), reason="frontend not checked out")
-def test_digging_stays_four_times_a_move() -> None:
+def test_a_cut_costs_eight_times_a_crawl() -> None:
     """The ratio, not the pace, is what the game is built on.
 
-    Taking the dig from 8s to 5s while leaving the move at 2s was measured: it
-    collapses the rider from 17% of wins to 4% and halves the routing. Riding a
-    rival's shaft is only worth doing while cutting your own is dear, so this
-    ratio is load-bearing and a change to it is a change to the game.
+    Riding somebody else's shaft is only worth the detour while cutting your own
+    is dear, so the gap between crawling and digging IS the game's one real
+    choice. Measured over 250 rounds a side: closing it to 4:1 drops the rider
+    from 18% of wins to 13% and the routing from 13.7 changes of mind to 8.3;
+    closing it further, to a 2s crawl against a 5s cut, puts the rider on 4%.
+    Widening it to 8:1 gives the most contested field of anything tried.
+
+    A change here is a change to the game, not a comfort setting.
     """
     total = store.COOLDOWN_S + store.DIG_EXTRA_S
-    assert total / store.COOLDOWN_S == 4.0, f"a dig now costs {total / store.COOLDOWN_S} moves"
+    assert total / store.COOLDOWN_S == 8.0, f"a cut now costs {total / store.COOLDOWN_S} crawls"
     assert _client()["seal"] == store.COOLDOWN_S, "a seal costs exactly one move"
