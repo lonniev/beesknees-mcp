@@ -184,16 +184,30 @@ class Swarm:
             self.bees.clear()
 
 
-async def run(url: str, coupon: str, seconds: float, log: Any = logger) -> dict[str, int]:
-    """Watch one service for `seconds`, filling thin hives and playing them.
+#: How long a round can possibly last: the server's ceiling, plus room to settle.
+ROUND_CEILING_S = 11 * 60
 
-    A shift has to OUTLIVE A ROUND. The bees it seats exist only in this process,
-    so if it exits mid-match nobody can move them again and the hive fills with
-    bees that arrived and then went to sleep — which is exactly what happened the
-    first time this ran, with a shift shorter than the game.
 
-    A round runs about three and a half minutes and can reach its ten-minute
-    ceiling, so a shift is sized to cover the ceiling and then some.
+async def run(
+    url: str, coupon: str, seconds: float, hard_cap: float = 840.0, log: Any = logger
+) -> dict[str, int]:
+    """Take work for `seconds`, then SEE IT THROUGH — up to `hard_cap`.
+
+    The bees a shift seats exist only in this process, so a shift that ends
+    mid-round strands them: they stop wherever they stood and the hive fills with
+    bees that arrived and went to sleep.
+
+    Making the shift longer than a round was not enough, and the reason is worth
+    stating because it is the sort of thing that reads as fixed. A twelve-minute
+    shift only covers a round that starts near the beginning of it — a match
+    beginning at minute eleven still got one minute. The bees froze wherever they
+    were, which looked like a bug about doors because a door is where a bee is a
+    minute into a round.
+
+    So the shift has two clocks. It stops TAKING new work after `seconds`, and
+    then keeps playing whatever it already committed to until that round ends —
+    bounded by `hard_cap`, which must sit inside Modal's own timeout. It never
+    joins a match it cannot see through.
     """
     swarm = Swarm(url=url, coupon=coupon)
     # One throwaway identity just to read the board. `match_state` is free and
@@ -203,23 +217,40 @@ async def run(url: str, coupon: str, seconds: float, log: Any = logger) -> dict[
     first_seen: float | None = None
     tally = {"joined": 0, "moves": 0, "polls": 0}
     try:
-        while time.monotonic() - started < seconds:
+        while True:
             state = await reader.call("match_state")
             tally["polls"] += 1
             if not state.get("success"):
                 await asyncio.sleep(3)
                 continue
 
+            elapsed = time.monotonic() - started
+            running = str(state.get("state")) == "running"
+            committed = bool(swarm.bees) and running
+
             if str(state.get("state")) == "forming" and (state.get("bees") or []):
                 first_seen = first_seen or time.monotonic()
-                # Give the room a chance to fill itself before propping it up.
-                if time.monotonic() - first_seen >= PATIENCE_S:
+                # Two conditions, and the second is the one that stops bees being
+                # stranded: give the room a chance to fill itself, AND only take
+                # a match there is time left to see through.
+                room_to_finish = elapsed + ROUND_CEILING_S <= hard_cap
+                if time.monotonic() - first_seen >= PATIENCE_S and room_to_finish:
                     tally["joined"] = await swarm.top_up(state)
+                elif not room_to_finish and not swarm.bees:
+                    logger.info("leaving this lobby to the next shift — not enough of mine left")
             else:
                 first_seen = None
 
             tally["moves"] += await swarm.play_once(state)
             swarm.forget_finished(state)
+
+            # Stop taking work after the window, but never walk out on bees that
+            # are still playing.
+            if elapsed >= seconds and not committed:
+                break
+            if elapsed >= hard_cap:
+                logger.warning("hard cap reached with %d bees still out", len(swarm.bees))
+                break
 
             # The SERVER says how often to ask — a second while a match is
             # running, four while a lobby waits. Honouring it means one cadence

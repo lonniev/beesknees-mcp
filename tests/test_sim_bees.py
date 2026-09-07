@@ -174,3 +174,24 @@ def test_the_swarm_only_props_up_a_room_that_needs_it() -> None:
 
     # And a match is never all robots: one seat is always somebody's.
     assert MAX_BEES == QUORUM - 1
+
+
+def test_a_shift_refuses_a_match_it_cannot_finish() -> None:
+    """Better no bees than bees that stop halfway.
+
+    A shift that ends mid-round strands the bees it seated: they stop where they
+    stand and the hive fills with sleepers. Making the shift longer than a round
+    was not enough — a twelve-minute shift only covers a round that STARTS near
+    the beginning of it, and a match beginning at minute eleven still got one
+    minute. So a shift will not take a lobby it has not the time to see through,
+    and will not walk out on one it has.
+    """
+    from beesknees_mcp.sim_swarm import ROUND_CEILING_S
+
+    hard_cap = 840.0
+    # Early in the shift there is room for a whole round.
+    assert 10 + ROUND_CEILING_S <= hard_cap
+    # Late in it there is not, and the lobby is left to the next shift.
+    assert not (200 + ROUND_CEILING_S <= hard_cap)
+    # And the ceiling really is the server's, not a smaller guess.
+    assert ROUND_CEILING_S >= 10 * 60, "a round can reach ten minutes"

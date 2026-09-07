@@ -53,17 +53,18 @@ config = modal.Secret.from_name("beesknees-sim", required_keys=["BEESKNEES_URL"]
 @app.function(
     image=image,
     secrets=[config],
-    # A shift OUTLIVES A ROUND, deliberately.
+    # A shift SEES ITS ROUND OUT.
     #
-    # The bees a shift seats live in its process, so a shift shorter than the
-    # game strands them: they join, the function exits, and the next one has no
-    # idea who they are. The hive then fills with bees that arrived and never
-    # moved — which is precisely what the first deployment did.
+    # The bees a shift seats live in its process, so a shift that ends mid-round
+    # strands them where they stood. Simply making the shift long enough was not
+    # enough: a twelve-minute shift only covers a round that starts near the
+    # beginning of it, and a match starting at minute eleven still got one.
     #
-    # A round runs about three and a half minutes and can reach its ten-minute
-    # ceiling, so twelve covers the worst case with room to settle. The period is
-    # a minute longer than the run so two swarms are never on one board.
-    schedule=modal.Period(minutes=13),
+    # So the shift takes new work for five minutes and then plays out whatever it
+    # committed to, and it refuses a lobby it has not the time left to finish.
+    # The timeout is the outermost ring and must sit outside the hard cap in
+    # `run`, or Modal kills a shift that has bees still out.
+    schedule=modal.Period(minutes=6),
     timeout=900,
     # Entirely I/O bound: it waits on HTTP and on its own deliberate pauses.
     cpu=0.5,
@@ -88,7 +89,9 @@ def tend_hives() -> dict[str, int]:
             "else and will stop the moment their balance runs out"
         )
 
-    tally = asyncio.run(run(url, coupon, seconds=12 * 60))
+    # Five minutes of taking matches; up to fourteen of playing them, which is
+    # the ten-minute ceiling plus room to settle, inside the 900s timeout.
+    tally = asyncio.run(run(url, coupon, seconds=5 * 60, hard_cap=840))
     log.info("shift over: %s", tally)
     return tally
 
