@@ -234,9 +234,47 @@ async def vault() -> Any:
     return _vault
 
 
+_PARAM = re.compile(r"\$(\d+)")
+
+
+def _check_params(sql: str, params: list[Any]) -> None:
+    """A statement must use exactly the parameters it is handed.
+
+    PostgreSQL refuses a bind that supplies more values than the statement
+    mentions, and the failure arrives as a driver error rather than anything
+    this module raises — so it escapes as an unhandled exception and reaches the
+    patron as "Tool execution failed".
+
+    `fly` did exactly this: it built its hive gate conditionally but always sent
+    `hive` as $6, so every move into the MEADOW shipped seven values for a
+    six-parameter statement. Every foraging bee in the first live round was
+    refused, and the whole suite stayed green — the fake vault reads parameters
+    positionally and never looks at the SQL.
+
+    Checked here rather than in a test that reads the source, because the
+    parameter list is often built at runtime: a test that can only see literal
+    lists cannot see the one function that got this wrong.
+    """
+    used = {int(m.group(1)) for m in _PARAM.finditer(sql)}
+    if not used:
+        return
+    if max(used) != len(params):
+        raise ValueError(
+            f"statement uses $1..${max(used)} but was handed {len(params)} value(s): "
+            f"{sql[:90]}"
+        )
+    missing = sorted(set(range(1, max(used) + 1)) - used)
+    if missing:
+        raise ValueError(
+            f"statement never mentions {[f"${m}" for m in missing]}: {sql[:90]}"
+        )
+
+
 async def _exec(sql: str, params: list[Any] | None = None) -> dict[str, Any]:
     v = await vault()
-    return await v._execute(_t(sql), params or [])
+    p = params or []
+    _check_params(sql, p)
+    return await v._execute(_t(sql), p)
 
 
 def _rows(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -514,22 +552,39 @@ async def fly(
 
     phase = _phase_after(g, str(bee["phase"]), to_cell, False)
     needs_open = not geo.is_meadow(g, to_cell)
-    gate = (
-        f" AND EXISTS (SELECT 1 FROM {CELLS} c WHERE c.match_id = $1 "
-        "AND c.hive = $6 AND c.cell = $3)"
-        if needs_open
-        else ""
-    )
+
+    # The hive gate is CONDITIONAL, so the parameters must be too.
+    #
+    # `hive` was always sent as $6 while $6 only appeared in the gate — so every
+    # move into the meadow shipped seven parameters for a statement mentioning
+    # six, and Postgres refuses that outright. It is a driver error rather than a
+    # BoardError, so it escaped as an unhandled exception and every foraging bee
+    # in the first live round was told "Tool execution failed". The fake vault
+    # reads parameters positionally and never looks at the SQL, which is exactly
+    # the gap its own docstring warns about.
+    #
+    # The optional parameter therefore goes LAST, so dropping it renumbers
+    # nothing.
+    params: list[Any] = [
+        match_id, npub, to_cell, phase, cur, geo.arms_stagger(g, cur, to_cell),
+    ]
+    gate = ""
+    if needs_open:
+        gate = (
+            f" AND EXISTS (SELECT 1 FROM {CELLS} c WHERE c.match_id = $1 "
+            "AND c.hive = $7 AND c.cell = $3)"
+        )
+        params.append(int(bee["hive"]))
+
     r = await _exec(
-        f"UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, came_inward = $7, "
+        f"UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, came_inward = $6, "
         f"    next_move_at = now() + interval '{COOLDOWN_S} seconds', "
         "    finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END "
         "WHERE match_id = $1 AND npub = $2 "
         "  AND cell = $5 AND next_move_at <= now() AND phase <> 'done'"
         f"{gate} "
         "RETURNING hive, seat, cell, phase",
-        [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
-         geo.arms_stagger(g, cur, to_cell)],
+        params,
     )
     rows = _rows(r)
     if not rows:

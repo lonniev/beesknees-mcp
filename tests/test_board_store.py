@@ -155,8 +155,10 @@ class FakeVault:
             hits = [b for b in self.bees.values()
                     if b["match_id"] == p[0] and b["npub"] == p[1]
                     and b["cell"] == p[4] and b["ready"] and b["phase"] != "done"]
+            # The hive gate is optional, and so is its parameter — it is now
+            # LAST, so that dropping it in the meadow renumbers nothing.
             if hits and "EXISTS" in s:
-                hits = [b for b in hits if (p[0], p[5], p[2]) in self.cells]
+                hits = [b for b in hits if (p[0], p[6], p[2]) in self.cells]
             if not hits:
                 return {"rows": [], "rowCount": 0}
             b = hits[0]
@@ -547,3 +549,28 @@ def test_two_bees_racing_for_one_flower_only_one_gets_the_pollen(vault) -> None:
         assert len(taken) == 1, f"only one flower should be spent, got {taken}"
 
     asyncio.run(go())
+
+
+def test_a_statement_cannot_be_sent_more_values_than_it_uses() -> None:
+    """The one defect class the fake vault is blind to, caught before the wire.
+
+    PostgreSQL refuses a bind that supplies more values than the statement
+    mentions, and it arrives as a driver error rather than a BoardError — so it
+    escapes as an unhandled exception and reaches the patron as "Tool execution
+    failed". `fly` built its hive gate conditionally but always sent `hive` as
+    $6, so every move into the MEADOW shipped seven values for a six-parameter
+    statement. Every foraging bee in the first live round was refused, and this
+    suite stayed green throughout, because the fake reads parameters positionally
+    and never looks at the SQL.
+    """
+    store._check_params("SELECT $1, $2", ["a", "b"])  # the honest case
+
+    with pytest.raises(ValueError, match=r"uses \$1\.\.\$2 but was handed 3"):
+        store._check_params("SELECT $1, $2", ["a", "b", "c"])
+
+    with pytest.raises(ValueError, match=r"uses \$1\.\.\$2 but was handed 1"):
+        store._check_params("SELECT $1, $2", ["a"])
+
+    # A gap is just as fatal, and reads as a typo rather than a miscount.
+    with pytest.raises(ValueError, match=r"never mentions"):
+        store._check_params("SELECT $1, $3", ["a", "b", "c"])
