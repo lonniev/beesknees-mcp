@@ -43,11 +43,12 @@ try {
   // passed — so the only check that catches it is one that renders the board
   // WITH an aim and confirms more appears than without.
   const { HiveView } = await server.ssrLoadModule("/src/components/HiveView.tsx");
-  const { makeSoloMatch } = await server.ssrLoadModule("/src/game/match.ts");
+  const { makeSoloMatch, seated, isHot } = await server.ssrLoadModule("/src/game/match.ts");
   const hive = makeSoloMatch("You", 2).hives[0];
+  const view = { board: hive.round.board, bees: seated(hive), hot: isHot(hive) };
   const draw = (target) =>
     renderToString(
-      createElement(HiveView, { hive, frame: 1, youId: 0, target, focused: true, armed: false, onTapCell: () => {} }),
+      createElement(HiveView, { ...view, frame: 1, youId: 0, target, focused: true, armed: false, onTapCell: () => {} }),
     );
   // Count the AIM's own ink, not the bee's. These were the same lime until the
   // destination and the bee became indistinguishable on screen and the aim was

@@ -10,9 +10,7 @@
 
 import { memo, useCallback, useRef } from "react";
 import { OPEN, ringOf } from "../game/rules.ts";
-import type { Bee } from "../game/rules.ts";
-import type { Hive } from "../game/match.ts";
-import { isHot, seated } from "../game/match.ts";
+import type { Board } from "../game/rules.ts";
 import {
   VIEW,
   cellAt,
@@ -25,8 +23,25 @@ import {
   xy,
 } from "../lib/polar.ts";
 
+/**
+ * The least a bee has to be for this to draw it.
+ *
+ * Deliberately narrower than either engine's bee. Solo has a full simulation
+ * object and live has whatever `match_state` returned, and a renderer that
+ * insisted on one of them would have forced a second renderer for the other —
+ * five hives drawn twice, in two places, drifting apart.
+ */
+export interface ViewBee {
+  id: number;
+  cell: number;
+  phase: string;
+}
+
 interface Props {
-  hive: Hive;
+  board: Board;
+  bees: ViewBee[];
+  /** Somebody is near this hive's queen. Drawn hot, whoever it is. */
+  hot: boolean;
   /**
    * The cells this bee could legally step to next, drawn as options.
    *
@@ -71,21 +86,18 @@ interface Props {
   onTapHive?: () => void;
 }
 
-function beeGlyph(bee: Bee): string {
+function beeGlyph(bee: ViewBee): string {
   return bee.phase === "done" ? "👑" : "🐝";
 }
 
-function HiveViewInner({ hive, frame, youId, target, route, options, focused, armed, onTapCell, onTapHive }: Props) {
+function HiveViewInner({ board, bees, hot, frame, youId, target, route, options, focused, armed, onTapCell, onTapHive }: Props) {
   void frame;
   const svgRef = useRef<SVGSVGElement>(null);
-  const g = hive.round.board.g;
-  const board = hive.round.board;
-  const bees = seated(hive);
+  const g = board.g;
   const youBee = youId === null ? null : bees.find((b) => b.id === youId) ?? null;
   // Red beats green: a hive of yours with the race reaching its queen is hot
   // first and yours second, because the thing you need to know is that it is
   // being decided right now.
-  const hot = isHot(hive);
   const mine = youId !== null;
 
   const handle = useCallback(

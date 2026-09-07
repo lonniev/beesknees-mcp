@@ -28,6 +28,7 @@ import {
   cornerStarts,
   FLOWERS,
   hiveLayout,
+  mouthCells,
   outward,
   ringOf,
   slotOf,
@@ -37,6 +38,7 @@ import {
   type Phase,
 } from "./rules.ts";
 import { approach, routeToward, stepToward } from "./bots.ts";
+import { hydrate, hiveSeed } from "./live.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
   const g = makeGeometry(22);
@@ -608,4 +610,55 @@ test("a route redraws when the comb changes under it", () => {
   assert.ok(!after.includes(broken), "the route still runs through the obstruction");
   assert.ok(after.length > 0, "and it must find another way, not give up");
   assert.equal(after[after.length - 1], 0, "which still ends at the queen");
+});
+
+test("a live board rebuilds exactly what the server described", () => {
+  // The client draws obstructions and flowers it was never sent, by running the
+  // same generator on the seed it WAS sent. If that drifts, a patron is refused
+  // moves for reasons nothing on their screen explains — which is precisely
+  // what live play did before the seed was sent at all.
+  const g = makeGeometry();
+  const seed = 4242;
+  const live = {
+    match_id: "m",
+    state: "running" as const,
+    seq: 1,
+    poll_after_ms: 700,
+    winner_npub: "",
+    hives: 2,
+    seats: 12,
+    seed,
+    bees: [{ hive: 0, seat: 0, npub: "npub1x", label: "you", cell: 300, phase: "forage",
+             moves: 0, digs: 0, seals: 0, next_move_at: null, finished_at: null }],
+    open_cells: [{ hive: 0, cell: 150 }],
+    taken_pollen: [] as { hive: number; cell: number }[],
+  };
+
+  const hives = hydrate(live, g);
+  assert.equal(hives.length, 2, "every hive is rebuilt, not just yours");
+
+  for (let h = 0; h < 2; h++) {
+    const expected = hiveLayout(g, hiveSeed(seed, h));
+    for (const c of expected.blocked)
+      assert.equal(hives[h].board.blocked[c], 1, `hive ${h}: obstruction at ${c} not drawn`);
+    for (const c of expected.flowers)
+      assert.equal(hives[h].board.flower[c], 1, `hive ${h}: flower at ${c} not drawn`);
+  }
+
+  // The server said one cell is dug. It must be open, and nothing else in the
+  // comb may be — a board mended from stale guesses would show a way through
+  // that a seal has already closed.
+  assert.equal(hives[0].board.state[150], OPEN, "the dug cell is not open");
+  const doors = new Set(mouthCells(g));
+  let strayOpen = 0;
+  for (let c = 0; c < g.hiveCells; c++)
+    if (hives[0].board.state[c] === OPEN && c !== 150 && !doors.has(c)) strayOpen++;
+  assert.equal(strayOpen, 0, "the client invented open comb the server never mentioned");
+
+  // An emptied flower is still drawn, without its pollen — an empty flower is
+  // information the player needs.
+  const flower = hiveLayout(g, hiveSeed(seed, 0)).flowers[0];
+  const after = hydrate({ ...live, taken_pollen: [{ hive: 0, cell: flower }] }, g);
+  assert.equal(after[0].board.flower[flower], 1, "the flower vanished instead of emptying");
+  assert.equal(after[0].board.pollen[flower], 0, "the flower still holds pollen");
 });

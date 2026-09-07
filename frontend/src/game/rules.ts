@@ -895,6 +895,11 @@ export function hiveLayout(g: Geometry, seed: number): HiveLayout {
   const starts = cornerStarts(g, SEATS, rng);
   const flowers = flowerCells(g, rng, starts);
   const blocked = obstructions(g, rng);
+  // Repaired HERE, not later on the board. `geometry.py` repairs inside
+  // `hive_board`, so a layout that repaired somewhere else would be a different
+  // layout on the two sides — and it only happened to agree because the seeds
+  // tried never needed the repair. Equivalent by construction now.
+  openUntilQueenIsReachable(g, blocked);
   return { starts, flowers, blocked };
 }
 
@@ -939,6 +944,46 @@ export function obstructions(g: Geometry, rng: () => number, share = DEFAULT_RUL
 /** The doors, evenly spaced. Mirrors geometry.py's `mouth_cells`. */
 export function mouthCells(g: Geometry, mouths = 4): number[] {
   return Array.from({ length: mouths }, (_, m) => idx(g, g.R, Math.floor((m * g.size[g.R]) / mouths)));
+}
+
+/**
+ * Unblock the fewest cells that reconnect the chamber to the board.
+ *
+ * Generated obstructions can wall the queen off, and a round nobody can win is
+ * worse than a boring one. Rather than rejecting the whole board and re-rolling
+ * — which loops unboundedly on a bad seed — this opens the fewest cells that
+ * restore the connection, then checks again. Mirrors `_open_until_queen_is_reachable`.
+ */
+export function openUntilQueenIsReachable(g: Geometry, blocked: Set<number>): void {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const seen = new Set<number>([0]);
+    const stack = [0];
+    while (stack.length) {
+      for (const nb of neighbors(g, stack.pop()!)) {
+        if (!seen.has(nb) && !blocked.has(nb)) {
+          seen.add(nb);
+          stack.push(nb);
+        }
+      }
+    }
+    let unreachable = false;
+    for (let c = 0; c < g.cells; c++)
+      if (!seen.has(c) && !blocked.has(c)) {
+        unreachable = true;
+        break;
+      }
+    if (!unreachable && seen.size > g.cells / 2) return;
+
+    let opened = false;
+    for (const c of [...blocked].sort((a, b) => a - b)) {
+      if (neighbors(g, c).some((nb) => seen.has(nb))) {
+        blocked.delete(c);
+        opened = true;
+        break;
+      }
+    }
+    if (!opened) return;
+  }
 }
 
 export function makeRound(

@@ -22,7 +22,9 @@ globalThis.cancelAnimationFrame = () => {};
 const ROUTES = [
   // React escapes the apostrophe, so match the markup rather than the prose.
   ["/", /Bee(&#x27;|')s Knees/],
-  ["/play", /class="hive/],
+  // /play is a CHOICE now, not a board: practice against bots, or the real
+  // game if you are signed in with sats. Both doors must be on the page.
+  ["/play", /Practice[\s\S]*real game/],
   ["/ledger", /Pollinator|ledger|Ledger/i],
   ["/about", /./],
   ["/signin", /Sign in to The Bee(&#x27;|')s Knees/],

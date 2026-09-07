@@ -15,7 +15,7 @@ import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
-import { isHot, queenOf } from "./game/match.ts";
+import { isHot, queenOf, seated } from "./game/match.ts";
 import { cellCentre } from "./lib/polar.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 import { useWide } from "./lib/useWide.ts";
@@ -162,7 +162,9 @@ function RivalTile({
       }`}
     >
       <HiveView
-        hive={hive}
+        board={hive.round.board}
+        bees={seated(hive)}
+        hot={isHot(hive)}
         frame={frame}
         youId={isYours ? (match.you?.beeId ?? null) : null}
         target={null}
@@ -445,7 +447,9 @@ export default function App() {
         <div className="relative min-h-0 flex-1">
           {focus !== null && (
             <HiveView
-              hive={match.hives[focus]}
+              board={match.hives[focus].round.board}
+              bees={seated(match.hives[focus])}
+              hot={isHot(match.hives[focus])}
               frame={frame}
               youId={match.you?.hive === focus ? (match.you?.beeId ?? null) : null}
               target={match.you?.hive === focus ? target : null}

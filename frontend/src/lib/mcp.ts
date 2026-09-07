@@ -303,7 +303,11 @@ const QUIET_TOOLS = new Set([
   // calls back, and a silent poll failure (e.g. a proof bounce) is undiagnosable.
 ]);
 
-async function callTool<T = unknown>(
+/**
+ * Exported so the live board can drive the polling hook, which takes a caller
+ * rather than importing every tool it might need.
+ */
+export async function callTool<T = unknown>(
   toolName: string,
   args: Record<string, unknown> = {},
   opts: { bestEffort?: boolean; timeoutMs?: number } = {},

@@ -39,6 +39,17 @@ export interface LiveState {
   seats: number;
   bees: LiveBee[];
   open_cells: { hive: number; cell: number }[];
+  /**
+   * The match seed. Everything DERIVED about the board comes from it.
+   *
+   * Obstructions, flowers and starting squares are generated, not stored, and
+   * the client runs the same generator on the same number to get the same hive.
+   * Without it a live board would be a bare green field with moves refused for
+   * reasons nothing on screen explained.
+   */
+  seed: number;
+  /** Flowers already emptied — the one piece of meadow state a rival changes. */
+  taken_pollen: { hive: number; cell: number }[];
 }
 
 type Caller = (tool: string, args: Record<string, unknown>) => Promise<unknown>;
