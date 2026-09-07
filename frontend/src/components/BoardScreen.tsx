@@ -189,18 +189,27 @@ export default function BoardScreen(p: BoardScreenProps) {
        * since watching a rival is a click away and finding your way home
        * should not be a hunt through the gutters. */}
       {shown && (
-        <div className="flex shrink-0 items-center justify-between px-1 text-xs">
-          <span className="min-w-0 truncate font-medium">
+        <div className="flex shrink-0 items-center px-1 text-xs">
+          {/* The gutters are as wide as the rival columns, so the middle of this
+            * row is the middle of the BOARD. The name of the hive you are flying
+            * in belongs over that hive, not pinned to the window's edge a third
+            * of a screen away from it. */}
+          {wide && <span className="w-24 shrink-0 lg:w-32 xl:w-40" />}
+          <span className="min-w-0 flex-1 truncate text-center font-medium">
             {shown.queen}
             {mineHere && <span className="ml-1.5 text-[var(--color-you)]">your hive</span>}
           </span>
-          {p.yourHive !== null && !mineHere && (
-            <button
-              onClick={() => p.onFocus(p.yourHive!)}
-              className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you)]"
-            >
-              Back to my bee
-            </button>
+          {wide && (
+            <span className="flex w-24 shrink-0 justify-end lg:w-32 xl:w-40">
+              {p.yourHive !== null && !mineHere && (
+                <button
+                  onClick={() => p.onFocus(p.yourHive!)}
+                  className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you)]"
+                >
+                  Back to my bee
+                </button>
+              )}
+            </span>
           )}
         </div>
       )}
@@ -289,8 +298,15 @@ export default function BoardScreen(p: BoardScreenProps) {
       {/* Controls. The prompt sits on the LEFT, where reading starts — after
        * the button it was an answer arriving behind its question. */}
       <div className="flex shrink-0 items-center gap-4 pb-[env(safe-area-inset-bottom)]">
-        <span className="min-w-0 flex-1 text-left text-[13px] leading-tight text-white/60">
-          {p.prompt}
+        {/* The hint, centred in its own half so it reads level with the verb on
+          * the button rather than trailing off at the window's edge — and named
+          * as a hint, in italics, so it is plainly the game talking to you and
+          * not a label on something. */}
+        <span className="flex min-w-0 flex-1 items-center justify-center text-center text-[13px] italic leading-none text-white/60">
+          <span className="min-w-0">
+            <span className="not-italic text-white/35">Hint: </span>
+            {p.prompt}
+          </span>
         </span>
 
         <div className="flex gap-2 rounded-xl bg-white/5 p-1.5">
