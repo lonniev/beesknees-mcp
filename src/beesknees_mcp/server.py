@@ -446,6 +446,19 @@ async def join_match(
 _MOTION_UUIDS = {"fly": FLY_UUID, "dig": DIG_UUID, "seal": SEAL_UUID}
 
 
+async def _refund(tool_name: str, npub: str) -> None:
+    """Give the fare back by hand.
+
+    `paid_tool` only rolls back on the way out through an exception, and these
+    paths RETURN a situation instead — which is the right shape for the caller
+    and the wrong one for the ledger unless the refund is explicit.
+    """
+    uuid = _MOTION_UUIDS.get(tool_name)
+    if uuid:
+        with contextlib.suppress(Exception):
+            await runtime.rollback_debit(uuid, npub)
+
+
 async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
     """Shared shell for fly / dig / seal.
 
@@ -472,13 +485,23 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
     try:
         result = await run(mid)
     except board_store.BoardError as exc:
-        # Refunded by hand, because we are returning rather than raising and
-        # `paid_tool` only rolls back on the way out through an exception.
-        uuid = _MOTION_UUIDS.get(tool_name)
-        if uuid:
-            with contextlib.suppress(Exception):
-                await runtime.rollback_debit(uuid, npub)
+        await _refund(tool_name, npub)
         return {"success": False, "match_id": mid, "moved": False, "refused": str(exc)}
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
+        # Anything the persistence layer throws. It used to escape here and the
+        # runtime flattened it to "Tool execution failed. Check operator logs.",
+        # which tells a player nothing and cost a fare for a move that never
+        # happened. Named, refunded, and reported — the patron can see whether
+        # their game is broken or the hive is.
+        await _refund(tool_name, npub)
+        logger.exception("%s failed against the board", tool_name)
+        return {
+            "success": False,
+            "match_id": mid,
+            "moved": False,
+            "error": f"The hive could not move your bee: {type(exc).__name__}: {exc}",
+            "error_code": "board_write_failed",
+        }
     await _charged(npub, mid, tool_name)
     await match_flow.advance()
     return {"success": True, "match_id": mid, **result}
