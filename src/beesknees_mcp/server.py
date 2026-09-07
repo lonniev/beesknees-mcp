@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
@@ -279,6 +280,25 @@ async def match_state(
     """
     try:
         m = await board_store.get_match(match_id) if match_id else None
+        if not m and npub:
+            # YOUR match first, even once it has ended.
+            #
+            # A finished round leaves `live_matches` immediately, so the winner
+            # was handed the next lobby before their own result ever reached the
+            # screen — the board knew, the ledger knew, and the one person who
+            # cared did not. A recently ended match stays answerable for a couple
+            # of minutes so the result can be seen and the prize claimed.
+            mine = await board_store.latest_match_for(npub)
+            if mine and str(mine.get("state")) in ("running", "ended"):
+                ended = mine.get("ended_at")
+                fresh = True
+                if str(mine.get("state")) == "ended" and ended:
+                    with contextlib.suppress(Exception):
+                        fresh = (
+                            datetime.now(UTC) - _as_dt(ended)
+                        ).total_seconds() < RESULT_LINGER_S
+                if fresh:
+                    m = mine
         if not m:
             live = await board_store.live_matches()
             m = live[0] if live else await match_flow.ensure_forming()
@@ -444,6 +464,18 @@ async def join_match(
 
 #: The motion tools, by capability name, so a refund can name its own tool.
 _MOTION_UUIDS = {"fly": FLY_UUID, "dig": DIG_UUID, "seal": SEAL_UUID}
+
+
+#: How long a finished round keeps answering its own players, so the result can
+#: be read and the prize claimed before the next lobby takes over the screen.
+RESULT_LINGER_S = 180
+
+
+def _as_dt(v: Any) -> datetime:
+    """Neon hands timestamps back as strings over HTTP."""
+    if isinstance(v, datetime):
+        return v if v.tzinfo else v.replace(tzinfo=UTC)
+    return datetime.fromisoformat(str(v).replace(" ", "T")).astimezone(UTC)
 
 
 async def _refund(tool_name: str, npub: str) -> None:

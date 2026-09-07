@@ -393,6 +393,24 @@ async def get_match(match_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+async def latest_match_for(npub: str) -> dict[str, Any] | None:
+    """The most recent match this patron had a bee in, whatever state it is in.
+
+    `live_matches` only ever returns forming and running ones, so the instant a
+    round ended it vanished from the poll and the next `match_state` handed back
+    a fresh lobby. The winner never saw that they had won: the board detected it,
+    settled it, recorded them and left a prize unclaimed, and the one party who
+    cared was shown a countdown to the next round instead.
+    """
+    r = await _exec(
+        f"SELECT m.* FROM {MATCHES} m JOIN {BEES} b ON b.match_id = m.match_id "
+        "WHERE b.npub = $1 AND m.board = $2 ORDER BY m.created_at DESC LIMIT 1",
+        [npub, geo.board_fingerprint()],
+    )
+    rows = _rows(r)
+    return rows[0] if rows else None
+
+
 async def live_matches() -> list[dict[str, Any]]:
     r = await _exec(
         f"SELECT * FROM {MATCHES} WHERE state IN ('forming','running') AND board = $1 "

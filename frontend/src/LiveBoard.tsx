@@ -21,7 +21,7 @@ import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
 import { COMB, DEFAULT_RULES, TICK_MS, makeGeometry, neighbors, ringOf, type Bee } from "./game/rules.ts";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import { cooldownLeft, useLiveMatch, type LiveBee } from "./lib/useLiveMatch.ts";
-import { callTool, dig as callDig, fly as callFly, seal as callSeal } from "./lib/mcp";
+import { callTool, claimPrize, dig as callDig, fly as callFly, seal as callSeal } from "./lib/mcp";
 import type { Session } from "./lib/session.ts";
 
 const G = makeGeometry();
@@ -68,6 +68,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   const [note, setNote] = useState("");
   const [now, setNow] = useState(Date.now());
   const [watching, setWatching] = useState<number | null>(null);
+  const [claimed, setClaimed] = useState("");
   const [startedAt] = useState(Date.now());
 
   // The rest is read off the SERVER's stamp, so a tab that slept comes back
@@ -157,6 +158,22 @@ export default function LiveBoard({ session }: { session: Session }) {
     return stepToward(round, bee, target) ?? approach(round, bee, target);
   }, [round, bee, target, verb]);
 
+  /**
+   * Claim the prize the moment the round is settled.
+   *
+   * The winner's share is recorded as `unclaimed` and sits there until somebody
+   * asks for it. Donating is the default and the honest one for this game — the
+   * pot is already 80% the pollinators' — and a winner who wants it in their own
+   * wallet can say so from the ledger. Claiming here means the round ends with
+   * the money settled rather than with a promise.
+   */
+  useEffect(() => {
+    if (!live?.winner_npub || live.winner_npub !== session.npub || claimed) return;
+    claimPrize(live.match_id, "donate")
+      .then((r) => setClaimed((r as { error?: string }).error ? "" : " — your share went to the pollinators"))
+      .catch(() => {});
+  }, [live?.winner_npub, live?.match_id, session.npub, claimed]);
+
   const act = useCallback(async () => {
     if (!ready || busy) return;
     setBusy(true);
@@ -200,6 +217,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   const winnerBee = live.winner_npub
     ? live.bees.find((b) => b.npub === live.winner_npub) ?? null
     : null;
+  const iWon = Boolean(live.winner_npub) && live.winner_npub === session.npub;
 
   return (
     <BoardScreen
@@ -244,11 +262,16 @@ export default function LiveBoard({ session }: { session: Session }) {
       winner={
         winnerBee
           ? {
-              label: winnerBee.label || winnerBee.npub.slice(0, 12),
-              detail: `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
+              label: iWon ? "You reached the queen" : winnerBee.label || winnerBee.npub.slice(0, 12),
+              detail: iWon
+                ? `Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]} is yours${claimed}`
+                : `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
             }
           : null
       }
+      // Leaving is the winner's own move: the result stays until they are done
+      // reading it, rather than the next lobby taking the screen from under them.
+      onNewMatch={winnerBee ? () => setWatching(null) : undefined}
     />
   );
 }
