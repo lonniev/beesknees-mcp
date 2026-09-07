@@ -430,7 +430,7 @@ def gateway_cells(g: Geometry, mouths: int = 4) -> list[int]:
     return sorted(out)
 
 
-def flower_cells(g: Geometry, rnd, starts: list[int], count: int = FLOWERS) -> list[int]:
+def flower_cells(g: Geometry, rnd, starts: list[int], count: int | None = None) -> list[int]:
     """Where the pollen is — placed, not scattered. Mirrors `flowerCells` exactly.
 
     A corner is six hops from a door, so a flower two hops from a bee is AT BEST
@@ -438,6 +438,11 @@ def flower_cells(g: Geometry, rnd, starts: list[int], count: int = FLOWERS) -> l
     it. Two-and-four is the prize — the flower sits exactly on the way, so the
     errand costs no detour and costs every bee the same.
     """
+    # Resolved HERE, not in the signature. Python binds a default argument once,
+    # at import, so `count: int = FLOWERS` freezes the number the module loaded
+    # with — while the client's `flowerCells` re-reads its own constant on every
+    # call. The same divergence `make_geometry` had, and the same fix.
+    count = FLOWERS if count is None else count
     gateways = set(gateway_cells(g))
     to_door = hops_from(g, sorted(gateways))
     near = set(starts)
