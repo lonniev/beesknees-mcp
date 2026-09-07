@@ -42,6 +42,9 @@ FARES = "bk_fares"
 SETTLEMENTS = "bk_settlements"
 # A row here means that flower has been EMPTIED. No row, no rival got there first.
 POLLEN = "bk_pollen"
+#: Who the charity share goes to, and where a patron wants their own share sent.
+CHARITY = "bk_charity"
+PATRONS = "bk_patrons"
 
 HIVES = 5
 SEATS = 12
@@ -134,6 +137,36 @@ _DDL: list[str] = [
         "  dug_by TEXT NOT NULL DEFAULT '',"
         "  dug_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
         "  PRIMARY KEY (match_id, hive, cell))"
+    ),
+    (
+        # The beneficiary, as ONE row the operator owns.
+        #
+        # It was a constant in the source, which made changing who the money goes
+        # to a deployment. A charity is not a build artefact: it can be replaced,
+        # renamed, or have its wallet rotated, and none of that should require
+        # anybody to touch code. Every settlement still records the beneficiary
+        # it actually paid, so history stays true when this changes.
+        f"CREATE TABLE IF NOT EXISTS {CHARITY} ("
+        "  id TEXT PRIMARY KEY DEFAULT 'current',"
+        "  name TEXT NOT NULL,"
+        "  website TEXT NOT NULL DEFAULT '',"
+        # A Lightning address is a PUBLIC destination — it is how anyone sends
+        # money — so it is a clear column. Nothing here unlocks anything.
+        "  lightning_address TEXT NOT NULL DEFAULT '',"
+        "  set_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+    ),
+    (
+        # What a winner wants done with their share, decided BEFORE they win.
+        #
+        # Asking in the moment is asking somebody to make a decision about money
+        # while a trophy is on screen. A row here is a standing instruction, and
+        # its absence means donate — the generous default for a game whose whole
+        # point is the pollinators.
+        f"CREATE TABLE IF NOT EXISTS {PATRONS} ("
+        "  npub TEXT PRIMARY KEY,"
+        "  lightning_address TEXT NOT NULL DEFAULT '',"
+        "  donate BOOLEAN NOT NULL DEFAULT TRUE,"
+        "  set_at TIMESTAMPTZ NOT NULL DEFAULT now())"
     ),
     (
         # A row MEANS the flower is spent. Placement is derived from the seed and
@@ -931,3 +964,84 @@ async def leaderboard(limit: int = 10) -> list[dict[str, Any]]:
         f"GROUP BY winner_npub ORDER BY sats DESC LIMIT {max(1, min(limit, 100))}"
     )
     return _rows(r)
+
+
+# ── Who the money goes to ────────────────────────────────────────────────
+
+
+async def get_charity() -> dict[str, str]:
+    """The current beneficiary. Empty name means the operator has not named one."""
+    r = await _exec(
+        f"SELECT name, website, lightning_address FROM {CHARITY} WHERE id = 'current'"
+    )
+    rows = _rows(r)
+    if not rows:
+        return {"name": "", "website": "", "lightning_address": ""}
+    row = rows[0]
+    return {
+        "name": str(row.get("name") or ""),
+        "website": str(row.get("website") or ""),
+        "lightning_address": str(row.get("lightning_address") or ""),
+    }
+
+
+async def set_charity(name: str, website: str, lightning_address: str) -> dict[str, str]:
+    """Name the beneficiary. One row, replaced.
+
+    History is unaffected: every settlement records the beneficiary it actually
+    paid at the time, so changing this never rewrites where past money went.
+    """
+    await _exec(
+        f"INSERT INTO {CHARITY} (id, name, website, lightning_address, set_at) "
+        "VALUES ('current', $1, $2, $3, now()) "
+        "ON CONFLICT (id) DO UPDATE SET name = $1, website = $2, "
+        "  lightning_address = $3, set_at = now()",
+        [name, website, lightning_address],
+    )
+    return await get_charity()
+
+
+async def get_payout(npub: str) -> dict[str, Any]:
+    """What this patron wants done with a win.
+
+    No row means donate. That is the generous default for a game whose whole
+    point is the pollinators, and it means a winner who has never thought about
+    it still ends the round with the money settled rather than owed.
+    """
+    r = await _exec(
+        f"SELECT lightning_address, donate FROM {PATRONS} WHERE npub = $1", [npub]
+    )
+    rows = _rows(r)
+    if not rows:
+        return {"lightning_address": "", "donate": True, "set": False}
+    row = rows[0]
+    return {
+        "lightning_address": str(row.get("lightning_address") or ""),
+        "donate": bool(row.get("donate")),
+        "set": True,
+    }
+
+
+async def set_payout(npub: str, lightning_address: str, donate: bool) -> dict[str, Any]:
+    """Record a standing instruction for this patron's winnings."""
+    await _exec(
+        f"INSERT INTO {PATRONS} (npub, lightning_address, donate, set_at) "
+        "VALUES ($1, $2, $3, now()) "
+        "ON CONFLICT (npub) DO UPDATE SET lightning_address = $2, donate = $3, "
+        "  set_at = now()",
+        [npub, lightning_address, donate],
+    )
+    return await get_payout(npub)
+
+
+async def set_prize_state(match_id: str, state: str) -> None:
+    """Record what became of the winner's share.
+
+    Only ever moves a prize off `unclaimed`, so a settlement that runs twice
+    cannot walk a donated share back into a claimable one.
+    """
+    await _exec(
+        f"UPDATE {SETTLEMENTS} SET prize_state = $2 "
+        "WHERE match_id = $1 AND prize_state = 'unclaimed'",
+        [match_id, state],
+    )

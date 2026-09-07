@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 CHARITY_SHARE = 0.80
 WINNER_SHARE = 0.10
 
+#: The fallback beneficiary, for a service whose operator has not named one yet.
+#: `set_charity` is the real source; this only keeps a settlement honest before
+#: anybody has been asked.
 BENEFICIARY = "Pollinator Partnership"
 """Stored rather than compiled in would be better; this is the default until an
 operator sets one. Every settlement records the beneficiary it actually paid, so
@@ -203,6 +206,13 @@ async def settle(match_id: str) -> dict[str, Any]:
     parts = split_pot(pot)
     winner_npub = str(m.get("winner_npub") or "")
 
+    # Who the money goes to is the OPERATOR'S, not the source's. The constant is
+    # only a fallback for a service nobody has configured yet, and a settlement
+    # records the beneficiary it actually paid so history stays true when this
+    # changes.
+    charity = await store.get_charity()
+    beneficiary = charity["name"] or BENEFICIARY
+
     first = await store.record_settlement(
         match_id,
         pot=parts["pot"],
@@ -210,16 +220,44 @@ async def settle(match_id: str) -> dict[str, Any]:
         winner=parts["winner"],
         operator=parts["operator"],
         winner_npub=winner_npub,
-        beneficiary=BENEFICIARY,
+        beneficiary=beneficiary,
     )
     await store._exec(
         f"UPDATE {store.MATCHES} SET state = 'settled', settled_at = now(), seq = seq + 1 "
         "WHERE match_id = $1 AND state = 'ended'",
         [match_id],
     )
+    state = "unclaimed"
     if first and winner_npub and parts["winner"] > 0:
-        await award_prize(match_id, winner_npub, parts["winner"])
-    return {"match_id": match_id, "first_time": first, **parts, "beneficiary": BENEFICIARY}
+        state = await resolve_prize(match_id, winner_npub, parts["winner"])
+    return {
+        "match_id": match_id,
+        "first_time": first,
+        **parts,
+        "beneficiary": beneficiary,
+        "prize_state": state,
+    }
+
+
+async def resolve_prize(match_id: str, npub: str, sats: int) -> str:
+    """Settle the winner's share the way they already said to.
+
+    A winner who has set a preference is not asked again — the whole point of
+    deciding beforehand is that nobody has to make a decision about money with a
+    trophy on the screen. A winner who has never said anything keeps the choice:
+    the share is held, not credited, so `claim_prize` still has something to
+    decide, and so donating actually donates rather than leaving a credit the
+    patron already has.
+    """
+    pref = await store.get_payout(npub)
+    if not pref["set"]:
+        return "unclaimed"
+    if pref["donate"]:
+        await store.set_prize_state(match_id, "donated")
+        return "donated"
+    if await award_prize(match_id, npub, sats):
+        await store.set_prize_state(match_id, "kept")
+    return "kept"
 
 
 async def award_prize(match_id: str, npub: str, sats: int) -> bool:

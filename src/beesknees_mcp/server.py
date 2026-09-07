@@ -89,6 +89,10 @@ CLAIM_PRIZE_UUID = "ab5337ff-8e9d-5b36-ab2c-ca2a76e06767"
 SETTLEMENT_HISTORY_UUID = "df0d8029-1532-5747-8796-4f0da905c9fc"
 CHECK_NOW_UUID = "5008f509-81fe-5d05-980f-7ca6da410a00"
 TICK_UUID = "0a3deb87-9fe0-5831-8732-32f39938f180"
+SET_CHARITY_UUID = "3cef605a-f062-5d6f-8ac4-dd79bc1fbd0a"
+SET_PAYOUT_UUID = "e23622d7-be8d-56ec-85cc-ed81c06dda22"
+PAYOUT_UUID = "3b69029c-c9fa-5432-bd3d-95c23d1d919a"
+CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
 
 _DOMAIN_TOOLS = [
     ToolIdentity(
@@ -171,6 +175,36 @@ _DOMAIN_TOOLS = [
         # operator, proven. This is the cron entry point.
         category="restricted",
         intent="Operator: open, close and settle matches",
+    ),
+    ToolIdentity(
+        tool_id=SET_CHARITY_UUID,
+        capability="set_charity",
+        # Who the money goes to is the operator's to name, and nobody else's.
+        category="restricted",
+        intent="Operator: name the beneficiary, its site and its wallet",
+    ),
+    ToolIdentity(
+        tool_id=PAYOUT_UUID,
+        capability="payout",
+        # Free: reading back your own standing instruction is not a service, and
+        # a screen that has to buy the setting it is about to show would show a
+        # dash to anybody out of credit.
+        category="free",
+        intent="What you have said should happen to your winnings",
+    ),
+    ToolIdentity(
+        tool_id=CHARITY_UUID,
+        capability="charity",
+        # Free, deliberately. Where the money goes is a claim players should be
+        # able to check without paying to check it.
+        category="free",
+        intent="Who the charity share goes to",
+    ),
+    ToolIdentity(
+        tool_id=SET_PAYOUT_UUID,
+        capability="set_payout",
+        category="write",
+        intent="Say what should happen to your winnings",
     ),
 ]
 
@@ -417,7 +451,12 @@ async def settlement_history(
     try:
         rows = await board_store.settlements(limit)
         owed = await board_store.charity_owed()
-        return {"success": True, "beneficiary": match_flow.BENEFICIARY,
+        # The named beneficiary, with somewhere a player can go and check them.
+        # A ledger that says where the money went should say who that is.
+        charity = await board_store.get_charity()
+        return {"success": True,
+                "beneficiary": charity["name"] or match_flow.BENEFICIARY,
+                "charity": charity,
                 "settlements": rows, **owed,
                 "leaderboard": await board_store.leaderboard(10)}
     except (OSError, RuntimeError) as exc:
@@ -616,13 +655,25 @@ async def claim_prize(
     if str(row.get("prize_state")) != "unclaimed":
         return {"success": True, "already": str(row["prize_state"]), "match_id": match_id}
 
-    donate = choice.strip().lower() == "donate"
-    await board_store._exec(
-        f"UPDATE {board_store.SETTLEMENTS} SET prize_state = $2 WHERE match_id = $1",
-        [match_id, "donated" if donate else "kept"],
-    )
-    return {"success": True, "match_id": match_id,
-            "outcome": "donated to " + match_flow.BENEFICIARY if donate else "kept as credit"}
+    # An unstated choice is not a missing one: it is whatever the winner already
+    # said in their profile, and donating is the default for somebody who has
+    # never said anything at all.
+    said = choice.strip().lower()
+    donate = (await board_store.get_payout(npub))["donate"] if not said else said == "donate"
+
+    if donate:
+        await board_store.set_prize_state(match_id, "donated")
+    else:
+        # The share is only credited here, never at settlement, so donating
+        # actually donates rather than leaving a credit the winner already has.
+        if not await match_flow.award_prize(match_id, npub, int(row["winner_sats"])):
+            return {"success": False, "error_code": "prize_credit_failed",
+                    "error": "the ledger did not take the credit; try again shortly"}
+        await board_store.set_prize_state(match_id, "kept")
+
+    beneficiary = str(row.get("beneficiary") or "") or match_flow.BENEFICIARY
+    return {"success": True, "match_id": match_id, "donated": donate,
+            "outcome": f"donated to {beneficiary}" if donate else "kept as credit"}
 
 
 # ── Operator ─────────────────────────────────────────────────────────────
@@ -637,6 +688,118 @@ async def tick(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
     This is the cron entry point; `check_now` is the same work without authority.
     """
     return {"success": True, **await match_flow.advance()}
+
+
+# ── Where the money goes ─────────────────────────────────────────────────
+
+
+@tool
+@runtime.paid_tool(CHARITY_UUID)
+async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+    """Who the charity share goes to, and where to check them.
+
+    Free on purpose. A claim about where somebody's money goes that costs money
+    to verify is not a claim anybody should have to take on trust.
+    """
+    try:
+        c = await board_store.get_charity()
+        return {"success": True, **c, "named": bool(c["name"])}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "charity")
+
+
+@tool
+@runtime.paid_tool(SET_CHARITY_UUID)
+async def set_charity(
+    name: Annotated[str, Field(description="The beneficiary's name, as players should see it.")],
+    website: Annotated[str, Field(description="Where a player can check them out.")] = "",
+    lightning_address: Annotated[
+        str, Field(description="Where the charity share is actually sent, e.g. name@wallet.com")
+    ] = "",
+    npub: NPUB_FIELD = "",
+    dpop_token: str = "",
+) -> dict[str, Any]:
+    """Operator: name the beneficiary, its website and its Lightning address.
+
+    `restricted`, so the runtime requires the caller to be the operator, proven.
+
+    It was a constant in the source, which made changing who the money goes to a
+    deployment. A charity can be replaced, renamed, or rotate its wallet, and
+    none of that should need anybody to touch code.
+
+    Changing this never rewrites history: every settlement records the
+    beneficiary it actually paid at the time, so a player can always check where
+    the money went rather than where it goes now.
+
+    Args:
+        name: The beneficiary's name, as players should see it.
+        website: Where a player can check them out.
+        lightning_address: Where the charity share is actually sent.
+    """
+    if not name.strip():
+        return {"success": False, "error": "a beneficiary needs a name"}
+    try:
+        c = await board_store.set_charity(
+            name.strip(), website.strip(), lightning_address.strip()
+        )
+        return {"success": True, **c}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "set_charity")
+
+
+@tool
+@runtime.paid_tool(PAYOUT_UUID)
+async def payout(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+    """What you have said should happen to your winnings.
+
+    `set` is False for a patron who has never said — which still reads as
+    `donate`, because that is the default, but lets a screen show the difference
+    between a choice made and a choice never faced.
+    """
+    try:
+        return {"success": True, **await board_store.get_payout(npub)}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "payout")
+
+
+@tool
+@runtime.paid_tool(SET_PAYOUT_UUID)
+async def set_payout(
+    donate: Annotated[
+        bool, Field(description="Give your winnings to the charity. True by default.")
+    ] = True,
+    lightning_address: Annotated[
+        str, Field(description="Where to send your share if you are keeping it.")
+    ] = "",
+    npub: NPUB_FIELD = "",
+    dpop_token: str = "",
+) -> dict[str, Any]:
+    """Say now what should happen if you win.
+
+    Decided BEFORE the round, deliberately. Asking in the moment is asking
+    somebody to make a decision about money with a trophy on the screen, and a
+    winner who has never thought about it should still end the round with their
+    share settled rather than owed.
+
+    Donating is the default. Keeping it needs somewhere to send it, so a patron
+    who turns donation off without giving an address is told so rather than
+    quietly left with an unclaimable prize.
+
+    Args:
+        donate: Give your winnings to the charity.
+        lightning_address: Where to send your share if you are keeping it.
+    """
+    address = lightning_address.strip()
+    if not donate and not address:
+        return {
+            "success": False,
+            "error": "to keep your winnings, give a Lightning address to send them to",
+            "error_code": "no_wallet",
+        }
+    try:
+        return {"success": True, **await board_store.set_payout(npub, address, donate)}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "set_payout")
 
 
 def main() -> None:

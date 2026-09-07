@@ -126,6 +126,24 @@ class FakeVault:
                       and b["npub"] != p[3] and b["phase"] != "done" for b in self.bees.values())
             return {"rows": [{"n": 1}] if hit else [], "rowCount": 1 if hit else 0}
 
+        if s.startswith(f"SELECT name, website, lightning_address FROM {store.CHARITY}"):
+            c = getattr(self, "charity", None)
+            return {"rows": [c] if c else [], "rowCount": 1 if c else 0}
+
+        if s.startswith(f"INSERT INTO {store.CHARITY}"):
+            self.charity = {"name": p[0], "website": p[1], "lightning_address": p[2]}
+            return {"rows": [], "rowCount": 1}
+
+        if s.startswith(f"SELECT lightning_address, donate FROM {store.PATRONS}"):
+            row = getattr(self, "patrons", {}).get(p[0])
+            return {"rows": [row] if row else [], "rowCount": 1 if row else 0}
+
+        if s.startswith(f"INSERT INTO {store.PATRONS}"):
+            if not hasattr(self, "patrons"):
+                self.patrons = {}
+            self.patrons[p[0]] = {"lightning_address": p[1], "donate": p[2]}
+            return {"rows": [], "rowCount": 1}
+
         if s.startswith("SELECT hive, count(*)"):
             counts: dict[int, int] = {}
             for mid, h, _s in self.bees:
@@ -252,6 +270,13 @@ class FakeVault:
                                       "winner_npub": p[5], "beneficiary": p[6],
                                       "prize_state": "unclaimed"}
             return {"rows": [{"match_id": p[0]}], "rowCount": 1}
+
+        if s.startswith(f"UPDATE {store.SETTLEMENTS} SET prize_state"):
+            row = self.settlements.get(p[0])
+            if row and row["prize_state"] == "unclaimed":
+                row["prize_state"] = p[1]
+                return {"rows": [], "rowCount": 1}
+            return {"rows": [], "rowCount": 0}
 
         if "sum(charity_sats)" in s:
             return {"rows": [{"owed": sum(x["charity_sats"] for x in self.settlements.values())}],
@@ -691,5 +716,133 @@ def test_aiming_at_a_flower_reserves_nothing(vault) -> None:
         assert late["moved"] is True, "the trip is legal even though it is wasted"
         assert late["pollen"] is False
         assert late["phase"] == "forage", "unloaded, and must find another flower"
+
+    asyncio.run(go())
+
+
+def test_the_operator_names_the_charity_and_history_keeps_the_old_one(vault) -> None:
+    """Who the money goes to is configuration, not a build artefact.
+
+    It was a constant in the source, so changing the beneficiary meant a
+    deployment. A charity can be replaced, renamed, or rotate its wallet, and
+    none of that should need anybody to touch code — but a settlement must still
+    record whoever it ACTUALLY paid, or history quietly rewrites itself every
+    time the current one changes.
+    """
+
+    async def go():
+        assert await store.get_charity() == {
+            "name": "", "website": "", "lightning_address": "",
+        }, "an unconfigured service names nobody rather than guessing"
+
+        c = await store.set_charity(
+            "Pollinator Partnership", "https://pollinator.org", "pollinators@getalby.com"
+        )
+        assert c["name"] == "Pollinator Partnership"
+        assert c["lightning_address"] == "pollinators@getalby.com"
+
+        # A settlement stamps the beneficiary of the day...
+        mid = await store.open_match()
+        await store.record_settlement(
+            mid, pot=100, charity=80, winner=10, operator=10,
+            winner_npub="npub1w", beneficiary=c["name"],
+        )
+        # ...and renaming the current one does not touch it.
+        await store.set_charity("Somebody Else", "https://example.org", "other@wallet.com")
+        rows = await store.settlements(10)
+        assert rows[0]["beneficiary"] == "Pollinator Partnership", (
+            "changing the charity rewrote where past money went"
+        )
+
+    asyncio.run(go())
+
+
+def test_a_winner_says_before_the_round_what_becomes_of_their_share(vault) -> None:
+    """Donating is the default, and the default has to work for somebody silent.
+
+    Asking in the moment is asking somebody to decide about money with a trophy
+    on screen. A patron who has never thought about it still ends the round with
+    their share settled rather than owed.
+    """
+
+    async def go():
+        # Nobody has said anything: donate, and we know it was not chosen.
+        assert await store.get_payout("npub1quiet") == {
+            "lightning_address": "", "donate": True, "set": False,
+        }
+
+        # Keeping it is a standing instruction with somewhere to send it.
+        out = await store.set_payout("npub1keen", "me@wallet.com", donate=False)
+        assert out == {"lightning_address": "me@wallet.com", "donate": False, "set": True}
+
+        # And changing your mind is just saying so again.
+        out = await store.set_payout("npub1keen", "me@wallet.com", donate=True)
+        assert out["donate"] is True
+
+    asyncio.run(go())
+
+
+def test_a_standing_donation_is_honoured_without_asking_again(vault, monkeypatch) -> None:
+    """The share is HELD, not credited, until the choice is actually resolved.
+
+    Settlement used to credit the winner and then offer them a donate button,
+    which donated nothing — the sats were already in their balance. So a winner
+    who has said "donate" is never credited at all, and a winner who has never
+    said keeps the choice with the share still unspent.
+    """
+    credited: list[tuple[str, int]] = []
+
+    async def fake_award(match_id, npub, sats):
+        credited.append((npub, sats))
+        return True
+
+    monkeypatch.setattr(match_flow, "award_prize", fake_award)
+
+    async def go():
+        await store.set_charity("Pollinator Partnership", "https://pollinator.org", "p@wallet.com")
+
+        # Somebody who has said "donate": resolved on the spot, nothing credited.
+        mid = await store.open_match()
+        await store.set_payout("npub1giver", "", donate=True)
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100, operator=100,
+                                      winner_npub="npub1giver", beneficiary="Pollinator Partnership")
+        assert await match_flow.resolve_prize(mid, "npub1giver", 100) == "donated"
+        assert credited == [], "a donated share must never reach the winner's balance"
+
+        # Somebody who has said "keep": credited, and recorded as kept.
+        mid2 = await store.open_match()
+        await store.set_payout("npub1keeper", "me@wallet.com", donate=False)
+        await store.record_settlement(mid2, pot=1000, charity=800, winner=100, operator=100,
+                                      winner_npub="npub1keeper", beneficiary="Pollinator Partnership")
+        assert await match_flow.resolve_prize(mid2, "npub1keeper", 100) == "kept"
+        assert credited == [("npub1keeper", 100)]
+
+        # Somebody who has never said: the share waits for them to choose.
+        mid3 = await store.open_match()
+        await store.record_settlement(mid3, pot=1000, charity=800, winner=100, operator=100,
+                                      winner_npub="npub1quiet", beneficiary="Pollinator Partnership")
+        assert await match_flow.resolve_prize(mid3, "npub1quiet", 100) == "unclaimed"
+        assert credited == [("npub1keeper", 100)], "an unresolved share is not credited either"
+
+    asyncio.run(go())
+
+
+def test_a_resolved_prize_cannot_be_resolved_a_second_way(vault, monkeypatch) -> None:
+    """A cron that fires twice must not turn a donation back into a claim."""
+
+    async def fake_award(match_id, npub, sats):
+        return True
+
+    monkeypatch.setattr(match_flow, "award_prize", fake_award)
+
+    async def go():
+        mid = await store.open_match()
+        await store.set_payout("npub1giver", "", donate=True)
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100, operator=100,
+                                      winner_npub="npub1giver", beneficiary="Somebody")
+        await match_flow.resolve_prize(mid, "npub1giver", 100)
+        await store.set_prize_state(mid, "kept")  # a replay trying to take it back
+        rows = await store.settlements(10)
+        assert rows[0]["prize_state"] == "donated"
 
     asyncio.run(go())

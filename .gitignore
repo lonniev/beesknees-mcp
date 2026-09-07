@@ -212,3 +212,4 @@ __marimo__/
 # every diff unreadable.
 frontend/node_modules/
 frontend/dist/
+frontend/tsconfig.tsbuildinfo
