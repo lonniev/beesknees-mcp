@@ -27,14 +27,17 @@ import {
   neighbors,
   outward,
   ringOf,
+  slotOf,
+  cellCentre,
+  VIEW_HALF,
   toQueen,
   type Phase,
 } from "./rules.ts";
 import { stepToward } from "./bots.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
-  const g = makeGeometry(22, 4);
-  for (let r = 2; r <= g.maxRing; r++) {
+  const g = makeGeometry(22);
+  for (let r = 2; r <= g.R; r++) {
     assert.ok(
       g.size[r] >= g.size[r - 1],
       `ring ${r} (${g.size[r]}) must not be smaller than ring ${r - 1} (${g.size[r - 1]})`,
@@ -47,16 +50,20 @@ test("rings narrow toward the queen — the funnel is real", () => {
 });
 
 test("every cell round-trips through its ring and slot", () => {
-  const g = makeGeometry(22, 4);
-  for (let c = 0; c < g.cells; c++) {
+  const g = makeGeometry(22);
+  for (let c = 0; c < g.hiveCells; c++) {
     const r = ringOf(g, c);
     assert.equal(idx(g, r, c - g.offset[r]), c);
   }
+  // A meadow cell has no ring to round-trip through, and says so rather than
+  // quietly indexing past the end of the ring table.
+  assert.equal(ringOf(g, g.hiveCells), g.maxRing);
+  assert.equal(slotOf(g, g.hiveCells), -1);
 });
 
 test("inward and outward are consistent inverses", () => {
-  const g = makeGeometry(22, 4);
-  for (let r = 1; r <= g.maxRing; r++) {
+  const g = makeGeometry(22);
+  for (let r = 1; r <= g.R; r++) {
     for (let i = 0; i < g.size[r]; i++) {
       const inw = inward(g, r, i)!;
       const back = outward(g, ringOf(g, inw), inw - g.offset[ringOf(g, inw)]);
@@ -66,7 +73,7 @@ test("inward and outward are consistent inverses", () => {
 });
 
 test("adjacency is symmetric — no one-way passages", () => {
-  const g = makeGeometry(14, 3);
+  const g = makeGeometry(14);
   for (let c = 0; c < g.cells; c++) {
     for (const n of neighbors(g, c)) {
       assert.ok(neighbors(g, n).includes(c), `${c} -> ${n} is one-way`);
@@ -75,7 +82,7 @@ test("adjacency is symmetric — no one-way passages", () => {
 });
 
 test("tangential movement wraps the ring", () => {
-  const g = makeGeometry(22, 4);
+  const g = makeGeometry(22);
   const r = 10;
   const first = idx(g, r, 0);
   const last = idx(g, r, g.size[r] - 1);
@@ -83,10 +90,9 @@ test("tangential movement wraps the ring", () => {
 });
 
 test("the hive starts solid and the meadow starts open", () => {
-  const g = makeGeometry(22, 4);
-  const b = makeBoard(g, { mouths: 4, flowers: 20, blockShare: 0, rng: mulberry32(3) });
-  for (let r = g.R + 1; r <= g.maxRing; r++)
-    for (let i = 0; i < g.size[r]; i++) assert.equal(b.state[idx(g, r, i)], OPEN);
+  const g = makeGeometry(22);
+  const b = makeBoard(g, { mouths: 4, flowers: 20, seats: 12, blockShare: 0, rng: mulberry32(3) });
+  for (let c = g.hiveCells; c < g.cells; c++) assert.equal(b.state[c], OPEN);
   for (let r = 0; r < g.R; r++)
     for (let i = 0; i < g.size[r]; i++) assert.equal(b.state[idx(g, r, i)], COMB);
   assert.equal([...b.mouth].filter(Boolean).length, 4);
@@ -126,7 +132,7 @@ test("the queen chamber and the meadow cannot be collapsed", () => {
   const bee = round.bees[0];
   const g = round.board.g;
   assert.equal(apply(round, bee, { kind: "collapse", at: 0 }), false, "the prize must stay reachable");
-  const meadow = idx(g, g.maxRing, 3);
+  const meadow = g.hiveCells + 3;
   assert.equal(apply(round, bee, { kind: "collapse", at: meadow }), false, "air is not diggable");
 });
 
@@ -183,19 +189,21 @@ test("the distance field is cached on board version, not stale across a dig", ()
 });
 
 test("bees start in the corners, spread, and never facing a door", () => {
-  // They used to be spread EVENLY around the ring, which put somebody directly
-  // in front of each door — a free entrance for whoever drew that seat, and a
-  // whole quarter of the picture (the corners of a square meadow) left empty.
+  // They used to be spread EVENLY around a ring, which put somebody directly in
+  // front of each door — a free entrance for whoever drew that seat — and left
+  // the corners of the square empty. Measured in view coordinates now, because
+  // a starting cell is a meadow square and has no ring slot to reason about.
   const seats = 12;
   const round = makeRound(Array.from({ length: seats }, () => "rider"), DEFAULT_RULES, mulberry32(23));
   const g = round.board.g;
   const cells = round.bees.map((b) => b.cell);
 
   assert.equal(new Set(cells).size, seats, "no two bees may start in the same cell");
+  for (const c of cells) assert.ok(c >= g.hiveCells, `bee starts at ${c}, inside the hive`);
 
   const bearing = (c: number) => {
-    const r = ringOf(g, c);
-    return ((c - g.offset[r]) / g.size[r]) * 360;
+    const [x, y] = cellCentre(g, c);
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
   };
   const doors = [...Array(g.cells).keys()].filter((c) => round.board.mouth[c]).map(bearing);
 
@@ -207,11 +215,25 @@ test("bees start in the corners, spread, and never facing a door", () => {
     assert.ok(gap > 15, `a bee starts ${gap.toFixed(0)} degrees off a door — near enough to be handed it`);
   }
 
-  // Four clusters, because there are four corners.
-  const sorted = cells.map(bearing).sort((a, b) => a - b);
-  const gaps = sorted.map((v, i) => (i ? v - sorted[i - 1] : v + 360 - sorted[seats - 1]));
-  const wide = gaps.filter((x) => x > 25).length;
-  assert.equal(wide, 4, `expected four clusters, found ${wide} gaps between them`);
+  // Genuinely IN the corners, so the flight in is a journey rather than a step
+  // off the wall. Both coordinates well past the hive's own half-width.
+  for (const c of cells) {
+    const [x, y] = cellCentre(g, c);
+    assert.ok(
+      Math.abs(x) > VIEW_HALF * 0.5 && Math.abs(y) > VIEW_HALF * 0.5,
+      `a bee starts at ${x.toFixed(0)},${y.toFixed(0)} — not in a corner`,
+    );
+  }
+
+  // Three to a corner, four corners, so no corner is crowded and none is empty.
+  const perCorner = new Map<string, number>();
+  for (const c of cells) {
+    const [x, y] = cellCentre(g, c);
+    const k = `${Math.sign(x)},${Math.sign(y)}`;
+    perCorner.set(k, (perCorner.get(k) ?? 0) + 1);
+  }
+  assert.equal(perCorner.size, 4, `expected four corners used, got ${perCorner.size}`);
+  for (const [k, n] of perCorner) assert.equal(n, seats / 4, `corner ${k} holds ${n} bees`);
 });
 
 test("a rival empties the flower you were flying to", () => {
@@ -359,12 +381,12 @@ test("a bee has a body — one cell, one bee, inside the hive", () => {
 });
 
 test("the meadow is air — bees pass each other freely above ground", () => {
-  // Enforcing bodies above the wall gridlocks the very first move: all twelve
-  // bees start on one ring by construction.
+  // Enforcing bodies above the wall gridlocks the very first move: bees start
+  // stacked in the four corners by construction.
   const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(47));
   const g = round.board.g;
   const [a, b] = round.bees;
-  const cell = idx(g, g.maxRing - 1, 4);
+  const cell = g.hiveCells + Math.floor(g.meadowCells / 2);
   b.cell = cell;
   a.cell = neighbors(g, cell).find((n) => ringOf(g, n) > g.R)!;
   assert.ok(apply(round, a, { kind: "fly", to: cell }), "the air is shared");

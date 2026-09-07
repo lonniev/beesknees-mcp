@@ -1,43 +1,44 @@
 /**
- * The one place that converts between a cell and a wedge on screen.
+ * The one place that converts between a cell and a shape on screen.
  *
- * Both the renderer and the hit test go through here, because a tap that
- * lands on a different cell than the one under the finger is the single most
+ * Both the renderer and the hit test go through here, because a tap that lands
+ * on a different cell than the one under the finger is the single most
  * infuriating bug a board game can ship, and it happens the moment two
- * functions disagree about where a wedge starts.
+ * functions disagree about where a cell starts.
+ *
+ * There are two shapes now — a wedge in the hive, a square in the meadow — so
+ * every function here begins by asking which geometry it is in. See `Geometry`
+ * in `rules.ts` for why the board is built that way.
  */
 
 import type { Geometry } from "../game/rules.ts";
-import { idx, ringOf } from "../game/rules.ts";
+import {
+  HIVE_SHARE,
+  cellCentre as ruleCentre,
+  idx,
+  isHive,
+  meadowAt,
+  ringOf,
+  ringR,
+} from "../game/rules.ts";
 
 export const TAU = Math.PI * 2;
-/** The viewBox is -100..100 on both axes, so the outermost ring ends at 100. */
+/** The viewBox is -100..100 on both axes, so the square field ends at 100. */
 export const VIEW = 100;
 
 /**
- * Share of the radius given to the hive, leaving the rest to the meadow.
+ * Share of the half-width given to the hive, leaving the rest to the meadow.
  *
- * Raised from 0.68 once the flowers moved off the outer two meadow rings for a
- * fair start: that left a wide band of empty green doing nothing while the comb
- * cells — where the whole second half of the game happens, and where a finger
- * has to land on one cell in particular — were smaller than they needed to be.
- * Same number of cells, about a fifth more room each.
- *
- * Deliberately NOT the ring count's own proportion. There are 15 comb rings to
- * 4 meadow ones, which would leave the meadow a sliver — and the meadow is
- * where every bee starts, where the flowers are, and where the whole first act
- * happens. Widening it costs the comb nothing legible, because comb rings only
- * need to be big enough to tell a dug cell from a solid one.
+ * Deliberately NOT the ring count's own proportion. The comb only needs cells
+ * big enough to tell a dug one from a solid one and to land a finger on one in
+ * particular — but that is where the whole second half of the game happens, so
+ * it takes the middle four fifths and the meadow takes the frame and the
+ * corners, which is exactly the shape the square lattice is good at filling.
  */
-export const COMB_SHARE = 0.8;
+export const COMB_SHARE = HIVE_SHARE;
 
-/** Radius in view units where a ring begins. */
-export function ringRadius(g: Geometry, r: number): number {
-  const wallEdge = g.R + 1;
-  if (r <= wallEdge) return (r / wallEdge) * COMB_SHARE * VIEW;
-  const meadow = g.maxRing + 1 - wallEdge;
-  return (COMB_SHARE + ((r - wallEdge) / meadow) * (1 - COMB_SHARE)) * VIEW;
-}
+/** Radius in view units where a hive ring begins. Mirrors `ringR` in the rules. */
+export const ringRadius = ringR;
 
 /** Slot 0 starts at twelve o'clock, which is where a person expects it. */
 export function slotAngle(n: number, i: number): number {
@@ -76,22 +77,28 @@ export function cellPath(g: Geometry, r: number, i: number): string {
   );
 }
 
-/** Where to put a glyph so it sits in the middle of a cell. */
-export function cellCentre(g: Geometry, cell: number): [number, number] {
-  const r = ringOf(g, cell);
-  if (r === 0) return [0, 0];
-  const i = cell - g.offset[r];
-  const mid = (ringRadius(g, r) + ringRadius(g, r + 1)) / 2;
-  return xy(mid, slotAngle(g.size[r], i + 0.5));
+/** The SVG path for any cell, wedge or square, addressed by id. */
+export function cellShape(g: Geometry, cell: number): string {
+  if (isHive(g, cell)) {
+    const r = ringOf(g, cell);
+    return cellPath(g, r, cell - g.offset[r]);
+  }
+  const [cx, cy] = ruleCentre(g, cell);
+  const h = g.step / 2;
+  const f = (n: number) => n.toFixed(2);
+  return `M ${f(cx - h)} ${f(cy - h)} H ${f(cx + h)} V ${f(cy + h)} H ${f(cx - h)} Z`;
 }
 
+/** Where to put a glyph so it sits in the middle of a cell. */
+export const cellCentre = ruleCentre;
+
 /**
- * The whole comb's cell boundaries as ONE path.
+ * The comb's cell boundaries as ONE path.
  *
- * Un-dug comb was a flat brown disc, which is most of the board and reads as
+ * Un-dug comb was a flat brown disc, which is most of the hive and reads as
  * empty background rather than as something to be cut through. Drawing the
- * lattice fixes that, but 857 cells is 857 DOM nodes per hive and there are
- * four hives — so every ring arc and every radial divider is concatenated into
+ * lattice fixes that, but 225 cells is 225 DOM nodes per hive and there are
+ * five hives — so every ring arc and every radial divider is concatenated into
  * a single `d` string instead. One node, the whole honeycomb.
  *
  * Geometry never changes during a match, so the result is cached rather than
@@ -100,7 +107,7 @@ export function cellCentre(g: Geometry, cell: number): [number, number] {
 const latticeCache = new Map<string, string>();
 
 export function combLattice(g: Geometry): string {
-  const key = `${g.R}:${g.maxRing}:${g.cells}`;
+  const key = `comb:${g.R}:${g.hiveCells}`;
   const hit = latticeCache.get(key);
   if (hit) return hit;
 
@@ -135,24 +142,70 @@ export function combLattice(g: Geometry): string {
 }
 
 /**
- * Which cell a point in view coordinates falls in, or null beyond the meadow.
+ * The meadow's square boundaries as ONE path — same argument as `combLattice`.
  *
- * Computed rather than hit-tested against the DOM: there are 857 cells in a
- * hive and four hives on screen, and drawing every one of them just so a
+ * Only the edges between two REAL squares are drawn. Ruling the whole grid
+ * would carry lines across the hive and off past the field's edge, drawing a
+ * lattice where there is nothing to stand on.
+ */
+export function meadowLattice(g: Geometry): string {
+  const key = `meadow:${g.gridN}:${g.meadowCells}`;
+  const hit = latticeCache.get(key);
+  if (hit) return hit;
+
+  const p: string[] = [];
+  const f = (n: number) => n.toFixed(1);
+  const at = (row: number, col: number) =>
+    row < 0 || row >= g.gridN || col < 0 || col >= g.gridN
+      ? -1
+      : g.slotCell[row * g.gridN + col];
+
+  for (let row = 0; row < g.gridN; row++) {
+    for (let col = 0; col < g.gridN; col++) {
+      if (at(row, col) < 0) continue;
+      const x0 = -VIEW + g.step * col;
+      const y0 = -VIEW + g.step * row;
+      const x1 = x0 + g.step;
+      const y1 = y0 + g.step;
+      // Each square draws its own top and left edge, so a shared edge is drawn
+      // once rather than twice.
+      if (at(row - 1, col) >= 0 || row === 0) p.push(`M${f(x0)} ${f(y0)}H${f(x1)}`);
+      if (at(row, col - 1) >= 0 || col === 0) p.push(`M${f(x0)} ${f(y0)}V${f(y1)}`);
+      if (row === g.gridN - 1) p.push(`M${f(x0)} ${f(y1)}H${f(x1)}`);
+      if (col === g.gridN - 1) p.push(`M${f(x1)} ${f(y0)}V${f(y1)}`);
+    }
+  }
+
+  const d = p.join("");
+  latticeCache.set(key, d);
+  return d;
+}
+
+/**
+ * Which cell a point in view coordinates falls in, or null off the field.
+ *
+ * Computed rather than hit-tested against the DOM: there are hundreds of cells
+ * in a hive and five hives on screen, and drawing every one of them just so a
  * pointer event has something to land on is how a board game becomes a
  * slideshow on a phone.
  */
 export function cellAt(g: Geometry, x: number, y: number): number | null {
-  const frac = Math.hypot(x, y) / VIEW;
+  if (Math.abs(x) > VIEW || Math.abs(y) > VIEW) return null;
+
+  const rad = Math.hypot(x, y);
+  const hiveR = COMB_SHARE * VIEW;
+  if (rad > hiveR) {
+    const m = meadowAt(g, x, y);
+    if (m !== null) return m;
+    // The seam: this square's middle is under the hive, so the finger is over
+    // the hive even though the point is outside its radius. Fall through and
+    // read it as the wall, which is what the eye sees there.
+  }
+
   const wallEdge = g.R + 1;
   // The inverse of ringRadius, and it MUST stay the inverse: the moment these
   // two disagree, taps land on a different cell than the finger is over.
-  const r =
-    frac <= COMB_SHARE
-      ? Math.floor((frac / COMB_SHARE) * wallEdge)
-      : wallEdge +
-        Math.floor(((frac - COMB_SHARE) / (1 - COMB_SHARE)) * (g.maxRing + 1 - wallEdge));
-  if (r < 0 || r > g.maxRing) return null;
+  const r = Math.min(g.R, Math.floor((rad / (COMB_SHARE * VIEW)) * wallEdge));
   if (r === 0) return 0;
   const n = g.size[r];
   const theta = Math.atan2(y, x) + Math.PI / 2;

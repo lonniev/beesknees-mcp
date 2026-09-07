@@ -312,7 +312,7 @@ async def test_the_queen_and_the_meadow_can_never_be_sealed(vault):
     with pytest.raises(store.BoardError):
         await store.seal(mid, "npubA", 0)
     with pytest.raises(store.BoardError):
-        await store.seal(mid, "npubA", geo.idx(g, g.max_ring, 4))
+        await store.seal(mid, "npubA", g.hive_cells + 4)
 
 
 async def test_sealing_reopens_the_comb(vault):

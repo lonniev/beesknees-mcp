@@ -5,11 +5,9 @@
  * only durable part: it ports to `geometry.py` on the server and to the SVG
  * renderer in the frontend, and both of those must agree with it exactly.
  *
- * The board is a POLAR cell grid. Ring 0 is the queen chamber, ring `R` is the
- * hive wall, and rings above `R` are open meadow. Cells per ring scale with
- * circumference, so the field NARROWS toward the queen — that funnel is the
- * whole reason the layout is radial rather than square, and it is what turns
- * fifty bees spread along a wall into a scrum at the centre.
+ * The board is TWO grids. Outside is a square lattice of open meadow; inside is
+ * a polar one whose rings narrow toward the queen. They meet only at the doors.
+ * See `Geometry` below for why it is worth having two.
  *
  * Costs here are RELATIVE EFFORT WEIGHTS for comparing strategies. They are not
  * prices and must never be read as any. What a motion costs a patron is set at
@@ -17,6 +15,11 @@
  */
 
 export type CellState = 0 | 1; // 0 = comb (must be dug), 1 = open
+/** Half-width of the square field, in view units. Mirrors polar.ts's VIEW. */
+export const VIEW_HALF = 100;
+/** Share of the half-width taken by the hive disc. Mirrors polar.ts's HIVE_SHARE. */
+export const HIVE_SHARE = 0.8;
+
 export const COMB: CellState = 0;
 export const OPEN: CellState = 1;
 
@@ -25,65 +28,197 @@ export const TICK_MS = 100;
 
 export type Phase = "forage" | "return" | "tunnel" | "done";
 
+/**
+ * TWO geometries, joined at the doors.
+ *
+ * The meadow is a SQUARE LATTICE and the hive is CONCENTRIC RINGS, because the
+ * two halves of this game want opposite things of a grid. Outside, a bee crosses
+ * open ground toward a hive it can see from anywhere, and what matters is
+ * heading and distance — which is what a square lattice measures and what makes
+ * a far corner genuinely far. Inside, every bee is converging on one cell at the
+ * centre and the field has to NARROW as they close on it; that funnel is what
+ * rings are for, and it is the whole reason the hive is radial.
+ *
+ * One geometry stretched across both jobs was wrong in both directions. Rings
+ * that stop at the hive leave the square's corners painted and uninhabited.
+ * Rings pushed out to the corners put 140 of 491 cells off-screen, where they
+ * had to be blocked, skipped by the connectivity repair, and hidden from the
+ * eye — bookkeeping in three places to hide a mismatch, instead of not having
+ * one.
+ *
+ * Cell ids run hive-first: `0 .. hiveCells-1` are polar, the rest are meadow.
+ */
 export interface Geometry {
-  /** Hive wall ring. Rings 1..R are comb; ring 0 is the queen chamber. */
+  /** Hive wall ring. Ring 0 is the queen, 1..R-1 comb, R the wall with its doors. */
   R: number;
-  /** Open-air rings above the wall: R+1 .. R+meadowRings. */
-  meadowRings: number;
-  /** Outermost ring index. */
-  maxRing: number;
-  /** Cells in each ring, indexed by ring. */
+  /** Cells in each hive ring, indexed by ring 0..R. */
   size: number[];
-  /** Flat-index offset of each ring's first cell. */
+  /** Flat-index offset of each hive ring's first cell. */
   offset: number[];
-  /** Total cells. */
+  /** How many cells the polar half holds. Meadow ids begin here. */
+  hiveCells: number;
+  /** The ring number reported for EVERY meadow cell. The meadow has no rings. */
+  maxRing: number;
+  /** Side of the meadow lattice, in cells. */
+  gridN: number;
+  /** View units per lattice square. */
+  step: number;
+  /** Lattice slot (row*gridN + col) -> cell id, or -1 where the hive covers it. */
+  slotCell: Int32Array;
+  /** Meadow cell id minus `hiveCells` -> its lattice slot. */
+  cellSlot: Int32Array;
+  meadowCells: number;
   cells: number;
+  /** Wall slot -> the meadow square beyond it. The seam, and the only way through. */
+  doorOut: Int32Array;
+  /** Meadow cell id -> the wall cells that open onto it. */
+  doorIn: Map<number, number[]>;
 }
 
 /**
  * The shipped board, settled by simulation rather than by taste.
  *
- * Fourteen rings and the stagger rule together: 365 cells, a round landing near
- * two and a half minutes, and a good player beating an adequate one about 3.5
- * times as often. The straight-line driller wins ZERO percent, which is the
- * whole point of the stagger — before it, boring a radial shaft beat routing.
+ * Fourteen rings and the stagger rule together: a round landing near two and a
+ * half minutes, and a good player beating an adequate one about 3.5 times as
+ * often. The straight-line driller wins ZERO percent, which is the whole point
+ * of the stagger — before it, boring a radial shaft beat routing.
  *
  * Twenty-four rings without the stagger gave 1.8x and a driller on 22%; with
  * the stagger it gave 4.2x but a four-and-a-half-minute round. Fourteen keeps
  * nearly all the skill and hands back the two minutes.
+ *
+ * Sixteen lattice squares to a side leaves two of them of clear air above a
+ * cardinal door and about five on the diagonal, so the corners a bee starts in
+ * are a real flight from the nearest way in.
  */
-export const BOARD = { wall: 14, meadowRings: 4, cellW: 3.0 } as const;
+export const BOARD = { wall: 14, gridN: 16, cellW: 3.0 } as const;
 
 export function makeGeometry(
   R: number = BOARD.wall,
-  meadowRings: number = BOARD.meadowRings,
+  gridN: number = BOARD.gridN,
   cellW: number = BOARD.cellW,
 ): Geometry {
-  const maxRing = R + meadowRings;
   const size: number[] = [];
   const offset: number[] = [];
-  let total = 0;
-  for (let r = 0; r <= maxRing; r++) {
+  let hiveCells = 0;
+  for (let r = 0; r <= R; r++) {
     // Ring 0 is a single chamber. Everything else scales with circumference,
     // floored at 6 so the innermost rings stay navigable rather than degenerate.
     const n = r === 0 ? 1 : Math.max(6, Math.round((2 * Math.PI * r) / cellW));
-    offset.push(total);
+    offset.push(hiveCells);
     size.push(n);
-    total += n;
+    hiveCells += n;
   }
-  return { R, meadowRings, maxRing, size, offset, cells: total };
+
+  const step = (2 * VIEW_HALF) / gridN;
+  const hiveR = HIVE_SHARE * VIEW_HALF;
+  const slotCell = new Int32Array(gridN * gridN).fill(-1);
+  const cellSlot: number[] = [];
+  for (let row = 0; row < gridN; row++) {
+    for (let col = 0; col < gridN; col++) {
+      const x = -VIEW_HALF + step * (col + 0.5);
+      const y = -VIEW_HALF + step * (row + 0.5);
+      // A square with the hive under its middle is not meadow. The hive is
+      // painted over the lattice, so the ragged seam never shows.
+      if (Math.hypot(x, y) <= hiveR) continue;
+      slotCell[row * gridN + col] = hiveCells + cellSlot.length;
+      cellSlot.push(row * gridN + col);
+    }
+  }
+
+  const g: Geometry = {
+    R,
+    size,
+    offset,
+    hiveCells,
+    maxRing: R + 1,
+    gridN,
+    step,
+    slotCell,
+    cellSlot: Int32Array.from(cellSlot),
+    meadowCells: cellSlot.length,
+    cells: hiveCells + cellSlot.length,
+    doorOut: new Int32Array(size[R]).fill(-1),
+    doorIn: new Map(),
+  };
+
+  // The seam. Each wall cell opens onto the lattice square beyond its middle,
+  // found by probing outward — the first square out is occasionally one the
+  // hive swallowed, and a door onto nothing is a door nobody can use.
+  for (let i = 0; i < size[R]; i++) {
+    const a = ((i + 0.5) / size[R]) * Math.PI * 2 - Math.PI / 2;
+    for (let d = 0.6; d < 4; d += 0.5) {
+      const reach = hiveR + step * d;
+      const c = meadowAt(g, Math.cos(a) * reach, Math.sin(a) * reach);
+      if (c === null) continue;
+      g.doorOut[i] = c;
+      const back = g.doorIn.get(c);
+      if (back) back.push(idx(g, R, i));
+      else g.doorIn.set(c, [idx(g, R, i)]);
+      break;
+    }
+  }
+  return g;
+}
+
+/** Is this cell in the hive rather than the meadow? */
+export function isHive(g: Geometry, cell: number): boolean {
+  return cell < g.hiveCells;
+}
+
+/** Lattice row and column of a meadow cell. */
+export function rowCol(g: Geometry, cell: number): [number, number] {
+  const slot = g.cellSlot[cell - g.hiveCells];
+  return [Math.floor(slot / g.gridN), slot % g.gridN];
+}
+
+/** The meadow square holding a point, or null — off the field, or under the hive. */
+export function meadowAt(g: Geometry, x: number, y: number): number | null {
+  const col = Math.floor((x + VIEW_HALF) / g.step);
+  const row = Math.floor((y + VIEW_HALF) / g.step);
+  if (col < 0 || col >= g.gridN || row < 0 || row >= g.gridN) return null;
+  const c = g.slotCell[row * g.gridN + col];
+  return c < 0 ? null : c;
+}
+
+/**
+ * Radius of a hive ring's inner edge, in view units.
+ *
+ * Duplicated from `polar.ts` deliberately: the RULES need the geometry and the
+ * renderer must not be a dependency of them. `polar.test.ts` asserts the two agree.
+ */
+export function ringR(g: Geometry, r: number): number {
+  return (Math.min(r, g.R + 1) / (g.R + 1)) * HIVE_SHARE * VIEW_HALF;
+}
+
+/** Centre of a cell in view coordinates, whichever geometry it belongs to. */
+export function cellCentre(g: Geometry, cell: number): [number, number] {
+  if (!isHive(g, cell)) {
+    const [row, col] = rowCol(g, cell);
+    return [-VIEW_HALF + g.step * (col + 0.5), -VIEW_HALF + g.step * (row + 0.5)];
+  }
+  const r = ringOf(g, cell);
+  if (r === 0) return [0, 0];
+  const i = cell - g.offset[r];
+  const mid = (ringR(g, r) + ringR(g, r + 1)) / 2;
+  const a = ((i + 0.5) / g.size[r]) * Math.PI * 2 - Math.PI / 2;
+  return [mid * Math.cos(a), mid * Math.sin(a)];
 }
 
 export function idx(g: Geometry, r: number, i: number): number {
   return g.offset[r] + (((i % g.size[r]) + g.size[r]) % g.size[r]);
 }
 
+/** Ring of a hive cell; `maxRing` for anything out in the meadow. */
 export function ringOf(g: Geometry, cell: number): number {
-  for (let r = g.maxRing; r >= 0; r--) if (cell >= g.offset[r]) return r;
+  if (cell >= g.hiveCells) return g.maxRing;
+  for (let r = g.R; r >= 0; r--) if (cell >= g.offset[r]) return r;
   return 0;
 }
 
+/** Slot within its ring, or -1 for a meadow cell, which has no ring to sit in. */
 export function slotOf(g: Geometry, cell: number): number {
+  if (cell >= g.hiveCells) return -1;
   return cell - g.offset[ringOf(g, cell)];
 }
 
@@ -100,9 +235,14 @@ export function inward(g: Geometry, r: number, i: number): number | null {
   return idx(g, r - 1, j);
 }
 
-/** Every cell one ring outward that funnels into this one. Usually one or two. */
+/** Every cell one step outward from a hive cell. Usually one or two. */
 export function outward(g: Geometry, r: number, i: number): number[] {
-  if (r >= g.maxRing) return [];
+  // Out of the WALL there is no ring, only the seam: the square beyond this
+  // door. Whether it may be crossed is the cell's state, not its geometry.
+  if (r >= g.R) {
+    const c = g.doorOut[i];
+    return c < 0 ? [] : [c];
+  }
   const out: number[] = [];
   const n = g.size[r + 1];
   for (let j = 0; j < n; j++) {
@@ -112,13 +252,35 @@ export function outward(g: Geometry, r: number, i: number): number[] {
 }
 
 /**
- * Neighbours of a cell: inward, outward, and the two tangential cells.
+ * Neighbours of a cell, in whichever geometry it lives.
  *
- * Tangential movement is what makes this a maze rather than a set of lanes —
- * it is how a bee slides sideways onto someone else's open shaft, or steps out
- * from under a collapse.
+ * In the hive: inward, outward and the two tangential cells. Tangential
+ * movement is what makes it a maze rather than a set of lanes — it is how a bee
+ * slides onto someone else's open shaft, or steps out from under a collapse.
+ *
+ * In the meadow: all eight compass directions, because a bee flies and a flight
+ * that can only turn right angles reads as a machine. Plus any door that opens
+ * onto this square, which is the only place the two geometries touch.
  */
 export function neighbors(g: Geometry, cell: number): number[] {
+  if (!isHive(g, cell)) {
+    const [row, col] = rowCol(g, cell);
+    const out: number[] = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const r2 = row + dr;
+        const c2 = col + dc;
+        if (r2 < 0 || r2 >= g.gridN || c2 < 0 || c2 >= g.gridN) continue;
+        const n = g.slotCell[r2 * g.gridN + c2];
+        if (n >= 0) out.push(n);
+      }
+    }
+    const doors = g.doorIn.get(cell);
+    if (doors) out.push(...doors);
+    return out;
+  }
+
   const r = ringOf(g, cell);
   const i = cell - g.offset[r];
   const out: number[] = [];
@@ -131,7 +293,6 @@ export function neighbors(g: Geometry, cell: number): number[] {
   }
   return out;
 }
-
 // ── The board ────────────────────────────────────────────────────────────
 
 export interface Board {
@@ -174,6 +335,8 @@ export interface Board {
 export interface BoardOpts {
   mouths: number;
   flowers: number;
+  /** How many bees will start, so their corners can be kept clear of flowers. */
+  seats: number;
   /** Share of comb cells that are impassable. 0 makes every hive identical. */
   blockShare: number;
   rng: () => number;
@@ -186,10 +349,9 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
   const blocked = new Uint8Array(g.cells);
   const pollen = new Uint8Array(g.cells);
 
-  // Meadow is open air. Rings 0..R start solid; the queen chamber is the prize
-  // and must be dug into like anything else.
-  for (let r = g.R + 1; r <= g.maxRing; r++)
-    for (let i = 0; i < g.size[r]; i++) state[idx(g, r, i)] = OPEN;
+  // The meadow is open air. The hive starts solid all the way down; the queen
+  // chamber is the prize and must be dug into like anything else.
+  for (let c = g.hiveCells; c < g.cells; c++) state[c] = OPEN;
 
   // Mouths: evenly spaced doors in the wall, open from the start. They are a
   // convenience, not a hard gate — a bee may always pay to dig its own door.
@@ -200,19 +362,21 @@ export function makeBoard(g: Geometry, o: BoardOpts): Board {
     mouth[c] = 1;
   }
 
-  // Flowers scatter through the meadow, but never on the two outermost rings.
-  //
-  // Bees start spread around the outermost ring, so a flower there — or one ring
-  // in — is a bee that begins ON its pollen or one press away from it. Whoever
-  // was seeded next to a flower would win the first act for free. Keeping the
-  // outer two rings clear makes the shortest possible forage two presses, for
-  // everybody.
-  const innerMeadow = Math.max(1, g.meadowRings - 2);
+  // Flowers scatter across the meadow, but never onto a starting square or one
+  // touching it. A bee that opens on its own pollen, or one press away, has won
+  // the first act before pressing anything — so the shortest possible forage is
+  // two presses, for everybody.
+  const starts = new Set(cornerStarts(g, o.seats));
+  const nearStart = new Set<number>();
+  for (const st of starts) {
+    nearStart.add(st);
+    for (const n of neighbors(g, st)) nearStart.add(n);
+  }
   let placed = 0;
   let guard = 0;
-  while (placed < o.flowers && guard++ < o.flowers * 100) {
-    const r = g.R + 1 + Math.floor(o.rng() * innerMeadow);
-    const c = idx(g, r, Math.floor(o.rng() * g.size[r]));
+  while (placed < o.flowers && guard++ < o.flowers * 200) {
+    const c = g.hiveCells + Math.floor(o.rng() * g.meadowCells);
+    if (nearStart.has(c)) continue;
     if (!flower[c]) {
       flower[c] = 1;
       pollen[c] = 1;
@@ -433,7 +597,7 @@ export function apply(round: Round, bee: Bee, a: Action): boolean {
   // turns the hive into a spiral race or a genuine routing problem.
   const rFrom = ringOf(g, bee.cell);
   const rTo = ringOf(g, a.to);
-  if (rFrom === rTo && g.size[rFrom] > 2) {
+  if (rFrom === rTo && rFrom <= g.R && g.size[rFrom] > 2) {
     const n = g.size[rFrom];
     const from = bee.cell - g.offset[rFrom];
     const to = a.to - g.offset[rTo];
@@ -514,7 +678,8 @@ function clearBlocksUntilQueenIsReachable(board: Board): void {
       }
     }
     const unreachable: number[] = [];
-    for (let c = 0; c < g.cells; c++) if (!seen[c] && !board.blocked[c]) unreachable.push(c);
+    for (let c = 0; c < g.cells; c++)
+      if (!seen[c] && !board.blocked[c]) unreachable.push(c);
     if (!unreachable.length && n > g.cells / 2) return;
 
     // Open the blocked cell that touches the reached region, so the frontier
@@ -626,18 +791,53 @@ export function progress(board: Board, bee: Bee, rules: Rules): number {
  * each diagonal on adjacent slots, spread rather than stacked, which also puts
  * them in the corners of a square meadow where there was previously nothing.
  */
+export function cornerStarts(g: Geometry, seats: number): number[] {
+  // The four corners of the square, in view coordinates.
+  const corners: [number, number][] = [
+    [VIEW_HALF, -VIEW_HALF],
+    [VIEW_HALF, VIEW_HALF],
+    [-VIEW_HALF, VIEW_HALF],
+    [-VIEW_HALF, -VIEW_HALF],
+  ];
+
+  // Every meadow square is a candidate; the hive is not.
+  const usable: number[] = [];
+  for (let c = g.hiveCells; c < g.cells; c++) usable.push(c);
+
+  const taken = new Set<number>();
+  const out: number[] = [];
+  for (let i = 0; i < seats; i++) {
+    const [cx, cy] = corners[i % corners.length];
+    let best = -1;
+    let bestD = Infinity;
+    for (const c of usable) {
+      if (taken.has(c)) continue;
+      const [x, y] = cellCentre(g, c);
+      const d = (x - cx) ** 2 + (y - cy) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    if (best < 0) break;
+    taken.add(best);
+    out.push(best);
+  }
+  return out;
+}
+
+/**
+ * Where a bee begins: in a corner of the square, never in front of a door.
+ *
+ * Doors sit at the four cardinal points of the wall, so a corner is as far from
+ * every one of them as the board allows — nobody is handed an entrance, and the
+ * flight in is a real journey rather than a step off the wall. Seats are dealt
+ * round-robin so the four corners fill evenly, and each takes the nearest cell
+ * still free, which spreads them without stacking.
+ */
 export function startCell(g: Geometry, seat: number, seats: number): number {
-  const ring = g.maxRing;
-  const n = g.size[ring];
-  const corners = 4;
-  const perCorner = Math.ceil(seats / corners);
-  const corner = seat % corners;
-  const withinCorner = Math.floor(seat / corners);
-  // A diagonal is an eighth of a turn past a cardinal point.
-  const diagonal = (corner + 0.5) / corners;
-  // Fan out either side of the diagonal so no two share a cell.
-  const spread = withinCorner - (perCorner - 1) / 2;
-  return idx(g, ring, Math.round(diagonal * n + spread));
+  const starts = cornerStarts(g, seats);
+  return starts[seat] ?? starts[starts.length - 1] ?? g.hiveCells;
 }
 
 export function makeRound(
@@ -647,7 +847,7 @@ export function makeRound(
   geo?: Geometry,
 ): Round {
   const g = geo ?? makeGeometry();
-  const board = makeBoard(g, { mouths: 4, flowers: 24, blockShare: rules.blockShare, rng });
+  const board = makeBoard(g, { mouths: 4, flowers: 24, seats: strategies.length, blockShare: rules.blockShare, rng });
   const bees: Bee[] = strategies.map((strategy, id) => ({
     id,
     strategy,

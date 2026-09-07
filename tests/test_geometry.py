@@ -20,6 +20,7 @@ from beesknees_mcp.geometry import (
     idx,
     initial_state,
     inward,
+    is_hive,
     is_meadow,
     make_geometry,
     mouth_cells,
@@ -38,7 +39,7 @@ def g() -> Geometry:
 
 def test_rings_narrow_toward_the_queen(g: Geometry) -> None:
     """The funnel is the reason the board is round. Assert it is really there."""
-    for r in range(2, g.max_ring + 1):
+    for r in range(2, g.wall + 1):
         assert g.size[r] >= g.size[r - 1], f"ring {r} is narrower than ring {r - 1}"
     # And that it BITES, expressed against the thing that makes it matter — the
     # number of bees — rather than a ratio tuned to one board. An earlier version
@@ -61,17 +62,22 @@ def test_the_shipped_board_is_the_one_that_was_measured(g: Geometry) -> None:
     two and a half minutes, a good player winning about 3.5x their uniform
     share, and the straight-line driller winning nothing at all.
     """
-    assert (g.wall, g.meadow_rings) == (14, 4)
-    assert g.cells == 365
+    assert (g.wall, g.grid_n) == (14, 16)
+    assert (g.hive_cells, g.meadow_cells) == (226, 132)
+    assert g.cells == g.hive_cells + g.meadow_cells
 
 
 def test_every_cell_round_trips_through_ring_and_slot(g: Geometry) -> None:
-    for c in range(g.cells):
+    for c in range(g.hive_cells):
         assert idx(g, ring_of(g, c), slot_of(g, c)) == c
+    # A meadow cell has no ring to round-trip through, and says so rather than
+    # quietly indexing past the end of the ring table.
+    assert ring_of(g, g.hive_cells) == g.max_ring
+    assert slot_of(g, g.hive_cells) == -1
 
 
 def test_inward_and_outward_are_consistent_inverses(g: Geometry) -> None:
-    for r in range(1, g.max_ring + 1):
+    for r in range(1, g.wall + 1):
         for i in range(g.size[r]):
             inw = inward(g, r, i)
             assert inw is not None
@@ -99,26 +105,27 @@ def test_the_queen_has_no_inward_neighbour(g: Geometry) -> None:
 
 def test_a_fresh_board_is_solid_hive_and_open_meadow(g: Geometry) -> None:
     state = initial_state(g)
-    for r in range(g.wall + 1, g.max_ring + 1):
-        for i in range(g.size[r]):
-            assert state[idx(g, r, i)] == OPEN
+    for c in range(g.hive_cells, g.cells):
+        assert state[c] == OPEN, f"meadow cell {c} should start open"
     for r in range(g.wall):
         for i in range(g.size[r]):
             assert state[idx(g, r, i)] == COMB, f"ring {r} should start solid"
     assert sum(state[c] == OPEN for c in range(g.offset[g.wall], g.offset[g.wall] + g.size[g.wall])) == 4
 
 
-def test_the_meadow_is_everything_above_the_wall(g: Geometry) -> None:
+def test_the_meadow_is_everything_outside_the_hive(g: Geometry) -> None:
+    """The two grids partition the board: every cell is one or the other."""
     assert not is_meadow(g, idx(g, g.wall, 0))
-    assert is_meadow(g, idx(g, g.wall + 1, 0))
-    assert is_meadow(g, idx(g, g.max_ring, 0))
+    assert is_meadow(g, g.hive_cells)
+    assert is_meadow(g, g.cells - 1)
+    assert all(is_meadow(g, c) != is_hive(g, c) for c in range(g.cells))
 
 
 def test_the_prize_and_the_air_can_never_be_sealed(g: Geometry) -> None:
     """Burying either would end a round that nobody could then win."""
     assert not can_seal(g, 0), "the queen's chamber must stay reachable"
-    assert not can_seal(g, idx(g, g.max_ring, 3)), "air is not diggable"
-    assert not can_seal(g, idx(g, g.wall + 1, 0))
+    assert not can_seal(g, g.hive_cells + 3), "air is not diggable"
+    assert not can_seal(g, g.cells - 1)
 
 
 def test_doors_cannot_be_sealed_shut(g: Geometry) -> None:

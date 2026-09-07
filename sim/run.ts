@@ -15,6 +15,7 @@ import {
   type Rules,
   DEFAULT_RULES,
   apply,
+  BOARD,
   makeGeometry,
   makeRound,
   mulberry32,
@@ -32,7 +33,7 @@ interface Arg {
   collapseCost: number;
   flowers: number;
   ringWall: number;
-  meadow: number;
+  grid: number;
   sabotage: number;
   digDelay: number;
   collapseTicks: number;
@@ -98,7 +99,7 @@ function playOne(cfg: Arg, seed: number): RoundResult {
     occupancy: cfg.occupancy > 0,
     costs: { fly: 1, dig: cfg.digCost, collapse: cfg.collapseCost },
   };
-  const g = makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW);
+  const g = makeGeometry(cfg.ringWall, cfg.grid, cfg.cellW);
   const strategies = Array.from(
     { length: cfg.bees },
     (_, i) => STRATEGIES[i % STRATEGIES.length] as string,
@@ -200,7 +201,7 @@ function main() {
 
   console.log(`\nThe Bee's Knees — ${cfg.rounds} rounds, ${cfg.bees} bees (${perStrategy} per strategy)`);
   console.log(
-    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · blocked ${(cfg.hard*100).toFixed(0)}% · bodies ${cfg.occupancy ? 'ON' : 'off'} · ${makeGeometry(cfg.ringWall, cfg.meadow, cfg.cellW).cells} cells · ${elapsed}s\n`,
+    `cooldown ${(cfg.cooldown * TICK_MS) / 1000}s · a dig also costs ${(cfg.digDelay / cfg.cooldown).toFixed(1)} extra cooldowns · wall ${cfg.ringWall} · cellW ${cfg.cellW} · stagger ${cfg.stagger ? 'ON' : 'off'} · blocked ${(cfg.hard*100).toFixed(0)}% · bodies ${cfg.occupancy ? 'ON' : 'off'} · ${makeGeometry(cfg.ringWall, cfg.grid, cfg.cellW).cells} cells · ${elapsed}s\n`,
   );
 
   console.log("WIN RATE            share   vs uniform   mean spend");

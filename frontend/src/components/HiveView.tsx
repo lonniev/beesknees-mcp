@@ -13,7 +13,17 @@ import { OPEN, ringOf } from "../game/rules.ts";
 import type { Bee } from "../game/rules.ts";
 import type { Hive } from "../game/match.ts";
 import { isHot, seated } from "../game/match.ts";
-import { VIEW, cellAt, cellCentre, cellPath, combLattice, ringRadius, slotAngle, xy } from "../lib/polar.ts";
+import {
+  VIEW,
+  cellAt,
+  cellCentre,
+  cellShape,
+  combLattice,
+  meadowLattice,
+  ringRadius,
+  slotAngle,
+  xy,
+} from "../lib/polar.ts";
 
 interface Props {
   hive: Hive;
@@ -125,10 +135,20 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
       viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
       onPointerDown={handle}
     >
-      {/* A SQUARE meadow. The board is drawn in a square viewBox, so an
-       * inscribed circle threw away every corner — nearly a quarter of the
-       * picture — while bees crowded a thin outer ring. */}
+      {/* The meadow: a square lattice, filling the square field including its
+       * corners, which is what a square grid is FOR. Rings could only ever have
+       * reached the corners by stretching, and a stretched ring is a cell that
+       * is bigger the further from the hive it sits. */}
       <rect x={-VIEW} y={-VIEW} width={VIEW * 2} height={VIEW * 2} fill="var(--color-meadow)" rx={6} />
+      {focused && (
+        <path
+          d={meadowLattice(g)}
+          fill="none"
+          stroke="#000"
+          strokeWidth={0.2}
+          opacity={0.14}
+        />
+      )}
 
       {/* Flowers were gold dots, which at this size is exactly what a distant
        * bee looks like — so the meadow read as forty bees rather than twelve
@@ -200,7 +220,7 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
       {blockedCells.map((c) => (
         <path
           key={`x${c}`}
-          d={cellPath(g, ringOf(g, c), c - g.offset[ringOf(g, c)])}
+          d={cellShape(g, c)}
           fill="#000"
           opacity={0.55}
         />
@@ -209,7 +229,7 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
       {openCells.map((c) => (
         <path
           key={`o${c}`}
-          d={cellPath(g, ringOf(g, c), c - g.offset[ringOf(g, c)])}
+          d={cellShape(g, c)}
           fill="var(--color-tunnel)"
           opacity={0.55}
         />
@@ -302,7 +322,7 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
         options?.map((c) => (
           <path
             key={`opt${c}`}
-            d={cellPath(g, ringOf(g, c), c - g.offset[ringOf(g, c)])}
+            d={cellShape(g, c)}
             fill="#fff"
             opacity={0.07}
             stroke="#fff"
@@ -329,12 +349,12 @@ function HiveViewInner({ hive, frame, youId, target, options, focused, armed, on
                     both lime circles of nearly the same size sitting side by
                     side, and there was no telling which was which. */}
                 <path
-                  d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
+                  d={cellShape(g, target)}
                   fill="#fff"
                   opacity={0.1}
                 />
                 <path
-                  d={cellPath(g, ringOf(g, target), target - g.offset[ringOf(g, target)])}
+                  d={cellShape(g, target)}
                   fill="none"
                   stroke="#fff"
                   strokeWidth={1.4}

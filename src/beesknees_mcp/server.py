@@ -307,7 +307,7 @@ async def match_state(
             "seats": board_store.SEATS,
             "bees": bees,
             "open_cells": cells,
-            "geometry": {"wall": geometry.WALL_RING, "meadow_rings": geometry.MEADOW_RINGS,
+            "geometry": {"wall": geometry.WALL_RING, "grid_n": geometry.GRID_N,
                          "cell_width": geometry.CELL_WIDTH},
         }
     except (OSError, RuntimeError) as exc:

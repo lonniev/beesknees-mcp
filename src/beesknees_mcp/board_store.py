@@ -293,8 +293,15 @@ async def seat_counts(match_id: str) -> dict[int, int]:
 
 
 def _start_cell(g: geo.Geometry, seat: int) -> int:
-    """Evenly spaced on the outermost ring, so nobody starts nearer a door."""
-    return geo.idx(g, g.max_ring, (seat * g.size[g.max_ring]) // SEATS)
+    """A corner of the meadow, as far from every door as the board allows.
+
+    Evenly spaced around a ring put somebody directly in front of each door —
+    a free entrance for whoever drew that seat — and left the corners of the
+    square empty. `geo.corner_starts` is the client's own function, ported, so
+    the bee the server places is the bee the client draws.
+    """
+    starts = geo.corner_starts(g, SEATS)
+    return starts[seat] if seat < len(starts) else starts[-1]
 
 
 async def take_seat(match_id: str, npub: str, label: str, hive: int) -> dict[str, Any]:
