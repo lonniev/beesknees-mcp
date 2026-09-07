@@ -22,6 +22,7 @@ import {
   progress,
   ringOf,
 } from "../frontend/src/game/rules.ts";
+import { SEATS } from "../frontend/src/game/match.ts";
 
 const TICK_MS = 100;
 
@@ -50,22 +51,29 @@ function args(): Arg {
     const i = a.indexOf(`--${k}`);
     return i >= 0 && a[i + 1] ? Number(a[i + 1]) : d;
   };
+  // Every default is READ from the shipped board, never restated here. They
+  // were restated, and drifted: this file was measuring wall 13, cellW 1.4 and
+  // the stagger switched OFF while the game shipped 14, 3.0 and ON — so every
+  // number it printed described a board nobody plays. A flag is now a
+  // deliberate departure from what ships, which is the only thing a sweep
+  // should ever be.
+  const D = DEFAULT_RULES;
   return {
     rounds: num("rounds", 400),
-    bees: num("bees", 50),
-    cooldown: num("cooldown", 20),
-    digCost: num("dig", 3),
-    collapseCost: num("collapse", 8),
+    bees: num("bees", SEATS),
+    cooldown: num("cooldown", D.cooldownTicks),
+    digCost: num("dig", D.costs.dig),
+    collapseCost: num("collapse", D.costs.collapse),
     flowers: num("flowers", 24),
-    ringWall: num("wall", 13),
-    meadow: num("meadow", 4),
+    ringWall: num("wall", BOARD.wall),
+    grid: num("grid", BOARD.gridN),
     sabotage: num("sabotage", 0.25),
-    digDelay: num("digdelay", 40),
-    collapseTicks: num("collapseticks", 0),
-    cellW: num("cellw", 1.4),
-    stagger: num("stagger", 0),
-    hard: num("hard", 0.05),
-    occupancy: num("occupancy", 1),
+    digDelay: num("digdelay", D.digDelayTicks),
+    collapseTicks: num("collapseticks", D.collapseTicks),
+    cellW: num("cellw", BOARD.cellW),
+    stagger: num("stagger", D.staggerRequired ? 1 : 0),
+    hard: num("hard", D.blockShare),
+    occupancy: num("occupancy", D.occupancy ? 1 : 0),
     seed: num("seed", 1),
   };
 }
