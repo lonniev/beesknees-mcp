@@ -657,6 +657,13 @@ def board_fingerprint() -> str:
         f"{g.wall}:{g.grid_n}:{CELL_WIDTH}:{g.hive_cells}:{g.meadow_cells}",
         ",".join(str(c) for c in mouth_cells(g)),
         ",".join(str(c) for c in sorted(blocked_cells(g, _FINGERPRINT_SEED))),
+        # The FLOWERS too. They are as much the board as the walls are: change
+        # where the pollen goes and a match in flight is being played on a
+        # different meadow from the one it started on. The placer changed today
+        # — flowers off the door gateways, two hops out — and nothing retired the
+        # matches that were laid out under the old rule, because this hash could
+        # not see them.
+        ",".join(str(c) for c in hive_board(g, _FINGERPRINT_SEED).flowers),
     ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:12]
 

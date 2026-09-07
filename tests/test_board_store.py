@@ -538,6 +538,19 @@ def test_the_fingerprint_changes_when_the_board_does(monkeypatch) -> None:
     assert geo.board_fingerprint() != before, "a different meadow is a different board"
 
 
+def test_the_fingerprint_covers_the_flowers(monkeypatch) -> None:
+    """Where the pollen goes is as much the board as where the walls are.
+
+    The placer changed — flowers off the door gateways, two hops out — and
+    nothing retired the matches laid out under the old rule, because the hash
+    covered dimensions, doors and obstructions and not this. A match in flight
+    was being played on a different meadow from the one it started on.
+    """
+    before = geo.board_fingerprint()
+    monkeypatch.setattr(geo, "FLOWERS", geo.FLOWERS - 1)
+    assert geo.board_fingerprint() != before, "moving the pollen is moving the board"
+
+
 def test_two_bees_racing_for_one_flower_only_one_gets_the_pollen(vault) -> None:
     """The meadow's one real decision, and it has to survive a dead heat.
 
