@@ -14,8 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
-import { HiveView } from "./components/HiveView.tsx";
-import Scoreboard from "./components/Scoreboard.tsx";
+import BoardScreen from "./components/BoardScreen.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
 import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
@@ -80,6 +79,9 @@ export default function LiveBoard({ session }: { session: Session }) {
 
   const hives: LiveHive[] = useMemo(() => (live ? hydrate(live, G) : []), [live]);
   const mine = live?.bees.find((b) => b.npub === session.npub) ?? null;
+  // Your hive by default; a rival while you are watching one.
+  const focus = watching ?? mine?.hive ?? 0;
+  const elapsed = Math.floor((now - startedAt) / 1000);
   const myHive = mine ? hives[mine.hive] : null;
   const bee = mine ? asBee(mine) : null;
   const left = cooldownLeft(mine);
@@ -165,11 +167,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   }, [ready, busy, verb, target, next, round, refresh]);
 
   if (!live) {
-    return (
-      <div className="p-8 text-center text-sm text-white/50">
-        {error || "Finding a hive…"}
-      </div>
-    );
+    return <div className="p-8 text-center text-sm text-white/50">{error || "Finding a hive…"}</div>;
   }
 
   // Nobody has enough bees yet. That is a state worth showing properly, not a
@@ -178,122 +176,60 @@ export default function LiveBoard({ session }: { session: Session }) {
     return <Lobby live={live} session={session} onJoined={refresh} />;
   }
 
-  // Your hive by default; a rival while you are watching one.
-  const focus = watching ?? mine?.hive ?? 0;
-  const elapsed = Math.floor((now - startedAt) / 1000);
-  const busyLabel = mine?.phase === "done" ? "Home" : busy ? "…" : verb === "seal" ? "Fill!" : "Go!";
+  const word = mine && ringOf(G, mine.cell) <= G.R ? "Crawl" : "Fly";
+  const digging = left > RULES.cooldownTicks * TICK_MS;
+  const winnerBee = live.winner_npub
+    ? live.bees.find((b) => b.npub === live.winner_npub) ?? null
+    : null;
 
   return (
-    <div className="flex h-full flex-col gap-2 p-2">
-      <header className="flex shrink-0 items-baseline justify-between px-1">
-        <span className="text-lg font-semibold tracking-tight">The Bee's Knees</span>
-        <span className="flex items-center gap-3 text-xs tabular-nums text-white/50">
-          <span>{live.bees.length} bees</span>
-          <span>
-            {String(Math.floor(elapsed / 60))}:{String(elapsed % 60).padStart(2, "0")}
+    <BoardScreen
+      hives={hives.map((h) => ({
+        id: h.id,
+        name: HIVE_NAMES[h.id],
+        queen: `Queen ${QUEEN_NAMES[h.id % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[h.id]}`,
+        board: h.board,
+        bees: h.bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase })),
+        hot: h.bees.some((b) => ringOf(G, b.cell) <= HOT_RING),
+      }))}
+      focus={focus}
+      onFocus={setWatching}
+      yourHive={mine?.hive ?? null}
+      youId={mine?.seat ?? null}
+      tag={`${live.bees.length} bees`}
+      elapsedSec={elapsed}
+      frame={live.seq}
+      target={target}
+      route={route}
+      options={options}
+      onTapCell={onTapCell}
+      verbs={[
+        { id: "move", hint: "Travel — cut fresh comb where you must", Icon: word === "Crawl" ? Footprints : Wind },
+        { id: "seal", hint: "Bring down an open tunnel", Icon: Mountain },
+      ]}
+      verb={verb}
+      onVerb={(v) => setVerb(v as "move" | "seal")}
+      prompt={
+        !ready && left > 0 ? (
+          <span className="text-[var(--color-you)]">
+            {digging ? "Digging" : "Resting"} {(left / 1000).toFixed(1)}s
           </span>
-        </span>
-      </header>
-      <Scoreboard />
-      {/* Which room you are in and who you are racing for. */}
-      <div className="shrink-0 px-1 text-xs text-white/45">
-        Queen {QUEEN_NAMES[focus % QUEEN_NAMES.length]} of Hive {HIVE_NAMES[focus]}
-        {mine?.hive === focus && <span className="pl-2 text-[var(--color-you)]">your hive</span>}
-      </div>
-
-      <div className="flex min-h-0 flex-1 gap-2">
-        {/* The rival hives. Solo has had these from the first day and the live
-          * board did not draw them at all — so a patron in the real game could
-          * not see the four rooms racing them, which is most of the tension. */}
-        <div className="hidden w-28 shrink-0 flex-col gap-2 overflow-y-auto sm:flex">
-          {hives
-            .filter((h) => h.id !== focus)
-            .map((h) => (
-              <button
-                key={h.id}
-                onClick={() => setWatching(h.id)}
-                className="rounded-lg border border-white/10 p-1 hover:bg-white/5"
-              >
-                <HiveView
-                  board={h.board}
-                  bees={h.bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase }))}
-                  hot={h.bees.some((b) => ringOf(G, b.cell) <= HOT_RING)}
-                  frame={live.seq}
-                  youId={null}
-                  target={null}
-                  focused={false}
-                  armed={false}
-                />
-                <div className="pt-0.5 text-[10px] text-white/40">{HIVE_NAMES[h.id]}</div>
-              </button>
-            ))}
-        </div>
-
-        <div className="min-h-0 flex-1">
-        <HiveView
-          board={hives[focus].board}
-          bees={hives[focus].bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase }))}
-          hot={false}
-          frame={live.seq}
-          youId={mine?.seat ?? null}
-          target={target}
-          route={route}
-          options={options}
-          focused
-          armed={verb === "seal"}
-          onTapCell={onTapCell}
-        />
-        </div>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-4 pb-[env(safe-area-inset-bottom)]">
-        <span className="min-w-0 flex-1 text-left text-[13px] leading-tight text-white/60">
-          {!ready && left > 0 ? (
-            <span className="text-[var(--color-you)]">
-              {left > RULES.cooldownTicks * TICK_MS ? "Digging" : "Resting"}{" "}
-              {(left / 1000).toFixed(1)}s
-            </span>
-          ) : (
-            note || (target === null ? "Tap where you want to end up." : "Press to move.")
-          )}
-        </span>
-        <div className="flex gap-2 rounded-xl bg-white/5 p-1.5">
-          {(["move", "seal"] as const).map((v) => {
-            const Icon = v === "seal" ? Mountain : mine && ringOf(G, mine.cell) <= G.R ? Footprints : Wind;
-            return (
-              <button
-                key={v}
-                onClick={() => setVerb(v)}
-                aria-pressed={verb === v}
-                className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
-                  verb === v ? "bg-[var(--color-you)] text-black" : "text-white/55 hover:bg-white/10"
-                }`}
-              >
-                <Icon size={19} />
-              </button>
-            );
-          })}
-        </div>
-        <button
-          onClick={act}
-          disabled={!ready || busy || (verb === "move" && !next)}
-          className={`relative min-w-40 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
-            ready && !busy ? "bg-[var(--color-you)] text-black" : "bg-white/10 text-white/45"
-          }`}
-        >
-          {/* The rest, drawn ON the button it gates — the unfilled part IS the
-            * wait. Solo has had this from the start; without it the live board
-            * gave a dead button and no sense of when it would wake. Measured
-            * against the delay actually served, so a cut reads true. */}
-          {left > 0 && (
-            <span
-              className="absolute inset-y-0 left-0 bg-[var(--color-you)]/30 transition-[width] duration-100"
-              style={{ width: `${Math.max(0, Math.min(1, 1 - left / servedMs)) * 100}%` }}
-            />
-          )}
-          <span className="relative">{busyLabel}</span>
-        </button>
-      </div>
-    </div>
+        ) : (
+          note || (target === null ? "Tap where you want to end up." : "Press to move.")
+        )
+      }
+      actionLabel={mine?.phase === "done" ? "Home" : busy ? "…" : verb === "seal" ? "Fill!" : `${word}!`}
+      actionEnabled={ready && !busy && (verb === "seal" ? target !== null : Boolean(next))}
+      onAct={act}
+      restLeft={left > 0 ? left / servedMs : 0}
+      winner={
+        winnerBee
+          ? {
+              label: winnerBee.label || winnerBee.npub.slice(0, 12),
+              detail: `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
+            }
+          : null
+      }
+    />
   );
 }
