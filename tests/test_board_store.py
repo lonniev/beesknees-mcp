@@ -51,6 +51,14 @@ class FakeVault:
         p = params or []
         s = " ".join(sql.split())
 
+        # Occupancy is fenced INSIDE the statement now, so the fake has to
+        # honour it or the tests quietly stop covering it — the guard moved
+        # into the SQL and the coverage did not follow it.
+        def occupied(match_id, hive, cell, npub):
+            return any(b["match_id"] == match_id and b["hive"] == hive
+                       and b["cell"] == cell and b["npub"] != npub
+                       and b["phase"] != "done" for b in self.bees.values())
+
         if s.startswith(("CREATE", "ALTER")):
             return {"rows": [], "rowCount": 0}
 
@@ -161,9 +169,11 @@ class FakeVault:
             hits = [b for b in self.bees.values()
                     if b["match_id"] == p[0] and b["npub"] == p[1]
                     and b["cell"] == p[4] and b["ready"] and b["phase"] != "done"]
-            # The hive gate is optional, and so is its parameter — it is now
-            # LAST, so that dropping it in the meadow renumbers nothing.
-            if hits and "EXISTS" in s:
+            # A cell holds one bee, and that is fenced INSIDE the statement now.
+            if hits and "o.npub <> $2" in s and occupied(p[0], p[6], p[2], p[1]):
+                hits = []
+            # The hive gate is conditional; `hive` is $7 and always sent.
+            if hits and f"FROM {store.CELLS} c" in s:
                 hits = [b for b in hits if (p[0], p[6], p[2]) in self.cells]
             if not hits:
                 return {"rows": [], "rowCount": 0}
@@ -176,6 +186,8 @@ class FakeVault:
             eligible = [b for b in self.bees.values()
                         if b["match_id"] == p[0] and b["npub"] == p[1]
                         and b["cell"] == p[3] and b["ready"] and b["phase"] == "forage"]
+            if eligible and occupied(p[0], p[4], p[2], p[1]):
+                eligible = []
             took = 0
             if eligible and (p[0], p[4], p[2]) not in self.pollen:
                 self.pollen.add((p[0], p[4], p[2]))
@@ -202,6 +214,8 @@ class FakeVault:
             if eligible and (p[0], p[5], p[2]) not in self.cells:
                 self.cells.add((p[0], p[5], p[2]))
                 cut = 1
+            if eligible and occupied(p[0], p[5], p[2], p[1]):
+                eligible = []
             moved = 0
             if cut and eligible:
                 b = eligible[0]
@@ -354,6 +368,11 @@ async def test_a_dug_cell_is_open_to_everyone(vault):
     target = geo.inward(g, g.wall, 0)
     mid = await _seat(vault, "npubA", start)
     await store.dig(mid, "npubA", target)
+    # A digs it and is now STANDING in it. The shaft is what outlives the digger,
+    # not the space it happens to be occupying this second, so A moves on before
+    # the freeloader arrives — otherwise this would be testing bodies, not tunnels.
+    a = await store.bee_of(mid, "npubA")
+    vault.bees[(mid, 0, int(a["seat"]))]["cell"] = start
 
     await store.take_seat(mid, "npubB", "B", 0)
     b = await store.bee_of(mid, "npubB")
@@ -543,11 +562,15 @@ def test_two_bees_racing_for_one_flower_only_one_gets_the_pollen(vault) -> None:
         a = await store.fly(mid, "npubA", flower)
         b = await store.fly(mid, "npubB", flower)
 
-        assert a["moved"] and b["moved"], "both bees really did fly there"
-        assert a["pollen"] is True, "the first to land takes it"
-        assert b["pollen"] is False, "and the second finds it empty"
+        assert a["moved"] and a["pollen"] is True, "the first to land takes it"
         assert a["phase"] == "return", "loaded, and heading home"
-        assert b["phase"] == "forage", "unloaded, and must find another"
+        # The second does not merely find it empty — it cannot land at all while
+        # the first is still standing on it. A bee has a body, so the loser of a
+        # dead heat hovers alongside until the square clears, by which time the
+        # pollen is gone. `test_aiming_at_a_flower_reserves_nothing` walks that
+        # whole sequence through.
+        assert b["moved"] is False, "a bee cannot land on an occupied flower"
+        assert "another bee is standing there" in b["reason"]
         assert len([x for x in vault.pollen if x[2] == flower]) == 1, "emptied exactly once"
 
         taken = await store.taken_pollen(mid)
@@ -608,5 +631,52 @@ def test_a_blocked_move_still_says_who_blocked_it(vault) -> None:
         assert out["moved"] is False
         assert "another bee is standing there" in out["reason"], out["reason"]
         assert a["cell"] != target, "the fence let a bee walk through another"
+
+    asyncio.run(go())
+
+
+def test_aiming_at_a_flower_reserves_nothing(vault) -> None:
+    """There is no remote lockout, and there must not be one.
+
+    A player picks a flower and sets off; so does everybody else. Nothing is sent
+    to the server when they aim, so nothing is held: pollen is taken by ARRIVING,
+    inside the move statement, and the loser of a dead heat still moves — flying
+    to an emptied flower is a legal wasted trip.
+
+    A bee already STANDING on the flower is a different refusal, and the right
+    one: the cell holds a body, so the second bee is turned away and must hover
+    alongside until the square clears — by which time the pollen is gone.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        g = geo.make_geometry()
+        m = vault.matches[mid]
+        flower = geo.hive_board(g, store.hive_seed(int(m["seed"]), 0)).flowers[0]
+        around = [n for n in geo.neighbors(g, flower) if geo.is_meadow(g, n)]
+
+        for i, npub in enumerate(("npubA", "npubB")):
+            await store.take_seat(mid, npub, f"b{i}", 0)
+            vault.bees[(mid, 0, i)].update(cell=around[i], phase="forage", ready=True)
+
+        # Both aimed at it; neither holds it. Nothing is stored until one lands.
+        assert await store.taken_pollen(mid) == [], "aiming must reserve nothing"
+
+        first = await store.fly(mid, "npubA", flower)
+        assert first["pollen"] is True and first["phase"] == "return"
+
+        # A is still standing on it, so B is refused by the BODY, not the pollen.
+        vault.bees[(mid, 0, 1)]["ready"] = True
+        blocked = await store.fly(mid, "npubB", flower)
+        assert blocked["moved"] is False
+        assert "another bee is standing there" in blocked["reason"]
+
+        # A moves on; B lands, and finds it empty.
+        vault.bees[(mid, 0, 0)]["cell"] = around[0]
+        vault.bees[(mid, 0, 1)]["ready"] = True
+        late = await store.fly(mid, "npubB", flower)
+        assert late["moved"] is True, "the trip is legal even though it is wasted"
+        assert late["pollen"] is False
+        assert late["phase"] == "forage", "unloaded, and must find another flower"
 
     asyncio.run(go())

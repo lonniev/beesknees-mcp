@@ -133,6 +133,25 @@ export default function LiveBoard({ session }: { session: Session }) {
     [round, bee, verb, options],
   );
 
+  /**
+   * Drop an aim at a flower somebody else emptied.
+   *
+   * Aiming reserves NOTHING — the server never hears where you are pointing,
+   * and pollen is taken by arriving, inside the move statement. So the flower
+   * you set off for can be gone before you land, and the only honest thing the
+   * board can do is say so and let you choose again. Without this you keep
+   * flying at a spent flower and have to work out for yourself why nothing
+   * happens when you arrive.
+   */
+  useEffect(() => {
+    if (target === null || !myHive || !mine || mine.phase !== "forage") return;
+    const b = myHive.board;
+    if (b.flower[target] && !b.pollen[target]) {
+      setTarget(null);
+      setNote("A rival got there first — pick another flower.");
+    }
+  }, [live?.seq, target, myHive, mine]);
+
   const next = useMemo(() => {
     if (!round || !bee || target === null || verb === "seal") return null;
     return stepToward(round, bee, target) ?? approach(round, bee, target);
