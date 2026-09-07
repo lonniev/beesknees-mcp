@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, RotateCcw, Shovel, Trophy, Wind } from "lucide-react";
 import { HiveView } from "./components/HiveView.tsx";
 import Scoreboard from "./components/Scoreboard.tsx";
-import { stepToward } from "./game/bots.ts";
+import { approach, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
 import type { Hive, Match } from "./game/match.ts";
@@ -41,19 +41,27 @@ const VERBS = [
  * rules and two words on the button, because "Fly" over a bee that is
  * underground reads as a bug rather than as a synonym.
  */
-function verbLabel(id: Verb, inHive: boolean): string {
-  if (id === "fly") return `${moveWord(inHive)}!`;
+function verbLabel(id: Verb, word: string): string {
+  if (id === "fly") return `${word}!`;
   return VERBS.find((v) => v.id === id)!.label;
 }
 
-/** The motion's name, wherever it is spoken. Wings above ground, feet below. */
-function moveWord(inHive: boolean): string {
-  return inHive ? "Crawl" : "Fly";
+/**
+ * The motion's name, decided by where it ENDS rather than where it starts.
+ *
+ * A bee on the square outside a door is about to go underground, so it crawls
+ * in — even though it is standing in open air. A bee in the doorway heading
+ * back out is about to be airborne, so it flies out. Naming the word after the
+ * bee's current cell got both of those backwards, which is exactly the moment
+ * the word matters: at the threshold.
+ */
+function moveWord(destInHive: boolean): string {
+  return destInHive ? "Crawl" : "Fly";
 }
 
-/** Wings above ground, feet below. A bee in a tunnel is not flying. */
-function verbIcon(id: Verb, inHive: boolean) {
-  if (id === "fly") return inHive ? Footprints : Wind;
+/** Wings above ground, feet below. A bee going into a tunnel is not flying. */
+function verbIcon(id: Verb, word: string) {
+  if (id === "fly") return word === "Crawl" ? Footprints : Wind;
   return VERBS.find((v) => v.id === id)!.Icon;
 }
 
@@ -71,7 +79,7 @@ function NEXT_STEP(
   phase: string | undefined,
   target: number | null,
   why: string,
-  inHive: boolean,
+  word: string,
 ): string {
   if (phase === "done") return "At the queen.";
   if (target === null) {
@@ -80,9 +88,9 @@ function NEXT_STEP(
     return "Tap one of the highlighted cells.";
   }
   if (why) return why;
-  const word = moveWord(inHive).toLowerCase();
-  if (phase === "forage") return `Flower chosen — press to ${word}.`;
-  if (phase === "return") return `Door chosen — press to ${word}.`;
+  const verb = word.toLowerCase();
+  if (phase === "forage") return `Flower chosen — press to ${verb}.`;
+  if (phase === "return") return `Door chosen — press to ${verb}.`;
   return "Press to move there.";
 }
 
@@ -279,32 +287,47 @@ export default function App() {
    * will do anything — a button that looks live and then does nothing is what
    * made the old bar so hard to read.
    */
-  const pending = useMemo((): { action: Action | null; why: string } => {
-    if (!yourHive || !you || match.state !== "running") return { action: null, why: "" };
+  const pending = useMemo((): { action: Action | null; why: string; word: string } => {
+    const fallback = moveWord(inHive);
+    if (!yourHive || !you || match.state !== "running")
+      return { action: null, why: "", word: fallback };
     const round = yourHive.round;
     const g = round.board.g;
-    if (target === null) return { action: null, why: "Tap the board to aim" };
+    if (target === null) return { action: null, why: "Tap the board to aim", word: fallback };
 
     if (verb === "seal") {
       const r = ringOf(g, target);
-      if (r < 1 || r > g.R) return { action: null, why: "Only inside the hive" };
-      if (round.board.state[target] !== OPEN) return { action: null, why: "Already solid" };
-      return { action: { kind: "collapse", at: target }, why: "" };
+      if (r < 1 || r > g.R) return { action: null, why: "Only inside the hive", word: fallback };
+      if (round.board.state[target] !== OPEN)
+        return { action: null, why: "Already solid", word: fallback };
+      return { action: { kind: "collapse", at: target }, why: "", word: fallback };
     }
 
-    const step = stepToward(round, you, target);
+    // A rival standing in the doorway is not "no way through". Every door may
+    // have a queue and this bee has to be near its own door regardless, so when
+    // the direct route is taken we route toward it anyway and take the best
+    // legal step — which puts the bee alongside the door rather than refusing
+    // it. Only a bee that cannot get any closer at all is genuinely waiting.
+    const direct = stepToward(round, you, target);
+    const queueing = !direct;
+    const step = direct ?? approach(round, you, target);
     if (!step || step.kind === "wait" || step.kind === "collapse")
-      return { action: null, why: "No way through" };
+      return { action: null, why: "Held up — nothing gets you closer yet.", word: fallback };
+
+    // The word is named for where the step ENDS: into the hive is a crawl, out
+    // of it is a flight, whichever side of the threshold the bee is standing on.
+    const word = moveWord(ringOf(g, step.to) <= g.R);
     const solid = round.board.state[step.to] === COMB;
-    // Named for where the bee actually is. A bee underground does not fly, and
-    // telling it to is the same slip the button already had.
-    if (verb === "fly" && solid) return { action: null, why: "Comb in the way — dig it." };
+    if (verb === "fly" && solid)
+      return { action: null, why: "Comb in the way — dig it.", word };
     if (verb === "dig" && !solid)
-      return {
-        action: null,
-        why: inHive ? "It's open! Crawl." : "Already open — fly in.",
-      };
-    return { action: { kind: verb === "dig" ? "dig" : "fly", to: step.to }, why: "" };
+      return { action: null, why: `It's open! ${word}.`, word };
+    const action = { kind: verb === "dig" ? "dig" : "fly", to: step.to } as Action;
+    return {
+      action,
+      why: queueing ? `That door is taken — ${word.toLowerCase()} up beside it.` : "",
+      word,
+    };
   }, [frame, inHive, match.state, target, verb, you, yourHive]);
 
   const act = useCallback(() => {
@@ -434,13 +457,13 @@ export default function App() {
               Resting {(cooldownMs / 1000).toFixed(1)}s
             </span>
           ) : (
-            NEXT_STEP(you?.phase, target, pending.why, inHive)
+            NEXT_STEP(you?.phase, target, pending.why, pending.word)
           )}
         </span>
 
         <div className="flex gap-2 rounded-xl bg-white/5 p-1.5">
           {VERBS.map(({ id, hint }) => {
-            const Icon = verbIcon(id, inHive);
+            const Icon = verbIcon(id, pending.word);
             return (
               <button
                 key={id}
@@ -477,7 +500,7 @@ export default function App() {
               style={{ width: `${Math.max(0, Math.min(1, 1 - cooldown)) * 100}%` }}
             />
           )}
-          <span className="relative">{verbLabel(verb, inHive)}</span>
+          <span className="relative">{verbLabel(verb, pending.word)}</span>
         </button>
 
         <span className="flex-1" />
