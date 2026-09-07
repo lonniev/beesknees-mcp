@@ -56,11 +56,14 @@ class FakeVault:
         if s.startswith(f"INSERT INTO {store.MATCHES}"):
             self.matches[p[0]] = {"match_id": p[0], "state": "forming", "seq": 0,
                                   "quorum_at": None, "started_at": None,
+                                  "seed": p[1] if len(p) > 1 else 0,
+                                  "board": p[2] if len(p) > 2 else "",
                                   "winner_npub": None, "winner_hive": None}
             return {"rows": [], "rowCount": 1}
 
         if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE state = 'forming'"):
-            rows = [m for m in self.matches.values() if m["state"] == "forming"]
+            rows = [m for m in self.matches.values()
+                    if m["state"] == "forming" and m.get("board") == p[0]]
             return {"rows": rows[:1], "rowCount": len(rows[:1])}
 
         if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE match_id"):
@@ -68,8 +71,40 @@ class FakeVault:
             return {"rows": [m] if m else [], "rowCount": 1 if m else 0}
 
         if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE state IN"):
-            rows = [m for m in self.matches.values() if m["state"] in ("forming", "running")]
+            rows = [m for m in self.matches.values()
+                    if m["state"] in ("forming", "running") and m.get("board") == p[0]]
             return {"rows": rows, "rowCount": len(rows)}
+
+        if s.startswith("SELECT m.match_id,"):
+            rows = [{"match_id": m["match_id"],
+                     "fares": sum(1 for f in self.fares if f["match_id"] == m["match_id"])}
+                    for m in self.matches.values() if m.get("board") != p[0]]
+            return {"rows": rows, "rowCount": len(rows)}
+
+        if s.startswith(f"DELETE FROM {store.MATCHES} WHERE match_id"):
+            gone = self.matches.pop(p[0], None)
+            return {"rows": [], "rowCount": 1 if gone else 0}
+
+        if s.startswith(f"DELETE FROM {store.BEES} WHERE match_id"):
+            keys = [k for k, b in self.bees.items() if b["match_id"] == p[0]]
+            for k in keys:
+                del self.bees[k]
+            return {"rows": [], "rowCount": len(keys)}
+
+        if s.startswith(f"DELETE FROM {store.CELLS} WHERE match_id"):
+            keys = [c for c in self.cells if c[0] == p[0]]
+            for k in keys:
+                self.cells.discard(k)
+            return {"rows": [], "rowCount": len(keys)}
+
+        if s.startswith(f"UPDATE {store.MATCHES} SET state = 'abandoned'"):
+            n = 0
+            for mid in p[0]:
+                m = self.matches.get(mid)
+                if m and m["state"] in ("forming", "running"):
+                    m["state"] = "abandoned"
+                    n += 1
+            return {"rows": [], "rowCount": n}
 
         if s.startswith(f"UPDATE {store.MATCHES} SET seq = seq + 1"):
             m = self.matches[p[0]]
@@ -391,3 +426,61 @@ async def test_joining_fills_the_fullest_hive_so_quorum_is_reachable(vault):
     counts = await store.seat_counts(str(m["match_id"]))
     assert max(counts.values()) == store.QUORUM
     assert m["quorum_at"] is not None, "reaching quorum must start the grace clock"
+
+
+def test_a_match_on_a_board_that_no_longer_exists_is_cleared_away(vault) -> None:
+    """A cell id only means a cell while the board that numbered it exists.
+
+    This is not hypothetical: after the geometry was split into a square meadow
+    and a polar hive, a live forming match was left holding cells 585..622 on a
+    358-cell board — four doors nobody could ever open, waiting for the next
+    patron to join it.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        assert vault.matches[mid]["board"] == geo.board_fingerprint()
+        assert (await store.forming_match())["match_id"] == mid
+
+        # The board changes under it.
+        vault.matches[mid]["board"] = "a-board-that-is-gone"
+
+        # It is invisible to matchmaking IMMEDIATELY, before any sweep runs —
+        # the filter is the guard; the sweep is only tidying.
+        assert await store.forming_match() is None
+        assert await store.live_matches() == []
+
+        out = await store.retire_stale_boards()
+        assert out == {"deleted": 1, "abandoned": 0}
+        assert mid not in vault.matches, "a match nobody paid into leaves nothing behind"
+
+    asyncio.run(go())
+
+
+def test_a_stale_match_that_took_fares_is_abandoned_rather_than_deleted(vault) -> None:
+    """Its pot is owed to somebody whatever happened to the board.
+
+    That distinction is the entire reason the sweep is not a DELETE across the
+    board: money that changed hands outlives the geometry it was spent on.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_fare(mid, "npub1payer", "beesknees_bee_fly", 7)
+        vault.matches[mid]["board"] = "a-board-that-is-gone"
+
+        out = await store.retire_stale_boards()
+        assert out == {"deleted": 0, "abandoned": 1}
+        assert mid in vault.matches, "a match that took fares is never deleted"
+        assert vault.matches[mid]["state"] == "abandoned"
+        assert [f["sats"] for f in vault.fares] == [7], "and its fares are untouched"
+
+    asyncio.run(go())
+
+
+def test_the_fingerprint_changes_when_the_board_does(monkeypatch) -> None:
+    """Derived, not declared — a hand-bumped constant is only right while
+    somebody remembers to bump it, and this board changed twice in one day."""
+    before = geo.board_fingerprint()
+    monkeypatch.setattr(geo, "GRID_N", geo.GRID_N + 1)
+    assert geo.board_fingerprint() != before, "a different meadow is a different board"

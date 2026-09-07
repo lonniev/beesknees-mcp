@@ -85,6 +85,9 @@ _DDL: list[str] = [
         # stored, so a match is reproducible and the client can draw the walls
         # without fetching them.
         "  seed BIGINT NOT NULL DEFAULT 0,"
+        # Which BOARD this match is played on. Its cells are integers, and an
+        # integer only means a cell while the board that numbered it exists.
+        "  board TEXT NOT NULL DEFAULT '',"
         # Every mutation bumps this. A client polls with the last one it saw, so
         # it can be told "nothing has changed" without shipping the whole board.
         "  seq BIGINT NOT NULL DEFAULT 0,"
@@ -157,6 +160,7 @@ _MIGRATIONS: list[str] = [
     # adoption fleet-wide for ten weeks.
     f"ALTER TABLE {BEES} ADD COLUMN IF NOT EXISTS came_inward BOOLEAN NOT NULL DEFAULT FALSE",
     f"ALTER TABLE {MATCHES} ADD COLUMN IF NOT EXISTS seed BIGINT NOT NULL DEFAULT 0",
+    f"ALTER TABLE {MATCHES} ADD COLUMN IF NOT EXISTS board TEXT NOT NULL DEFAULT ''",
     f"CREATE INDEX IF NOT EXISTS bk_matches_state_idx ON {MATCHES} (state, created_at DESC)",
     f"CREATE INDEX IF NOT EXISTS bk_bees_npub_idx ON {BEES} (npub, match_id)",
     f"CREATE INDEX IF NOT EXISTS bk_fares_match_idx ON {FARES} (match_id)",
@@ -199,6 +203,14 @@ async def vault() -> Any:
                 ok = False
                 logger.error("board schema statement failed: %s — %s", stmt[:70], exc)
         _schema_done = ok
+        if ok:
+            # Once the columns exist, clear away anything played on a board that
+            # no longer does. Here rather than on every read: it is a sweep, not
+            # a guard — the guard is that every lookup filters on the board.
+            try:
+                await retire_stale_boards()
+            except Exception as exc:  # noqa: BLE001
+                logger.error("could not retire stale boards: %s", exc)
     return _vault
 
 
@@ -224,13 +236,59 @@ def new_match_id() -> str:
 
 
 async def open_match() -> str:
-    """Start a match forming, with the seed that shapes its hives."""
+    """Start a match forming, with the seed and the board that shape its hives."""
     mid = new_match_id()
     seed = secrets.randbelow(2**31)
     await _exec(
-        f"INSERT INTO {MATCHES} (match_id, state, seed) VALUES ($1, 'forming', $2)", [mid, seed]
+        f"INSERT INTO {MATCHES} (match_id, state, seed, board) VALUES ($1, 'forming', $2, $3)",
+        [mid, seed, geo.board_fingerprint()],
     )
     return mid
+
+
+async def retire_stale_boards() -> dict[str, int]:
+    """Clear away matches played on a board that no longer exists.
+
+    A match holds cell NUMBERS, and a number only means a cell while the board
+    that numbered it exists. When the geometry changed, a live match was left
+    holding cells 585..622 on a 358-cell board — four doors nobody could ever
+    open, waiting for the next patron to join.
+
+    A match with no fares recorded is deleted outright: nobody paid anything, so
+    there is nothing to keep. A match that DID take fares is marked `abandoned`
+    instead and never resumed, because its pot is owed to somebody whatever
+    happened to the board it was played on. That distinction is the whole reason
+    this is not a DELETE across the board.
+    """
+    board = geo.board_fingerprint()
+    stale = _rows(
+        await _exec(
+            f"SELECT m.match_id, "
+            f"  (SELECT count(*) FROM {FARES} f WHERE f.match_id = m.match_id) AS fares "
+            f"FROM {MATCHES} m WHERE m.board <> $1",
+            [board],
+        )
+    )
+    if not stale:
+        return {"deleted": 0, "abandoned": 0}
+
+    drop = [r["match_id"] for r in stale if not int(r["fares"] or 0)]
+    keep = [r["match_id"] for r in stale if int(r["fares"] or 0)]
+    for mid in drop:
+        # One statement per POST — the Neon HTTP driver has no transaction, so
+        # these are ordered to leave nothing playable at any point in between:
+        # the match row goes first, and the orphans after.
+        await _exec(f"DELETE FROM {MATCHES} WHERE match_id = $1", [mid])
+        await _exec(f"DELETE FROM {BEES} WHERE match_id = $1", [mid])
+        await _exec(f"DELETE FROM {CELLS} WHERE match_id = $1", [mid])
+    if keep:
+        await _exec(
+            f"UPDATE {MATCHES} SET state = 'abandoned', ended_at = now() "
+            "WHERE match_id = ANY($1) AND state IN ('forming','running')",
+            [keep],
+        )
+    logger.info("retired %d stale match(es), kept %d with fares", len(drop), len(keep))
+    return {"deleted": len(drop), "abandoned": len(keep)}
 
 
 def obstructions(seed: int, hive: int) -> set[int]:
@@ -254,7 +312,9 @@ _obstruction_cache: dict[tuple[int, int], set[int]] = {}
 async def forming_match() -> dict[str, Any] | None:
     """The match currently taking seats, if any."""
     r = await _exec(
-        f"SELECT * FROM {MATCHES} WHERE state = 'forming' ORDER BY created_at LIMIT 1"
+        f"SELECT * FROM {MATCHES} WHERE state = 'forming' AND board = $1 "
+        "ORDER BY created_at LIMIT 1",
+        [geo.board_fingerprint()],
     )
     rows = _rows(r)
     return rows[0] if rows else None
@@ -268,7 +328,9 @@ async def get_match(match_id: str) -> dict[str, Any] | None:
 
 async def live_matches() -> list[dict[str, Any]]:
     r = await _exec(
-        f"SELECT * FROM {MATCHES} WHERE state IN ('forming','running') ORDER BY created_at"
+        f"SELECT * FROM {MATCHES} WHERE state IN ('forming','running') AND board = $1 "
+        "ORDER BY created_at",
+        [geo.board_fingerprint()],
     )
     return _rows(r)
 

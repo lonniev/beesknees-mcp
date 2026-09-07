@@ -21,6 +21,7 @@ npub and neither does a hex grid.
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 
@@ -100,11 +101,22 @@ class Geometry:
 
 
 def make_geometry(
-    wall: int = WALL_RING,
-    grid_n: int = GRID_N,
-    cell_width: float = CELL_WIDTH,
+    wall: int | None = None,
+    grid_n: int | None = None,
+    cell_width: float | None = None,
 ) -> Geometry:
-    """Build a hive's geometry: polar rings inside, a square lattice outside."""
+    """Build a hive's geometry: polar rings inside, a square lattice outside.
+
+    The defaults are resolved HERE rather than in the signature. Python binds a
+    default argument once, at import, so `wall: int = WALL_RING` would freeze
+    the board at whatever the constant was when the module loaded — while the
+    client's `makeGeometry` re-reads `BOARD` on every call. Two ports that
+    disagree about when a constant is read are two ports that can disagree about
+    the board, which is the one thing they must never do.
+    """
+    wall = WALL_RING if wall is None else wall
+    grid_n = GRID_N if grid_n is None else grid_n
+    cell_width = CELL_WIDTH if cell_width is None else cell_width
     size: list[int] = []
     offset: list[int] = []
     hive_cells = 0
@@ -478,3 +490,34 @@ def corner_starts(g: Geometry, seats: int) -> list[int]:
         taken.add(best)
         out.append(best)
     return out
+
+
+def board_fingerprint() -> str:
+    """A short hash of the board every match is played on.
+
+    A match's stored cells are integers, and an integer only means a cell while
+    the board that numbered it still exists. Change the geometry and yesterday's
+    doors are indexes past the end of today's array — which is how a live match
+    came to be holding cells 585..622 on a 358-cell board, four doors that could
+    never be opened by anyone.
+
+    Derived rather than declared. A hand-bumped version constant is only correct
+    while somebody remembers to bump it, and the board has already changed twice
+    in one day: once in its dimensions, once in where obstructions may fall. So
+    this hashes what the board actually IS — its dimensions, its doors, and a
+    sample of its generated obstructions — and therefore changes exactly when
+    the board does, including for a rule change that leaves the dimensions
+    untouched.
+    """
+    g = make_geometry()
+    parts = [
+        f"{g.wall}:{g.grid_n}:{CELL_WIDTH}:{g.hive_cells}:{g.meadow_cells}",
+        ",".join(str(c) for c in mouth_cells(g)),
+        ",".join(str(c) for c in sorted(blocked_cells(g, _FINGERPRINT_SEED))),
+    ]
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:12]
+
+
+#: One arbitrary but FIXED seed, so the fingerprint is stable across processes.
+#: Its only job is to make the obstruction placement rules observable.
+_FINGERPRINT_SEED = 20260906
