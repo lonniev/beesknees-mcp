@@ -112,6 +112,12 @@ class FakeVault:
             m["seq"] += 1
             return {"rows": [{"seq": m["seq"]}], "rowCount": 1}
 
+        # Why a fenced move lost — asked only after one does.
+        if s.startswith(f"SELECT 1 FROM {store.BEES} WHERE match_id = $1 AND hive = $2"):
+            hit = any(b["match_id"] == p[0] and b["hive"] == p[1] and b["cell"] == p[2]
+                      and b["npub"] != p[3] and b["phase"] != "done" for b in self.bees.values())
+            return {"rows": [{"n": 1}] if hit else [], "rowCount": 1 if hit else 0}
+
         if s.startswith("SELECT hive, count(*)"):
             counts: dict[int, int] = {}
             for mid, h, _s in self.bees:
@@ -574,3 +580,33 @@ def test_a_statement_cannot_be_sent_more_values_than_it_uses() -> None:
     # A gap is just as fatal, and reads as a typo rather than a miscount.
     with pytest.raises(ValueError, match=r"never mentions"):
         store._check_params("SELECT $1, $3", ["a", "b", "c"])
+
+
+def test_a_blocked_move_still_says_who_blocked_it(vault) -> None:
+    """The fence enforces; the explanation comes after, and only on a loss.
+
+    Occupancy used to be a SELECT before every move — a whole round trip on the
+    happy path, and not even a fence: between that check and the write another
+    bee could take the cell and both would land in it. It is enforced inside the
+    statement now, so the check is asked only when a move actually loses, and it
+    still has to name the rival rather than shrug.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        g = geo.make_geometry()
+        await store.take_seat(mid, "npubA", "a", 0)
+        await store.take_seat(mid, "npubB", "b", 0)
+        a, b = vault.bees[(mid, 0, 0)], vault.bees[(mid, 0, 1)]
+
+        # B parks on a square A wants.
+        target = next(n for n in geo.neighbors(g, a["cell"]) if geo.is_meadow(g, n))
+        b.update(cell=target, phase="forage", ready=True)
+        a.update(phase="forage", ready=True)
+
+        out = await store.fly(mid, "npubA", target)
+        assert out["moved"] is False
+        assert "another bee is standing there" in out["reason"], out["reason"]
+        assert a["cell"] != target, "the fence let a bee walk through another"
+
+    asyncio.run(go())

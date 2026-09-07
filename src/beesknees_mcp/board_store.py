@@ -541,7 +541,6 @@ async def fly(
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
-    await _require_unoccupied(match_id, g, bee, to_cell)
     m = await get_match(match_id)
     seed = int((m or {}).get("seed") or 0)
 
@@ -574,7 +573,7 @@ async def fly(
     # The optional parameter therefore goes LAST, so dropping it renumbers
     # nothing.
     params: list[Any] = [
-        match_id, npub, to_cell, phase, cur, geo.arms_stagger(g, cur, to_cell),
+        match_id, npub, to_cell, phase, cur, geo.arms_stagger(g, cur, to_cell), hive,
     ]
     gate = ""
     if needs_open:
@@ -582,7 +581,6 @@ async def fly(
             f" AND EXISTS (SELECT 1 FROM {CELLS} c WHERE c.match_id = $1 "
             "AND c.hive = $7 AND c.cell = $3)"
         )
-        params.append(int(bee["hive"]))
 
     r = await _exec(
         f"UPDATE {BEES} SET cell = $3, phase = $4, moves = moves + 1, came_inward = $6, "
@@ -590,13 +588,14 @@ async def fly(
         "    finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END "
         "WHERE match_id = $1 AND npub = $2 "
         "  AND cell = $5 AND next_move_at <= now() AND phase <> 'done'"
-        f"{gate} "
+        + _UNOCCUPIED.format(t=BEES, hive="$7", cell="$3")
+        + f"{gate} "
         "RETURNING hive, seat, cell, phase",
         params,
     )
     rows = _rows(r)
     if not rows:
-        return {"moved": False, "reason": "not your turn, or the way is not open"}
+        return {"moved": False, "reason": await _why_refused(match_id, hive, npub, to_cell)}
     await bump(match_id)
     return {"moved": True, **rows[0]}
 
@@ -631,7 +630,8 @@ async def _fly_and_take_pollen(
         f"     next_move_at = now() + interval '{COOLDOWN_S} seconds'"
         "   WHERE match_id = $1 AND npub = $2 AND cell = $4"
         "     AND next_move_at <= now() AND phase = 'forage'"
-        "   RETURNING hive, seat, cell, phase) "
+        + _UNOCCUPIED.format(t=BEES, hive="$5", cell="$3")
+        + "   RETURNING hive, seat, cell, phase) "
         "SELECT (SELECT count(*) FROM took) AS took, "
         "       (SELECT hive FROM moved) AS hive, (SELECT seat FROM moved) AS seat, "
         "       (SELECT cell FROM moved) AS cell, (SELECT phase FROM moved) AS phase",
@@ -639,7 +639,7 @@ async def _fly_and_take_pollen(
     )
     row = (_rows(r) or [{}])[0]
     if row.get("cell") is None:
-        return {"moved": False, "reason": "not your turn, or the way is not open"}
+        return {"moved": False, "reason": await _why_refused(match_id, hive, npub, to_cell)}
     await bump(match_id)
     return {
         "moved": True,
@@ -715,7 +715,9 @@ async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
         f"      next_move_at = now() + interval '{COOLDOWN_S + DIG_EXTRA_S} seconds', "
         "      finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END "
         "  WHERE match_id = $1 AND npub = $2 AND cell = $5 "
-        "    AND EXISTS (SELECT 1 FROM cut) RETURNING seat"
+        "    AND EXISTS (SELECT 1 FROM cut)"
+        + _UNOCCUPIED.format(t=BEES, hive="$6", cell="$3")
+        + "    RETURNING seat"
         ") SELECT (SELECT count(*) FROM cut) AS cut, (SELECT count(*) FROM moved) AS moved",
         [match_id, npub, to_cell, phase, cur, int(bee["hive"]),
          geo.arms_stagger(g, cur, to_cell)],
@@ -775,6 +777,35 @@ def _require_adjacent(g: geo.Geometry, cur: int, to_cell: int) -> None:
 
 def is_blocked(seed: int, hive: int, cell: int) -> bool:
     return cell in obstructions(seed, hive)
+
+
+#: A cell holds ONE bee. Spelled once, so every motion fences the same way.
+#:
+#: This used to be a SELECT of its own, run before the move — which is a check,
+#: not a fence: between the two statements another bee could take the cell and
+#: both would land in it. It also cost a round trip on every single move.
+_UNOCCUPIED = (
+    " AND NOT EXISTS (SELECT 1 FROM {t} o WHERE o.match_id = $1"
+    "   AND o.hive = {hive} AND o.cell = {cell} AND o.npub <> $2 AND o.phase <> 'done')"
+)
+
+
+async def _why_refused(match_id: str, hive: int, npub: str, to_cell: int) -> str:
+    """Name the reason a fenced move lost, AFTER it lost.
+
+    The occupancy check used to run before every move — a whole round trip, on
+    the happy path, to learn something the fence now enforces anyway. Asked here
+    instead it costs nothing when the move lands, and still gives the player a
+    sentence they can act on when it does not.
+    """
+    r = await _exec(
+        f"SELECT 1 FROM {BEES} WHERE match_id = $1 AND hive = $2 AND cell = $3 "
+        "AND npub <> $4 AND phase <> 'done' LIMIT 1",
+        [match_id, hive, to_cell, npub],
+    )
+    if _rows(r):
+        return "another bee is standing there — go round it, or bury it"
+    return "not your turn — the clock had not come round yet"
 
 
 async def _require_unoccupied(match_id: str, g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
