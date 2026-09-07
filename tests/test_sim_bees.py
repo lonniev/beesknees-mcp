@@ -149,8 +149,10 @@ def test_sim_bees_never_hurry() -> None:
     """
     rng = random.Random(0)
     pauses = [sim_bees.human_pause(rng) for _ in range(500)]
-    assert min(pauses) >= 0.5, "a sim bee moved quicker than a person could tap"
-    assert max(pauses) <= 3.0
+    # The floor is what matters: a move lands one cooldown plus this, so 0.4
+    # keeps the quickest sim bee at 1.4s against an attentive person's ~1.2s.
+    assert min(pauses) >= 0.4, "a sim bee moved quicker than a person could tap"
+    assert max(pauses) <= 1.8
     assert len({round(p, 3) for p in pauses}) > 100, "jittered, or eight bees move in lockstep"
 
 

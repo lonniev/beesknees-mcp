@@ -63,6 +63,13 @@ export interface LiveState {
 
 type Caller = (tool: string, args: Record<string, unknown>) => Promise<unknown>;
 
+/** How long to wait for a board before giving up and asking again. */
+const POLL_TIMEOUT_MS = 6000;
+/** Sentinel for "this poll took too long", distinct from any real answer. */
+const STALLED = Symbol("stalled");
+/** If the board has not come back in this long, ask again no matter what. */
+const WATCHDOG_MS = 5000;
+
 export interface LiveApi {
   board: LiveState | null;
   error: string;
@@ -84,18 +91,41 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
   const seq = useRef(-1);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
+  /** When the board last actually came back. The watchdog reads this. */
+  const lastOk = useRef(Date.now());
 
   const poll = useCallback(async () => {
     try {
-      const res = (await call("match_state", { since_seq: seq.current })) as
+      // A poll that never returns must not freeze the board.
+      //
+      // The next poll is only scheduled once this one settles, and the tool
+      // layer's own timeout is two minutes — so a single stalled request left
+      // the screen showing a board that had moved on without it, for up to two
+      // minutes, while the player watched a still picture and fell behind. This
+      // service has already been measured with a 32-second outlier.
+      //
+      // Abandoning a slow answer costs nothing: the very next poll asks the same
+      // question, and `since_seq` means a board that has not moved answers small.
+      const res = (await Promise.race([
+        call("match_state", { since_seq: seq.current }),
+        new Promise((resolve) => setTimeout(() => resolve(STALLED), POLL_TIMEOUT_MS)),
+      ])) as
         | (Partial<LiveState> & { unchanged?: boolean; success?: boolean })
+        | typeof STALLED
         | null;
+      if (res === STALLED) {
+        // Not an error the player needs to see — one slow request, and we simply
+        // ask again. Saying "the hive did not answer" here would cry wolf on
+        // every blip of a connection that is working.
+        return 300;
+      }
       if (!alive.current || !res) return 1500;
       if (res.success === false) {
         setError("The hive did not answer");
         return 3000;
       }
       setError("");
+      lastOk.current = Date.now();
       if (!res.unchanged && res.bees) {
         seq.current = res.seq ?? seq.current;
         setBoard(res as LiveState);
@@ -142,9 +172,24 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
     if (!document.hidden) schedule(0);
     document.addEventListener("visibilitychange", onVisibility);
 
+    // The board keeps itself current whether or not the player does anything.
+    //
+    // A round moves without you: rivals dig, flowers empty, somebody reaches a
+    // queen. A player who is thinking, or simply resting out a cooldown, must
+    // not be looking at a picture of a minute ago — and the chain of "schedule
+    // the next poll when this one finishes" has exactly one failure mode, which
+    // is a poll that never finishes. This is the belt to that braces: if the
+    // board has not come back for a while, ask again regardless of what the
+    // chain thinks it is doing.
+    const watchdog = window.setInterval(() => {
+      if (document.hidden || !alive.current) return;
+      if (Date.now() - lastOk.current > WATCHDOG_MS) schedule(0);
+    }, WATCHDOG_MS);
+
     return () => {
       alive.current = false;
       if (timer.current) clearTimeout(timer.current);
+      window.clearInterval(watchdog);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [enabled, schedule]);

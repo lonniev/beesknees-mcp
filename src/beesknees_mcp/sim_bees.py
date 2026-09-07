@@ -214,7 +214,14 @@ def human_pause(rng: random.Random) -> float:
     cannot — so an opponent that acts the instant it is allowed to is not playing
     the same game, however identical the rules are.
 
-    Between half a second and three: never quicker than a person could plausibly
-    tap, usually slower, and jittered so eight of them do not move in lockstep.
+    Between four tenths of a second and one and four fifths — on top of a
+    one-second cooldown, so a move lands every 1.4s to 2.8s. An attentive person
+    who has already decided taps in something like 1.2s, so a sim bee is still
+    the slower of the two, and a dawdling one is much slower.
+
+    It was half a second to three, and that read as sleepy rather than unhurried:
+    a mean of 2.75s a move against a human's 1.2s is not an opponent, it is
+    scenery. The point is a bee that could plausibly be somebody, not one that is
+    politely losing.
     """
-    return rng.uniform(0.5, 3.0)
+    return rng.uniform(0.4, 1.8)
