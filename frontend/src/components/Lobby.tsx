@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { Users, Zap } from "lucide-react";
-import { joinMatch } from "../lib/mcp";
+import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
 import type { Session } from "../lib/session.ts";
 
@@ -32,6 +32,20 @@ export default function Lobby({
 
   useEffect(() => {
     const t = setInterval(() => setWaited((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Somebody has to ask.
+  //
+  // `advance()` runs on a join and on every motion — and a full lobby makes
+  // neither. Once the last seat is taken and the grace has run out, a room of
+  // people polling `match_state` would have waited for a cron that may be
+  // half an hour away. `check_now` carries no authority: it can only cause work
+  // that was already due.
+  useEffect(() => {
+    const t = setInterval(() => {
+      checkNow().catch(() => {});
+    }, 5000);
     return () => clearInterval(t);
   }, []);
 
