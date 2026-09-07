@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
-import BoardScreen from "./components/BoardScreen.tsx";
+import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
 import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
@@ -255,7 +255,19 @@ export default function LiveBoard({ session }: { session: Session }) {
           note || (target === null ? "Tap where you want to end up." : "Press to move.")
         )
       }
-      actionLabel={mine?.phase === "done" ? "Home" : busy ? "…" : verb === "seal" ? "Fill!" : `${word}!`}
+      actionLabel={
+        mine?.phase === "done"
+          ? "👑 Home"
+          : !ready && left > 0
+            // The server does not say WHICH action is being served, so it is read
+            // off the length of the rest: only a cut costs more than one.
+            ? activityLabel(digging ? "dig" : "fly", word)
+            : busy
+              ? "…"
+              : verb === "seal"
+                ? "Fill!"
+                : `${word}!`
+      }
       actionEnabled={ready && !busy && (verb === "seal" ? target !== null : Boolean(next))}
       onAct={act}
       restLeft={left > 0 ? left / servedMs : 0}

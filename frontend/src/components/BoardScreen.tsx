@@ -20,6 +20,25 @@ import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
 import { useWide } from "../lib/useWide.ts";
 
+/**
+ * What the button says while the bee is busy, rather than what to press.
+ *
+ * The button showed its imperative the whole time — "Dig!" greyed out for eight
+ * seconds — so the one control on screen spent most of a round telling you to do
+ * something you had already done. Naming the ACTIVITY makes the wait the bee's
+ * work rather than the interface's silence, and it agrees with the prompt beside
+ * it instead of contradicting it.
+ *
+ * `word` is Crawl or Fly, which the caller already decides from where the step
+ * ENDS — underground is a crawl whichever side of the threshold you started on.
+ */
+export function activityLabel(action: string | null | undefined, word: string): string {
+  if (action === "dig") return "⛏️ Digging…";
+  if (action === "collapse") return "🧱 Sealing…";
+  if (action === "fly") return word === "Crawl" ? "👣 Crawling…" : "💨 Flying…";
+  return "🐝 Resting…";
+}
+
 export interface ScreenHive {
   id: number;
   name: string;

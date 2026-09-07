@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
-import BoardScreen from "./components/BoardScreen.tsx";
+import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
@@ -350,7 +350,10 @@ export default function App() {
           NEXT_STEP(you?.phase, target, pending.why, pending.word)
         )
       }
-      actionLabel={verbLabel(verb, pending.word)}
+      actionLabel={
+        // Busy: say what the bee is doing. Ready: say what pressing will do.
+        ready ? verbLabel(verb, pending.word) : activityLabel(you?.lastAction, pending.word)
+      }
       actionEnabled={Boolean(pending.action) && ready}
       onAct={act}
       restLeft={ready ? 0 : cooldown}
