@@ -400,26 +400,92 @@ def hive_board(g: Geometry, seed: int) -> HiveBoard:
     return HiveBoard(tuple(starts), tuple(flowers), frozenset(blocked))
 
 
-def flower_cells(g: Geometry, rnd, starts: list[int], count: int = FLOWERS) -> list[int]:
-    """Where the pollen is.
+def hops_from(g: Geometry, sources: list[int]) -> list[int]:
+    """Hop counts from a set of cells over the open board. -1 where unreachable."""
+    d = [-1] * g.cells
+    q = list(sources)
+    for s in sources:
+        d[s] = 0
+    i = 0
+    while i < len(q):
+        c = q[i]
+        i += 1
+        for n in neighbors(g, c):
+            if d[n] < 0:
+                d[n] = d[c] + 1
+                q.append(n)
+    return d
 
-    Never on a starting square or one touching it: a bee that opens on its own
-    flower, or one press away, has won the first act before pressing anything.
-    The guard bounds the search rather than the placement, so a hive that cannot
-    fit them all gets fewer flowers instead of looping.
+
+def gateway_cells(g: Geometry, mouths: int = 4) -> list[int]:
+    """Meadow squares that open onto a door.
+
+    A flower here is pollen nobody has to work for: collect it and step straight
+    through. Measured before the rule existed, 35 flowers across 40 hives sat on
+    one — about one hive per match with a free win in it.
     """
+    out: set[int] = set()
+    for m in mouth_cells(g, mouths):
+        out.update(n for n in neighbors(g, m) if not is_hive(g, n))
+    return sorted(out)
+
+
+def flower_cells(g: Geometry, rnd, starts: list[int], count: int = FLOWERS) -> list[int]:
+    """Where the pollen is — placed, not scattered. Mirrors `flowerCells` exactly.
+
+    A corner is six hops from a door, so a flower two hops from a bee is AT BEST
+    four from a door: two-and-two is not rare, the triangle inequality forbids
+    it. Two-and-four is the prize — the flower sits exactly on the way, so the
+    errand costs no detour and costs every bee the same.
+    """
+    gateways = set(gateway_cells(g))
+    to_door = hops_from(g, sorted(gateways))
     near = set(starts)
     for st in starts:
         near.update(neighbors(g, st))
+
     out: list[int] = []
-    seen: set[int] = set()
+    taken: set[int] = set()
+
+    def usable(c: int) -> bool:
+        return c not in taken and c not in near and c not in gateways and to_door[c] >= 2
+
+    want: list[tuple[int, tuple[int, ...]]] = [
+        (2, (4,)),
+        (2, (5,)),
+        (3, (4,)),
+        (2, (6,)),
+        (3, (5,)),
+    ]
+    for st in starts:
+        from_bee = hops_from(g, [st])
+        placed = -1
+        for hops, door_dists in want:
+            cands = [
+                c
+                for c in range(g.hive_cells, g.cells)
+                if usable(c) and from_bee[c] == hops and to_door[c] in door_dists
+            ]
+            if cands:
+                placed = cands[int(rnd() * len(cands))]
+                break
+        if placed < 0:
+            best, best_d = -1, 1 << 30
+            for c in range(g.hive_cells, g.cells):
+                if usable(c) and 0 <= from_bee[c] < best_d:
+                    best_d, best = from_bee[c], c
+            placed = best
+        if placed >= 0:
+            taken.add(placed)
+            out.append(placed)
+
     guard = 0
     while len(out) < count and guard < count * 200:
         guard += 1
         c = g.hive_cells + int(rnd() * g.meadow_cells)
-        if c in near or c in seen:
+        if not usable(c):
             continue
-        seen.add(c)
+        taken.add(c)
         out.append(c)
     return out
 

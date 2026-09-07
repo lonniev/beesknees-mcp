@@ -27,7 +27,9 @@ import {
   neighbors,
   cornerStarts,
   FLOWERS,
+  gatewayCells,
   hiveLayout,
+  hopsFrom,
   mouthCells,
   outward,
   ringOf,
@@ -661,4 +663,42 @@ test("a live board rebuilds exactly what the server described", () => {
   const after = hydrate({ ...live, taken_pollen: [{ hive: 0, cell: flower }] }, g);
   assert.equal(after[0].board.flower[flower], 1, "the flower vanished instead of emptying");
   assert.equal(after[0].board.pollen[flower], 0, "the flower still holds pollen");
+});
+
+test("no flower sits at a door, and every bee gets the same errand", () => {
+  // A flower on a gateway is pollen you collect and step straight through with:
+  // no trip at all, and a free win for whoever drew that corner. Measured before
+  // the rule existed at 35 across 40 hives — about one hive per match.
+  const g = makeGeometry();
+  const gateways = new Set(gatewayCells(g));
+  const toDoor = hopsFrom(g, [...gateways]);
+
+  let onWay = 0;
+  let trips = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const L = hiveLayout(g, seed);
+    for (const f of L.flowers) {
+      assert.ok(!gateways.has(f), `seed ${seed}: a flower sits on a door gateway (${f})`);
+      assert.ok(toDoor[f] >= 2, `seed ${seed}: flower ${f} is one step from a door`);
+    }
+    // And the errand is the same size for everybody: two hops out, and the rest
+    // of the way in. Two-and-two is impossible — a corner is six hops from a
+    // door and the triangle inequality forbids a flower two from both.
+    for (const st of L.starts) {
+      const from = hopsFrom(g, [st]);
+      const reach = L.flowers.filter((f) => from[f] >= 0);
+      assert.ok(reach.length, `seed ${seed}: a bee has no reachable flower`);
+      const nearest = Math.min(...reach.map((f) => from[f]));
+      assert.ok(nearest <= 3, `seed ${seed}: nearest flower is ${nearest} hops away`);
+      const best = Math.min(...reach.filter((f) => from[f] === nearest).map((f) => toDoor[f]));
+      const straight = Math.min(...[...gateways].map((gt) => from[gt]).filter((d) => d >= 0));
+      // The detour the forage costs over flying straight at a door.
+      const detour = nearest + best - straight;
+      assert.ok(detour <= 2, `seed ${seed}: the forage costs ${detour} extra hops`);
+      if (detour === 0) onWay++;
+      trips++;
+    }
+  }
+  // Most bees should find their flower squarely on the way home.
+  assert.ok(onWay / trips > 0.3, `only ${((onWay / trips) * 100).toFixed(0)}% of trips cost no detour`);
 });

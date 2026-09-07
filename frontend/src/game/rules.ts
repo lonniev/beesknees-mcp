@@ -903,21 +903,98 @@ export function hiveLayout(g: Geometry, seed: number): HiveLayout {
   return { starts, flowers, blocked };
 }
 
+/** Hop counts from a set of cells, over the open board. 8-neighbour in the meadow. */
+export function hopsFrom(g: Geometry, sources: number[]): Int32Array {
+  const d = new Int32Array(g.cells).fill(-1);
+  const q = [...sources];
+  for (const s of sources) d[s] = 0;
+  for (let i = 0; i < q.length; i++) {
+    const c = q[i];
+    for (const n of neighbors(g, c)) if (d[n] < 0) { d[n] = d[c] + 1; q.push(n); }
+  }
+  return d;
+}
+
+/** The meadow squares that open onto a door. A flower here is a flower nobody has to work for. */
+export function gatewayCells(g: Geometry, mouths = 4): number[] {
+  const out = new Set<number>();
+  for (const m of mouthCells(g, mouths))
+    for (const n of neighbors(g, m)) if (!isHive(g, n)) out.add(n);
+  return [...out].sort((a, b) => a - b);
+}
+
 /**
- * Where the pollen is. Never on a starting square or one touching it — a bee
- * that opens on its own flower has won the first act before pressing anything.
+ * Where the pollen is — and it is placed, not scattered.
+ *
+ * Three rules, and the first two are about fairness rather than variety:
+ *
+ * 1. **Never on a door's gateway square**, nor within one hop of it. A flower
+ *    there is pollen you collect and then step straight through the door with,
+ *    which is no trip at all and hands the round to whoever drew that corner.
+ *    Measured before this rule: 35 flowers across 40 hives sat on a gateway,
+ *    about one per hive, so roughly one hive per match had a free win in it.
+ * 2. **Two hops out, and the rest of the way in.** A corner is six hops from a
+ *    door, so a flower two from the bee is AT BEST four from a door: two-and-two
+ *    is not merely rare, the triangle inequality forbids it. Two-and-four is the
+ *    real prize — the flower sits exactly on the way, so the errand costs no
+ *    detour at all and costs every bee the same. Falling back through 2-and-5
+ *    and 3-and-4 when the board cannot offer it; life is like that.
+ * 3. **The rest are scattered**, so there is more pollen than bees and a rival
+ *    emptying yours is a decision rather than a disaster.
+ *
+ * Never on a starting square or one touching it either: a bee that opens on its
+ * own flower has won the first act before pressing anything.
  */
 export function flowerCells(g: Geometry, rng: () => number, starts: number[], count = FLOWERS): number[] {
+  const gateways = new Set(gatewayCells(g));
+  const toDoor = hopsFrom(g, [...gateways]);
   const near = new Set<number>(starts);
   for (const st of starts) for (const n of neighbors(g, st)) near.add(n);
+
   const out: number[] = [];
-  const seen = new Set<number>();
+  const taken = new Set<number>();
+  const usable = (c: number) =>
+    !taken.has(c) && !near.has(c) && !gateways.has(c) && toDoor[c] >= 2;
+
+  // The fair flower: one per bee, as near to two-and-two as the board allows.
+  const WANT: [number, number[]][] = [
+    [2, [4]], // on the way, no detour — the best the board can do
+    [2, [5]], // two out, one step of detour
+    [3, [4]], // a longer walk out, still no detour home
+    [2, [6]],
+    [3, [5]],
+  ];
+  for (const st of starts) {
+    const fromBee = hopsFrom(g, [st]);
+    let placed = -1;
+    for (const [hops, doorDists] of WANT) {
+      const cands: number[] = [];
+      for (let c = g.hiveCells; c < g.cells; c++)
+        if (usable(c) && fromBee[c] === hops && doorDists.includes(toDoor[c])) cands.push(c);
+      if (cands.length) {
+        placed = cands[Math.floor(rng() * cands.length)];
+        break;
+      }
+    }
+    if (placed < 0) {
+      // No cell meets the shape. Take the nearest usable one rather than none —
+      // a bee with no flower has no first act at all.
+      let best = -1;
+      let bestD = Infinity;
+      for (let c = g.hiveCells; c < g.cells; c++)
+        if (usable(c) && fromBee[c] >= 0 && fromBee[c] < bestD) { bestD = fromBee[c]; best = c; }
+      placed = best;
+    }
+    if (placed >= 0) { taken.add(placed); out.push(placed); }
+  }
+
+  // And the rest, scattered, under the same rules.
   let guard = 0;
   while (out.length < count && guard < count * 200) {
     guard++;
     const c = g.hiveCells + Math.floor(rng() * g.meadowCells);
-    if (near.has(c) || seen.has(c)) continue;
-    seen.add(c);
+    if (!usable(c)) continue;
+    taken.add(c);
     out.push(c);
   }
   return out;
