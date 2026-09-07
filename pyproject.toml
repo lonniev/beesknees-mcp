@@ -20,7 +20,7 @@ dependencies = [
     # [modal] for the sim-bee runner: the swarm that fills a thin hive lives in a
     # Modal app, and the extra is what puts the client in the same resolution the
     # MCP already uses rather than a second list that drifts from it.
-    "tollbooth-dpyc[nostr,modal]==0.89.1",
+    "tollbooth-dpyc[nostr,modal]==0.90.0",
 ]
 
 [project.optional-dependencies]

@@ -278,6 +278,43 @@ class FakeVault:
                 return {"rows": [], "rowCount": 1}
             return {"rows": [], "rowCount": 0}
 
+        if s.startswith(f"INSERT INTO {store.PAYOUTS}"):
+            if not hasattr(self, "payouts"):
+                self.payouts = {}
+            if p[0] in self.payouts:
+                return {"rows": [], "rowCount": 0}  # ON CONFLICT DO NOTHING
+            self.payouts[p[0]] = {"payout_id": p[0], "kind": p[1], "match_id": p[2],
+                                  "destination": p[3], "amount_sats": p[4],
+                                  "state": "sending", "payment_hash": "", "detail": "",
+                                  "started_at": "now"}
+            return {"rows": [], "rowCount": 1}
+
+        if s.startswith(f"UPDATE {store.PAYOUTS} SET state"):
+            row = getattr(self, "payouts", {}).get(p[0])
+            if row and row["state"] == "sending":
+                row.update(state=p[1], payment_hash=p[2], detail=p[3])
+                return {"rows": [], "rowCount": 1}
+            return {"rows": [], "rowCount": 0}
+
+        if s.startswith(f"SELECT * FROM {store.PAYOUTS}"):
+            rows = list(getattr(self, "payouts", {}).values())
+            return {"rows": rows, "rowCount": len(rows)}
+
+        if "AS prizes FROM" in s:
+            return {"rows": [{
+                "charity": sum(x["charity_sats"] for x in self.settlements.values()),
+                "prizes": sum(x["winner_sats"] for x in self.settlements.values()
+                              if x["prize_state"] == "kept"),
+            }], "rowCount": 1}
+
+        if "AS sent FROM" in s:
+            by: dict[str, int] = {}
+            for row in getattr(self, "payouts", {}).values():
+                if row["state"] in ("sending", "paid"):
+                    by[row["kind"]] = by.get(row["kind"], 0) + row["amount_sats"]
+            rows = [{"kind": k, "sent": v} for k, v in by.items()]
+            return {"rows": rows, "rowCount": len(rows)}
+
         if "sum(charity_sats)" in s:
             return {"rows": [{"owed": sum(x["charity_sats"] for x in self.settlements.values())}],
                     "rowCount": 1}
@@ -868,5 +905,69 @@ def test_the_public_charity_answer_carries_no_wallet(vault) -> None:
 
         hist = await server.settlement_history.__wrapped__(limit=5, npub="npub1x")
         assert "lightning_address" not in hist["charity"]
+
+    asyncio.run(go())
+
+
+def test_a_payment_can_only_be_claimed_once(vault) -> None:
+    """The claim is taken BEFORE the sats move, and that is the whole guard.
+
+    A retry, a second operator pressing the button, and a rerun of the same
+    cron all arrive here. They collide on a primary key rather than at the
+    node, where the collision would be two payments.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        assert await store.claim_payout("charity", mid, "p@wallet.com", 800) is True
+        assert await store.claim_payout("charity", mid, "p@wallet.com", 800) is False, (
+            "a second claim on the same leg must lose"
+        )
+        # The other leg of the same match is a different payment, not a repeat.
+        assert await store.claim_payout("winner", mid, "me@wallet.com", 100) is True
+
+    asyncio.run(go())
+
+
+def test_a_payment_still_in_flight_counts_as_spent(vault) -> None:
+    """It may yet fail, and then the money comes back and the figure improves.
+
+    Assuming it failed would let the same sats be promised to somebody else
+    while the first attempt is still moving.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Pollinator Partnership")
+
+        assert (await store.obligations())["charity_unpaid_sats"] == 800
+
+        await store.claim_payout("charity", mid, "p@wallet.com", 800)
+        assert (await store.obligations())["charity_unpaid_sats"] == 0, (
+            "an in-flight payment must not leave the same sats promised twice"
+        )
+
+        # And a failure puts it back, because nothing left.
+        await store.finish_payout("charity", mid, state="failed", detail="no route")
+        assert (await store.obligations())["charity_unpaid_sats"] == 800
+
+    asyncio.run(go())
+
+
+def test_only_a_kept_prize_is_owed_to_a_winner(vault) -> None:
+    """A donated share is the charity's, and must not be counted twice."""
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Somebody")
+        # Unclaimed: not yet owed to anybody in particular.
+        assert (await store.obligations())["prizes_unpaid_sats"] == 0
+
+        await store.set_prize_state(mid, "kept")
+        assert (await store.obligations())["prizes_unpaid_sats"] == 100
 
     asyncio.run(go())

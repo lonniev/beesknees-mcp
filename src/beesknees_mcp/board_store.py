@@ -45,6 +45,7 @@ POLLEN = "bk_pollen"
 #: Who the charity share goes to, and where a patron wants their own share sent.
 CHARITY = "bk_charity"
 PATRONS = "bk_patrons"
+PAYOUTS = "bk_payouts"
 
 HIVES = 5
 SEATS = 12
@@ -191,6 +192,27 @@ _DDL: list[str] = [
         "  tool TEXT NOT NULL,"
         "  sats INTEGER NOT NULL,"
         "  at TIMESTAMPTZ NOT NULL DEFAULT now())"
+    ),
+    (
+        # One row per payment ATTEMPT, not per success.
+        #
+        # The primary key is what makes a double-payment impossible: a row is
+        # claimed BEFORE the sats move, so a retry, a second cron tick, or an
+        # operator pressing twice all collide on the key rather than on the
+        # node. A row that ends up stuck in `sending` is a payment nobody can
+        # prove either way, which is exactly the thing a human should look at —
+        # so it stays stuck rather than being cleaned up automatically.
+        f"CREATE TABLE IF NOT EXISTS {PAYOUTS} ("
+        "  payout_id TEXT PRIMARY KEY,"          # f"{kind}:{match_id}"
+        "  kind TEXT NOT NULL,"                  # 'charity' | 'winner'
+        "  match_id TEXT NOT NULL,"
+        "  destination TEXT NOT NULL,"           # the Lightning address paid
+        "  amount_sats INTEGER NOT NULL,"
+        "  state TEXT NOT NULL DEFAULT 'sending',"   # sending | paid | failed
+        "  payment_hash TEXT NOT NULL DEFAULT '',"
+        "  detail TEXT NOT NULL DEFAULT '',"
+        "  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+        "  finished_at TIMESTAMPTZ)"
     ),
     (
         f"CREATE TABLE IF NOT EXISTS {SETTLEMENTS} ("
@@ -1045,3 +1067,80 @@ async def set_prize_state(match_id: str, state: str) -> None:
         "WHERE match_id = $1 AND prize_state = 'unclaimed'",
         [match_id, state],
     )
+
+
+# ── Paying it out ────────────────────────────────────────────────────────
+
+
+async def claim_payout(
+    kind: str, match_id: str, destination: str, amount_sats: int
+) -> bool:
+    """Reserve the right to send this payment. True means it is yours to make.
+
+    Claimed BEFORE the sats move, and on the primary key, so a retry or a
+    second operator pressing the button collides here rather than at the node.
+    False means somebody already has it — which includes a payment still in
+    flight, and that is deliberately not a case this hands out again.
+    """
+    r = await _exec(
+        f"INSERT INTO {PAYOUTS} (payout_id, kind, match_id, destination, amount_sats) "
+        "VALUES ($1, $2, $3, $4, $5) ON CONFLICT (payout_id) DO NOTHING",
+        [f"{kind}:{match_id}", kind, match_id, destination, int(amount_sats)],
+    )
+    return _count(r) == 1
+
+
+async def finish_payout(
+    kind: str, match_id: str, *, state: str, payment_hash: str = "", detail: str = ""
+) -> None:
+    """Record how it went. Only ever moves a payment off `sending`."""
+    await _exec(
+        f"UPDATE {PAYOUTS} SET state = $2, payment_hash = $3, detail = $4, "
+        "finished_at = now() WHERE payout_id = $1 AND state = 'sending'",
+        [f"{kind}:{match_id}", state, payment_hash[:120], detail[:400]],
+    )
+
+
+async def payouts(limit: int = 50) -> list[dict[str, Any]]:
+    r = await _exec(
+        f"SELECT * FROM {PAYOUTS} ORDER BY started_at DESC LIMIT {max(1, min(limit, 200))}"
+    )
+    return _rows(r)
+
+
+async def obligations() -> dict[str, int]:
+    """What is owed and has not been sent, in sats.
+
+    Owed is what the settlements say; sent is what the payouts table says. The
+    difference is the operator's outstanding liability, and it is the figure a
+    solvency check subtracts — a charity share counted as paid because somebody
+    *meant* to pay it is how a node gets spent twice.
+
+    A payment still `sending` counts as spent. It may yet fail, in which case
+    the money comes back and the figure improves; assuming it failed would let
+    the same sats be promised again while the first attempt is still in flight.
+    """
+    r = await _exec(
+        f"SELECT coalesce(sum(charity_sats), 0)::int AS charity, "
+        "coalesce(sum(CASE WHEN prize_state = 'kept' THEN winner_sats ELSE 0 END), 0)::int "
+        f"AS prizes FROM {SETTLEMENTS}"
+    )
+    rows = _rows(r)
+    owed_charity = int(rows[0]["charity"]) if rows else 0
+    owed_prizes = int(rows[0]["prizes"]) if rows else 0
+
+    p = await _exec(
+        f"SELECT kind, coalesce(sum(amount_sats), 0)::int AS sent FROM {PAYOUTS} "
+        "WHERE state IN ('sending', 'paid') GROUP BY kind"
+    )
+    sent = {str(row["kind"]): int(row["sent"]) for row in _rows(p)}
+
+    charity = max(0, owed_charity - sent.get("charity", 0))
+    prizes = max(0, owed_prizes - sent.get("winner", 0))
+    return {
+        "charity_unpaid_sats": charity,
+        "prizes_unpaid_sats": prizes,
+        "unpaid_sats": charity + prizes,
+        "charity_accrued_sats": owed_charity,
+        "prizes_accrued_sats": owed_prizes,
+    }

@@ -26,6 +26,7 @@ from tollbooth.runtime import OperatorRuntime, register_standard_tools
 from tollbooth.tool_identity import STANDARD_IDENTITIES, ToolIdentity
 
 from beesknees_mcp import __version__, board_store, geometry, match_flow
+from beesknees_mcp import payouts as payouts_mod
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,9 @@ TICK_UUID = "0a3deb87-9fe0-5831-8732-32f39938f180"
 SET_CHARITY_UUID = "3cef605a-f062-5d6f-8ac4-dd79bc1fbd0a"
 SET_PAYOUT_UUID = "e23622d7-be8d-56ec-85cc-ed81c06dda22"
 PAYOUT_UUID = "3b69029c-c9fa-5432-bd3d-95c23d1d919a"
+TREASURY_UUID = "5b7d7180-f951-523e-8964-2fbf503def3c"
+PAY_OUT_UUID = "324c5ea2-6215-5a8c-b2cd-f433b40f0c20"
+PAYOUT_HISTORY_UUID = "a60cc83e-8fe8-561b-ae4c-15747876c318"
 CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
 
 _DOMAIN_TOOLS = [
@@ -191,6 +195,31 @@ _DOMAIN_TOOLS = [
         # dash to anybody out of credit.
         category="free",
         intent="What you have said should happen to your winnings",
+    ),
+    ToolIdentity(
+        tool_id=TREASURY_UUID,
+        capability="treasury",
+        # Restricted: what the operator holds is the operator's business, and
+        # the figure includes other patrons' float.
+        category="restricted",
+        intent="Operator: what is held, what is owed, and what may be sent",
+    ),
+    ToolIdentity(
+        tool_id=PAY_OUT_UUID,
+        capability="pay_out",
+        # The only tool in this service that moves real sats. Restricted, and
+        # the runtime proves the caller is the operator before it runs.
+        category="restricted",
+        intent="Operator: send a settled match's charity or winner share",
+    ),
+    ToolIdentity(
+        tool_id=PAYOUT_HISTORY_UUID,
+        capability="payout_history",
+        # Free, and deliberately: a service that says 80% goes to a charity
+        # should let anybody check that sats actually left, not just that a
+        # row was written saying they were owed.
+        category="free",
+        intent="Every payment attempted, and how it went",
     ),
     ToolIdentity(
         tool_id=CHARITY_UUID,
@@ -709,6 +738,97 @@ async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]
                 "named": bool(c["name"])}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "charity")
+
+
+@tool
+@runtime.paid_tool(TREASURY_UUID)
+async def treasury(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+    """Operator: what is held, what is owed, and what may honestly be sent.
+
+    `restricted`, so the runtime requires the caller to be the operator, proven.
+
+    The node's balance is NOT the operator's money. Patrons pre-fund by paying
+    an invoice, so their sats really are on the node, but what they hold back is
+    credit they can spend at any time. `payable_sats` is what is left after that
+    float and everything already owed elsewhere:
+
+        payable = sendable − patron float − unpaid obligations
+
+    `trustworthy` false means a figure could not be measured — an unreachable
+    node, an API key without permission to ask, an unreadable ledger — and
+    `pay_out` refuses on it. An unknown balance is not an optimistic one.
+    """
+    try:
+        return {"success": True, **await payouts_mod.look()}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "treasury")
+
+
+@tool
+@runtime.paid_tool(PAY_OUT_UUID)
+async def pay_out(
+    match_id: Annotated[str, Field(description="The settled match to pay out.")],
+    kind: Annotated[str, Field(description="'charity' or 'winner'.")] = "charity",
+    npub: NPUB_FIELD = "",
+    dpop_token: str = "",
+) -> dict[str, Any]:
+    """Operator: send a settled match's charity or winner share over Lightning.
+
+    `restricted`, so the runtime requires the caller to be the operator, proven.
+    This is the only tool here that moves real sats, and the only one whose
+    effect cannot be undone by writing another row.
+
+    The amount is READ from the settlement, never recomputed, so a payment can
+    never be for a figure the ledger does not already carry. The charity leg
+    pays the beneficiary the match itself recorded, so a match settled under a
+    previous charity still pays the charity it promised.
+
+    Solvency is checked before anything moves and the payment is claimed in the
+    database before the sats leave, so a retry, a double press, or two operators
+    at once collide on a primary key rather than at the node. Calling it again
+    after a success reports the existing payment rather than making a second.
+
+    Nothing here is automatic. A payment leaves because somebody asked.
+
+    Args:
+        match_id: The settled match to pay out.
+        kind: 'charity' or 'winner'.
+    """
+    try:
+        return await payouts_mod.send(kind.strip().lower(), match_id)
+    except board_store.BoardError as exc:
+        return {"success": False, "error_code": "refused", "error": str(exc)}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "pay_out")
+
+
+@tool
+@runtime.paid_tool(PAYOUT_HISTORY_UUID)
+async def payout_history(
+    limit: Annotated[int, Field(description="How many payments to return.")] = 25,
+    npub: NPUB_FIELD = "",
+    dpop_token: str = "",
+) -> dict[str, Any]:
+    """Every payment attempted, and how it went.
+
+    Free on purpose. A service that says 80% of every pot goes to a charity
+    should let anybody check that sats actually left, not merely that a row was
+    written saying they were owed. Failures are listed too — a payout history
+    that only shows successes is a claim, not a record.
+    """
+    try:
+        rows = await board_store.payouts(limit)
+        # The destination is a wallet address and stays the operator's business;
+        # what a reader needs is that a payment of a size happened, to which leg.
+        public = [
+            {k: r[k] for k in
+             ("payout_id", "kind", "match_id", "amount_sats", "state", "started_at")
+             if k in r}
+            for r in rows
+        ]
+        return {"success": True, "payouts": public, **await board_store.obligations()}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "payout_history")
 
 
 @tool
