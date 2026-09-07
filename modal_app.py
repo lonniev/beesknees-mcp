@@ -53,12 +53,18 @@ config = modal.Secret.from_name("beesknees-sim", required_keys=["BEESKNEES_URL"]
 @app.function(
     image=image,
     secrets=[config],
-    # Fires every two minutes and plays for a little under that. A round runs
-    # about three and a half minutes, so a match is picked up within a couple of
-    # minutes of forming and played by successive invocations. Overlap would put
-    # two swarms on one board, so the run is bounded well inside its own period.
-    schedule=modal.Period(minutes=2),
-    timeout=180,
+    # A shift OUTLIVES A ROUND, deliberately.
+    #
+    # The bees a shift seats live in its process, so a shift shorter than the
+    # game strands them: they join, the function exits, and the next one has no
+    # idea who they are. The hive then fills with bees that arrived and never
+    # moved — which is precisely what the first deployment did.
+    #
+    # A round runs about three and a half minutes and can reach its ten-minute
+    # ceiling, so twelve covers the worst case with room to settle. The period is
+    # a minute longer than the run so two swarms are never on one board.
+    schedule=modal.Period(minutes=13),
+    timeout=900,
     # Entirely I/O bound: it waits on HTTP and on its own deliberate pauses.
     cpu=0.5,
     memory=512,
@@ -82,7 +88,7 @@ def tend_hives() -> dict[str, int]:
             "else and will stop the moment their balance runs out"
         )
 
-    tally = asyncio.run(run(url, coupon, seconds=105))
+    tally = asyncio.run(run(url, coupon, seconds=12 * 60))
     log.info("shift over: %s", tally)
     return tally
 

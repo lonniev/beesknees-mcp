@@ -99,7 +99,11 @@ class Swarm:
 
         want = min(short, MAX_BEES - len(self.bees))
         for i in range(max(0, want)):
-            strategy = sim_bees.STRATEGIES[(len(self.bees) + i) % len(sim_bees.STRATEGIES)]
+            # `len(self.bees)` alone: it grows with each append, so adding `i`
+            # as well advanced the cycle twice a bee and only ever produced
+            # diggers and sealers — the rider and the driller, half the field the
+            # simulation was tuned against, never appeared at all.
+            strategy = sim_bees.STRATEGIES[len(self.bees) % len(sim_bees.STRATEGIES)]
             bee = await self._mint(strategy, len(self.bees) + i)
             r = await bee.hive.call("join_match", label=bee.label)
             if not r.get("success"):
@@ -181,7 +185,16 @@ class Swarm:
 
 
 async def run(url: str, coupon: str, seconds: float, log: Any = logger) -> dict[str, int]:
-    """Watch one service for `seconds`, filling thin hives and playing them."""
+    """Watch one service for `seconds`, filling thin hives and playing them.
+
+    A shift has to OUTLIVE A ROUND. The bees it seats exist only in this process,
+    so if it exits mid-match nobody can move them again and the hive fills with
+    bees that arrived and then went to sleep — which is exactly what happened the
+    first time this ran, with a shift shorter than the game.
+
+    A round runs about three and a half minutes and can reach its ten-minute
+    ceiling, so a shift is sized to cover the ceiling and then some.
+    """
     swarm = Swarm(url=url, coupon=coupon)
     # One throwaway identity just to read the board. `match_state` is free and
     # needs no seat, so the watcher never joins anything and never spends.
@@ -207,7 +220,13 @@ async def run(url: str, coupon: str, seconds: float, log: Any = logger) -> dict[
 
             tally["moves"] += await swarm.play_once(state)
             swarm.forget_finished(state)
-            await asyncio.sleep(0.7)
+
+            # The SERVER says how often to ask — a second while a match is
+            # running, four while a lobby waits. Honouring it means one cadence
+            # algorithm rather than every client inventing its own, and it is a
+            # valve the operator can turn under load. A shift is long, so a fixed
+            # fast poll would be thousands of requests an hour to watch nothing.
+            await asyncio.sleep(max(0.5, float(state.get("poll_after_ms") or 1000) / 1000))
     finally:
         await reader.aclose()
         await swarm.aclose()
