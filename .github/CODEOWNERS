@@ -6,9 +6,8 @@
 #
 # The catch-all comes first and the carve-outs come after it, because CODEOWNERS is
 # LAST-MATCH-WINS. Written the other way round — listing only the paths that need review —
-# anything not on the list is ungated, including files that do not exist yet. This repo was
-# in exactly that state: /src/, /pyproject.toml, /uv.lock and /.github/ were owned, so a new
-# top-level file would have landed unreviewed. Default-deny, then carve out.
+# anything not on the list is ungated, including files that do not exist yet. Default-deny,
+# then carve out.
 
 # Everything needs review …
 * @lonniev
@@ -19,16 +18,29 @@
 /tests/
 *.md
 
-# PROPAGATION NOTE: this Operator holds no local ledger — the money paths are the
-# SDK's. What it does hold is a CALIBRATION path, and that is the surface a
-# plausible-looking edit can quietly break. Field reports feed
-# `calibration.py`, which shifts the heat and frost bias for a whole block, so
-# widening MAX_HEAT_BIAS / MAX_DAY_BIAS, dropping the three-agreeing-observations
-# floor, or loosening the plausibility filters in `roster.py` would let one junk
-# observation degrade every later answer for that ground — silently, and in a way
-# that reads as a slightly different number rather than as a bug.
+# … but NOT the tests that are themselves the money guard. See the note below: for
+# most of this repo a test is a description of behaviour, and for these four it is
+# the only executable statement of a rule that decides whether sats leave. A pipeline
+# that may edit them unattended may edit the rule.
+/tests/test_treasury.py @lonniev
+/tests/test_board_store.py @lonniev
+
+# PROPAGATION NOTE: this Operator MOVES REAL MONEY, and it is the only one in the
+# fleet that does. Everywhere else the money paths are the SDK's and a local edit
+# can at worst misreport them. Here `payouts.py` sends sats over Lightning and
+# nothing written afterwards can call them back.
 #
-# The second surface is provenance. `sources.py` and `biota.py` carry each feed's
-# native resolution, and `region.py` carries the sampling floor. A change that
-# reports a resolution the data does not have sells precision that is not there.
-# Neither may be uncovered.
+# The surface a plausible-looking edit can quietly break is the solvency rule in
+# `treasury.py`. `payable = sendable − patron float − unpaid obligations − fee
+# reserve`, and every one of those subtractions is load-bearing: dropping the
+# patron float pays winners out of other patrons' unspent deposits, dropping the
+# obligations term lets two settled matches be paid from the same sats, and
+# relaxing `trustworthy` turns an unreadable balance from a refusal into an
+# optimistic yes. Each of those reads as a slightly larger number, not as a bug.
+#
+# The second surface is idempotency. `board_store.claim_payout` takes the claim on
+# a primary key BEFORE any sats move, and `payouts.send` calls it in that order on
+# purpose. Reordering those two — or treating BTCPay's 202 "under way" as "paid" —
+# is how one payment becomes two, and the second one cannot be undone.
+#
+# Neither may be uncovered, and neither should land without a human reading it.
