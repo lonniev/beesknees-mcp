@@ -846,3 +846,27 @@ def test_a_resolved_prize_cannot_be_resolved_a_second_way(vault, monkeypatch) ->
         assert rows[0]["prize_state"] == "donated"
 
     asyncio.run(go())
+
+
+def test_the_public_charity_answer_carries_no_wallet(vault) -> None:
+    """`charity` is unauthenticated, and a wallet buys a player nothing.
+
+    The name and the site ARE the claim — they are what a player checks. Where
+    the sats are actually sent is the operator's plumbing, and putting it in a
+    free tool means publishing it to anybody who asks.
+    """
+    from beesknees_mcp import server
+
+    async def go():
+        await store.set_charity("Pollinator Partnership", "https://pollinator.org", "p@wallet.com")
+        # The undecorated body: the fare wrapper is the runtime's business, and
+        # what this asserts is the SHAPE the tool hands back.
+        out = await server.charity.__wrapped__(npub="npub1x")
+        assert out["name"] == "Pollinator Partnership"
+        assert out["website"] == "https://pollinator.org"
+        assert "lightning_address" not in out, "the free answer must not carry the wallet"
+
+        hist = await server.settlement_history.__wrapped__(limit=5, npub="npub1x")
+        assert "lightning_address" not in hist["charity"]
+
+    asyncio.run(go())

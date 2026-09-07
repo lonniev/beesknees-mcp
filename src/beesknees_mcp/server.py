@@ -456,7 +456,7 @@ async def settlement_history(
         charity = await board_store.get_charity()
         return {"success": True,
                 "beneficiary": charity["name"] or match_flow.BENEFICIARY,
-                "charity": charity,
+                "charity": {"name": charity["name"], "website": charity["website"]},
                 "settlements": rows, **owed,
                 "leaderboard": await board_store.leaderboard(10)}
     except (OSError, RuntimeError) as exc:
@@ -703,7 +703,10 @@ async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]
     """
     try:
         c = await board_store.get_charity()
-        return {"success": True, **c, "named": bool(c["name"])}
+        # Name and site only. Where the money is SENT is operational — it buys a
+        # player nothing to see it, and this tool is unauthenticated.
+        return {"success": True, "name": c["name"], "website": c["website"],
+                "named": bool(c["name"])}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "charity")
 
