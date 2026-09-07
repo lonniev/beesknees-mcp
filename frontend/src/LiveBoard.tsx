@@ -35,7 +35,7 @@ function asBee(b: LiveBee): Bee {
     strategy: "human",
     cell: b.cell,
     prevCell: -1,
-    cameInward: false,
+    cameInward: Boolean(b.came_inward),
     lastAction: null,
     netTurn: 0,
     turnSwitches: 0,

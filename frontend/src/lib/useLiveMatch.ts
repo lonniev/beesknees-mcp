@@ -25,6 +25,15 @@ export interface LiveBee {
   moves: number;
   digs: number;
   seals: number;
+  /**
+   * Did this bee's last move cut downward?
+   *
+   * The stagger bars two inward moves in a row, so without this the client
+   * cannot tell a committed bee from a free one — it offers the cut, the server
+   * refuses it, and the patron spends a cooldown learning what the board
+   * already knew.
+   */
+  came_inward: boolean;
   next_move_at: string | null;
   finished_at: string | null;
 }

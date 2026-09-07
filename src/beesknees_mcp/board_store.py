@@ -470,8 +470,16 @@ async def bee_of(match_id: str, npub: str) -> dict[str, Any] | None:
 
 async def bees_in(match_id: str) -> list[dict[str, Any]]:
     r = await _exec(
+        # `came_inward` matters to the CLIENT, not only to the fence.
+        #
+        # The stagger bars two inward moves in a row, and without this the client
+        # cannot know whether a bee is already committed — so it offers the cut
+        # anyway and the server refuses it. Refunded, but it still costs the
+        # patron a whole cooldown to learn something the board already knew.
+        # Measured in the first live round at six refusals in the first minute.
         f"SELECT hive, seat, npub, label, cell, phase, moves, digs, seals, "
-        f"finished_at, next_move_at FROM {BEES} WHERE match_id = $1 ORDER BY hive, seat",
+        f"came_inward, finished_at, next_move_at FROM {BEES} "
+        "WHERE match_id = $1 ORDER BY hive, seat",
         [match_id],
     )
     return _rows(r)

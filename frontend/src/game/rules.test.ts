@@ -631,7 +631,8 @@ test("a live board rebuilds exactly what the server described", () => {
     seats: 12,
     seed,
     bees: [{ hive: 0, seat: 0, npub: "npub1x", label: "you", cell: 300, phase: "forage",
-             moves: 0, digs: 0, seals: 0, next_move_at: null, finished_at: null }],
+             moves: 0, digs: 0, seals: 0, came_inward: false,
+             next_move_at: null, finished_at: null }],
     open_cells: [{ hive: 0, cell: 150 }],
     taken_pollen: [] as { hive: number; cell: number }[],
   };
