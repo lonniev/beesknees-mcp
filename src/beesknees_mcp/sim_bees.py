@@ -110,6 +110,21 @@ def cost_field(board: Board, sources: list[int], fly_w: float, dig_w: float) -> 
     return dist
 
 
+def leaving_the_hive(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> bool:
+    """Would this step carry a laden bee back out into the meadow?
+
+    The doorway rule, mirrored from `rules.ts` so a sim bee decides what a
+    client bot decides. It is not a nicety: the cross-check test compares the
+    two engines move for move, and it failed the moment the browser learned
+    this and Python had not.
+    """
+    return (
+        str(bee.get("phase")) == "tunnel"
+        and not geo.is_meadow(g, int(bee["cell"]))
+        and geo.is_meadow(g, to_cell)
+    )
+
+
 def descend(board: Board, bee: dict[str, Any], dig_w: float) -> Move:
     """Step to whichever legal neighbour sits lowest in the field.
 
@@ -127,6 +142,9 @@ def descend(board: Board, bee: dict[str, Any], dig_w: float) -> Move:
         if n in board.layout.blocked or n in board.occupied:
             continue
         if not geo.may_move(g, cur, n, came_inward):
+            continue
+        # Once in with your pollen, you are going to the queen.
+        if leaving_the_hive(g, bee, n):
             continue
         # The wall cannot be cut; only its doors let anyone in.
         if not board.is_open(n) and geo.is_wall(g, n):
@@ -162,7 +180,8 @@ def choose(board: Board, bee: dict[str, Any], strategy: str, rng: random.Random)
             inward = geo.inward(g, r, cur - g.offset[r])
             if inward is not None and inward not in board.layout.blocked \
                and inward not in board.occupied \
-               and geo.may_move(g, cur, inward, bool(bee.get("came_inward"))):
+               and geo.may_move(g, cur, inward, bool(bee.get("came_inward"))) \
+               and not leaving_the_hive(g, bee, inward):
                 return Move("fly" if board.is_open(inward) else "dig", inward)
             return _blind_step(board, bee, rng)
         return descend(board, bee, COOLDOWN_S)
@@ -185,6 +204,7 @@ def _blind_step(board: Board, bee: dict[str, Any], rng: random.Random) -> Move:
         if n not in board.layout.blocked
         and n not in board.occupied
         and geo.may_move(g, int(bee["cell"]), n, bool(bee.get("came_inward")))
+        and not leaving_the_hive(g, bee, n)
         and not (not board.is_open(n) and geo.is_wall(g, n))
     ]
     if not options:

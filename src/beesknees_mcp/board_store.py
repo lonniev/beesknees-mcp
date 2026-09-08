@@ -614,6 +614,7 @@ async def fly(
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
+    _require_commitment(g, bee, to_cell)
     m = await get_match(match_id)
     seed = int((m or {}).get("seed") or 0)
 
@@ -750,6 +751,7 @@ async def dig(match_id: str, npub: str, to_cell: int) -> dict[str, Any]:
     cur = int(bee["cell"])
     _require_adjacent(g, cur, to_cell)
     _require_stagger(g, bee, to_cell)
+    _require_commitment(g, bee, to_cell)
     if geo.is_meadow(g, to_cell):
         raise BoardError("there is nothing to dig in open air")
     if geo.is_wall(g, to_cell):
@@ -897,6 +899,30 @@ async def _require_unoccupied(match_id: str, g: geo.Geometry, bee: dict[str, Any
     )
     if _rows(r):
         raise BoardError("another bee is standing there — go round it, or bury it")
+
+
+def _require_commitment(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
+    """Once in with your pollen, you are going to the queen.
+
+    A bee that has crossed a door does not step back out into the meadow. It
+    used to be free to, and over 1,218 simulated crossings 52.6% did — every one
+    of them carrying pollen and heading for the queen, so with no business
+    outside at all.
+
+    The cause is a doorway under pressure: the cell inside is taken by whoever
+    is queueing, the wall either side cannot be cut, and the only move left is
+    back out. Leaving and returning costs two moves and hands the door to
+    somebody else; waiting for it to clear costs one.
+
+    Enforced here as well as in the browser for the usual reason — a rule only
+    the client checks is a rule only honest players follow.
+    """
+    if str(bee.get("phase")) != "tunnel":
+        return
+    if geo.is_meadow(g, int(bee["cell"])):
+        return
+    if geo.is_meadow(g, to_cell):
+        raise BoardError("your bee is carrying pollen and is not leaving the hive")
 
 
 def _require_stagger(g: geo.Geometry, bee: dict[str, Any], to_cell: int) -> None:
