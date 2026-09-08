@@ -34,11 +34,12 @@ export default function Welcome() {
 
       <div className="mt-6 space-y-4 text-[15px] text-ink/90">
         <p>
-          You take charge of a single worker bee in a meadow. Her job is the one real bees do: find
-          a flower, carry the pollen home through the door of her hive, and make her way in through
-          the wax to the queen at its centre. Every other bee in the meadow belongs to somebody
-          else and is trying to do the same thing first. That race is the game — it takes about
-          three minutes, and it is decided by judgement rather than by reflexes.
+          You take charge of a single drone in a meadow. A drone is a male bee, and reaching the
+          queen is the whole of what he is for. Yours has to find a flower, carry the pollen home
+          through the door of his hive, and cut his way in through the wax to the queen at its
+          centre. Every other drone out there belongs to somebody else and wants the same thing
+          first. That race is the game — it takes about three minutes, and it is decided by
+          judgement rather than by reflexes.
         </p>
         <p>
           Each move your bee makes costs a few satoshis. A satoshi is the smallest piece of a
@@ -156,7 +157,7 @@ export default function Welcome() {
         <h2 className="pt-2 text-lg font-semibold text-ink">🧾 Where the Money Goes</h2>
 
         <p>
-          You buy a worker bee a seat, and every motion it makes costs a little. Eighty percent of
+          You buy a drone a seat, and every motion he makes costs a little. Eighty percent of
           what a round collects is owed to the charity, the winner takes a tenth, and a tenth keeps
           the service running. Every settled match is recorded with what it raised, and every
           payment to the charity is recorded with its transaction id — so you can check where it

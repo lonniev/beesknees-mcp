@@ -1,7 +1,7 @@
 # The Bee's Knees
 
 > A monetized multiplayer race to the queen, and the fleet's charity game. Buy a
-> worker bee a seat, fly it to a flower for pollen, carry it home through a hive
+> drone a seat, fly it to a flower for pollen, carry it home through a hive
 > door, then dig through the comb to reach the queen. First bee to any queen ends
 > the round. The pot splits 80% to a pollinator charity, 10% to the winner, 10% to
 > the operator — and the rounding always falls to the charity, never to the

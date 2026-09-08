@@ -1,6 +1,6 @@
 """The Bee's Knees — a monetized multiplayer race to the queen.
 
-Buy a worker bee a seat, fly it to a flower, carry the pollen home, then tunnel
+Buy a drone a seat, fly it to a flower, carry the pollen home, then tunnel
 through the comb. First bee to reach a queen takes the round.
 
 Standard DPYC tools (check_balance, purchase_credits, Secure Courier, Oracle,
@@ -38,7 +38,7 @@ mcp = FastMCP(
         "The Bee's Knees — a race to the queen, monetized via Tollbooth DPYC "
         "Bitcoin Lightning micropayments.\n\n"
         "## How a round goes\n"
-        "Buy a worker bee a seat with beesknees_join_match. Five hives run at "
+        "Buy a drone a seat with beesknees_join_match. Five hives run at "
         "once, twelve seats each, and the match begins as soon as any hive "
         "holds eight bees.\n\n"
         "Your bee has three acts: reach a flower, carry the pollen back through "
@@ -129,7 +129,7 @@ _DOMAIN_TOOLS = [
         tool_id=JOIN_MATCH_UUID,
         capability="join_match",
         category="write",
-        intent="Buy a worker bee a seat in the next match",
+        intent="Buy a drone a seat in the next match",
     ),
     ToolIdentity(
         tool_id=FLY_UUID,
@@ -545,7 +545,7 @@ async def join_match(
     npub: NPUB_FIELD = "",
     dpop_token: str = "",
 ) -> dict[str, Any]:
-    """Buy a worker bee a seat in the next match.
+    """Buy a drone a seat in the next match.
 
     Seats fill the fullest hive that still has room, so a match reaches its
     quorum and starts rather than leaving everyone waiting in five thin hives.
