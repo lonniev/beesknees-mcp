@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { LINK } from "../lib/ink";
 import { HeartHandshake, Trophy, Coins, ExternalLink } from "lucide-react";
 import { settlementHistory, type SettlementHistory } from "../lib/mcp";
 
@@ -153,7 +154,7 @@ function Beneficiary({ name, website }: { name: string; website: string }) {
           href={website}
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-amber-300/80 underline decoration-amber-300/30 underline-offset-2 hover:text-amber-200"
+          className={LINK}
         >
           {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
           <ExternalLink size={12} />
