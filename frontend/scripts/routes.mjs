@@ -23,7 +23,7 @@ const ROUTES = [
   // The welcome page must SAY what this is, not merely be titled. It opened
   // with "A race to the queen", which tells a first-time visitor nothing —
   // matching only the name would have let that back in without a murmur.
-  ["/", /online game[\s\S]*drone[\s\S]*goes to/],
+  ["/", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
   // /play is a CHOICE now, not a board: practice against bots, or the real
   // game if you are signed in with sats. Both doors must be on the page.
   ["/play", /Practice[\s\S]*real game/],
