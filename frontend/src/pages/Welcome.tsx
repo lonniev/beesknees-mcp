@@ -28,6 +28,7 @@
  */
 
 import { Link } from "react-router-dom";
+import { DriftingBees } from "../components/Meadowscape.tsx";
 import { useCharity } from "../components/CharityNote.tsx";
 import LossChart from "../components/LossChart.tsx";
 import WildVsManaged from "../components/WildVsManaged.tsx";
@@ -38,6 +39,8 @@ export default function Welcome() {
   const who = useCharity();
 
   return (
+    <>
+      <DriftingBees />
     <div className="mx-auto max-w-2xl px-5 py-10 leading-relaxed">
       <h1 className="text-3xl font-semibold tracking-tight">The Bee's Knees</h1>
       <div className="mt-4 space-y-4 text-[15px] text-ink/90">
@@ -195,5 +198,6 @@ export default function Welcome() {
         can learn the board before a real match.
       </p>
     </div>
+    </>
   );
 }

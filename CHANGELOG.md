@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The drifting bees fly over the reading pages too — the welcome, About and the
+  ledger. Split out of `Meadowscape` as `DriftingBees`, so a page can have the
+  life without the landscape: a hill under three screens of prose about colony
+  loss would be scenery arguing with the argument. Hidden below `lg`, because
+  the bees fly at 8% and 90% of the viewport — margin on a wide screen, and the
+  middle of a sentence where the reading column is the whole width.
+
 - A meadow behind the sign-in screen (`components/Meadowscape.tsx`). One card
   in the middle of a very large lavender field read as a page that had failed
   to load rather than a page that was calm. Rolling ground, grass in tufts,
@@ -68,6 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A thin lobby is never left uncovered.** The swarm does re-check and top up
+  on every poll — that part was right — but a shift only seats while it could
+  still see a whole round out, which is `elapsed + 660 <= 840`, or its first
+  180 seconds. Shifts started every 360, so **180 seconds of every 360 had no
+  shift willing to seat a bee at all**, and somebody arriving in one of those
+  holes waited the gap out in front of an empty lobby. Shifts now start every
+  three minutes, so the windows abut; the handover is staggered by
+  `PATIENCE_S`, so two shifts never seat into one lobby. It went from a
+  nuisance to a wall the moment quorum became per-hive: a room used to need
+  seven bees and now needs about forty.
+- Retiring a cohort closes its connections. `forget_finished` cleared the list
+  and left every bee's `httpx.AsyncClient` open — harmless at seven bees a
+  match, less so at forty across several rounds, and a cleared list is one
+  `aclose()` can no longer reach.
 - **The simulated bees arrive in about a fifth of the time.** A human alone in
   a lobby waited close to three minutes, assembled out of three parts that each
   looked reasonable: 45 seconds of deliberate patience, half a minute of
