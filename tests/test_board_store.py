@@ -1322,3 +1322,36 @@ def test_old_rounds_forget_how_they_were_played_but_not_what_they_paid(vault) ->
         )
 
     asyncio.run(go())
+
+
+def test_a_client_ahead_of_the_match_is_not_told_nothing_changed(vault) -> None:
+    """`seq` belongs to a MATCH, and answering across matches strands a player.
+
+    A round ends, the next one forms with a low seq, and a browser still
+    holding the finished match's number asks `since_seq=500` of a match sitting
+    at 3. Answering "unchanged" hands back no board at all, so the dead match
+    stays on screen — and a forming match nobody has joined never bumps its
+    seq, so it never escapes. Meanwhile every button answers "no match is
+    running", because the server moved on long ago.
+
+    A match's seq only ever grows. A client AHEAD of it is therefore not up to
+    date; it is holding somebody else's number, and it needs the whole board
+    rather than a reassurance.
+    """
+    from beesknees_mcp import server
+
+    async def go():
+        mid = await store.open_match()
+        seq = int((await store.get_match(mid))["seq"])
+
+        # Exactly level: nothing has happened, and saying so is the point of
+        # the parameter — it is what keeps a one-second poll cheap.
+        out = await server.match_state.__wrapped__(since_seq=seq, npub="npub1x")
+        assert out.get("unchanged") is True
+
+        # Ahead: impossible within one match, so this client is on another.
+        out = await server.match_state.__wrapped__(since_seq=seq + 400, npub="npub1x")
+        assert not out.get("unchanged"), "a stale client must be given the board, not a shrug"
+        assert "bees" in out
+
+    asyncio.run(go())

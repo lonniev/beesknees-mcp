@@ -382,7 +382,18 @@ async def match_state(
         state = str(m.get("state") or "forming")
         poll_ms = 700 if state == "running" else 4000
 
-        if since_seq >= 0 and seq <= since_seq:
+        # EQUAL, not "less than or equal". A match's `seq` only ever grows, so
+        # a client whose `since_seq` is AHEAD of it is not up to date — it is
+        # holding a sequence number from a different match, and answering
+        # "unchanged" hands it nothing to correct itself with.
+        #
+        # That is how a player got stranded. A round ended, the next one formed
+        # with a low seq, and the browser kept sending the finished match's
+        # number. Every poll answered `unchanged`, carried no board, and left
+        # the dead match on screen; a forming match nobody has joined never
+        # bumps its seq, so the client never escaped. Meanwhile the buttons
+        # answered "no match is running", because the server had long moved on.
+        if since_seq >= 0 and seq == since_seq:
             return {"success": True, "match_id": mid, "seq": seq, "state": state,
                     "unchanged": True, "poll_after_ms": poll_ms}
 
