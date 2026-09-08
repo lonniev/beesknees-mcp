@@ -20,8 +20,10 @@ globalThis.cancelAnimationFrame = () => {};
 // Deliberately content, not a class name: a wrapper div renders whether or not
 // the thing inside it does.
 const ROUTES = [
-  // React escapes the apostrophe, so match the markup rather than the prose.
-  ["/", /Bee(&#x27;|')s Knees/],
+  // The welcome page must SAY what this is, not merely be titled. It opened
+  // with "A race to the queen", which tells a first-time visitor nothing —
+  // matching only the name would have let that back in without a murmur.
+  ["/", /online game[\s\S]*worker bee[\s\S]*goes to/],
   // /play is a CHOICE now, not a board: practice against bots, or the real
   // game if you are signed in with sats. Both doors must be on the page.
   ["/play", /Practice[\s\S]*real game/],

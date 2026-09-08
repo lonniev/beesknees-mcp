@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The welcome page now starts from nothing. It opened with "A race to the
+  queen. Most of what a round collects goes to pollinator conservation." —
+  two sentences that both assume a game the reader has not been told about
+  yet. There is now a plain introduction: what the game is, what a move costs
+  in terms somebody who has never held a satoshi can weigh, where the money
+  goes, and a pointer to About for strategy and technology.
+
+### Changed
+
+- The welcome page reads the operator's configured beneficiary rather than
+  naming one in the markup. It hardcoded "Pollinator Partnership" while the
+  service was in fact paying the Vermont Beekeepers Association, so the page
+  argued for one charity and the ledger paid another.
+- The meta and social descriptions were the old opening sentence; they now say
+  what a stranger seeing the link would need to know.
+- The route check for `/` asserted only that the page carried the site's name,
+  which renders whether or not the page explains itself. It now requires the
+  introduction to actually be there.
+
 - The About page now leads with **how the game is played** — a narrative of the
   three acts, the wall and its doors, the funnel, and the one real choice
   between cutting your own shaft and riding somebody else's — and only then
