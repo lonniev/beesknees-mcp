@@ -801,7 +801,20 @@ export interface LiveBee {
 export interface MatchState {
   success: boolean;
   match_id: string;
-  state: "forming" | "running" | "ended" | "settled";
+  /**
+   * The server's word for where the match is.
+   *
+   * `abandoned` belongs here and was missing: `retire_stale_boards` sets it on
+   * a match whose board no longer exists, and the type said that could not
+   * happen. So the board screen tested for `ended || settled`, an abandoned
+   * match matched neither, and the player was left on a frozen board with an
+   * enabled button that answered "no match is running".
+   *
+   * Treat this as OPEN. It is the server's vocabulary, not the browser's, and
+   * a screen should ask "is it still going" rather than list the ways it might
+   * have stopped.
+   */
+  state: "forming" | "running" | "ended" | "settled" | "abandoned";
   seq: number;
   unchanged?: boolean;
   poll_after_ms: number;

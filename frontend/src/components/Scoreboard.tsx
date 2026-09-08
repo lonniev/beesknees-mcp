@@ -61,11 +61,24 @@ export default function Scoreboard() {
 
   return (
     <div className="flex shrink-0 items-start justify-between gap-4 px-1 text-[11px]">
-      <div className="flex items-center gap-1.5 text-ink/70">
-        <Coins size={13} />
-        <span>raised</span>
-        <span className="font-medium tabular-nums text-ink/95">{sats(raised)}</span>
-        <span className="text-ink/65">sats</span>
+      {/* Why any of this is worth playing, said where the eye lands first.
+        *
+        * A running total that starts at zero is honest but joyless, and a
+        * player who has just bought a bee deserves to know what their fare is
+        * FOR before they learn how little has been raised so far. The share is
+        * a fact about the split and true from the very first sat; the total
+        * underneath is the evidence for it. */}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate font-medium text-ink/90">
+          🐝 Every move you make feeds the pollinators
+          <span className="ml-1 font-normal text-ink/70">— 80% of every pot goes to them</span>
+        </span>
+        <div className="flex items-center gap-1.5 text-ink/70">
+          <Coins size={13} />
+          <span>raised</span>
+          <span className="font-medium tabular-nums text-ink/95">{sats(raised)}</span>
+          <span className="text-ink/65">sats</span>
+        </div>
       </div>
 
       <div className="flex min-w-0 flex-col items-end gap-1">
