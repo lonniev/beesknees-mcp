@@ -419,6 +419,12 @@ async def match_state(
             "winner_npub": m.get("winner_npub") or "",
             "hives": board_store.HIVES,
             "seats": board_store.SEATS,
+            # How long the room has been waiting, for a lobby only. The
+            # simulated swarm is patient against THIS rather than against how
+            # long its own shift has been watching — a shift that starts beside
+            # a room that has waited two minutes should seat at once, not begin
+            # somebody else's wait again from zero.
+            "waiting_s": (await board_store.lobby_waited_s(mid)) if state == "forming" else 0,
             "bees": bees,
             "open_cells": cells,
             # The SEED, without which a client cannot draw this board at all.

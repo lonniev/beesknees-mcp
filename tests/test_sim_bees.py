@@ -312,3 +312,39 @@ def test_no_lobby_is_ever_left_uncovered() -> None:
     assert inspect.iscoroutinefunction(sim_swarm.Swarm.forget_finished), (
         "retiring a cohort closes its connections, so it has to be awaited"
     )
+def test_a_seated_cohort_is_not_forty_diggers() -> None:
+    """Strategies are dealt before anybody is seated, because seating is now
+    concurrent.
+
+    The round-robin read `len(self.bees)`, which grows as bees are appended —
+    fine one at a time, and wrong the moment eight coroutines read it together:
+    every one of them sees the same length and picks the same strategy. That is
+    the same class of bug that once made every bee a digger, arriving by a
+    different road.
+    """
+    import asyncio
+    import random
+
+    from beesknees_mcp import sim_bees
+    from beesknees_mcp.sim_swarm import HIVES, QUORUM, Swarm
+
+    minted: list[str] = []
+
+    class Recording(Swarm):
+        async def _mint(self, strategy: str, n: int):  # type: ignore[override]
+            minted.append(strategy)
+            raise RuntimeError("no network in a unit test")
+
+    s = Recording(url="http://unused", rng=random.Random(3))
+    # One human alone: the room needs every other seat.
+    asyncio.run(s.top_up({"state": "forming", "bees": [{"hive": 0}]}))
+
+    assert len(minted) == HIVES * QUORUM - 1, "the whole room should have been planned for"
+    assert set(minted) == set(sim_bees.STRATEGIES), (
+        f"every strategy must appear; got {sorted(set(minted))}"
+    )
+    # Round-robin, so no strategy runs away with the cohort.
+    counts = [minted.count(st) for st in sim_bees.STRATEGIES]
+    assert max(counts) - min(counts) <= 1, f"dealt unevenly: {counts}"
+    # And a bee that could not be minted is not a bee: nothing was seated.
+    assert s.bees == []

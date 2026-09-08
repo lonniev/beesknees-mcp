@@ -560,6 +560,25 @@ async def bee_of(match_id: str, npub: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+async def lobby_waited_s(match_id: str) -> int:
+    """How long the longest-waiting bee has been sitting in this lobby.
+
+    The MATCH's age is the wrong clock: a forming match is opened the moment
+    the previous one starts and may sit empty for minutes. What a patron
+    experiences as waiting begins when they took a seat, so that is what this
+    measures — and it is what the simulated swarm should be patient against,
+    rather than against how long whichever shift happens to be running has
+    been watching.
+    """
+    r = await _exec(
+        "SELECT coalesce(extract(epoch from now() - min(joined_at)), 0)::int AS waited "
+        f"FROM {BEES} WHERE match_id = $1",
+        [match_id],
+    )
+    rows = _rows(r)
+    return int(rows[0]["waited"]) if rows else 0
+
+
 async def bees_in(match_id: str) -> list[dict[str, Any]]:
     r = await _exec(
         # `came_inward` matters to the CLIENT, not only to the fence.

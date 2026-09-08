@@ -34,11 +34,29 @@ QUORUM = 8
 
 #: Hives on the board. Mirrors board_store.HIVES.
 HIVES = 5
-#: Leave a real room room to fill itself before propping it up. A hive that has
-#: had a human in it for this long is not going to reach eight on its own.
-PATIENCE_S = 45.0
-#: Never seat more than this many, however empty the room is. A match of eight
-#: robots is not a game anybody is playing.
+#: How long a LOBBY may sit before the sims prop it up.
+#:
+#: It was 45 seconds, on the reasoning that a real room should be given a chance
+#: to fill itself. At this attendance that reasoning is backwards: almost every
+#: room needs almost all of them, and the wait was only ever a human staring at
+#: an empty meadow. Forty-five seconds of that, plus half a minute of seating
+#: and twenty of grace, is how a three-minute wait was assembled out of parts
+#: that each looked reasonable.
+#:
+#: Measured against the LOBBY's age rather than against how long this shift has
+#: been watching, so a shift that starts beside a room already waiting seats at
+#: once instead of restarting the clock on somebody else's patience.
+PATIENCE_S = 12.0
+
+#: How many bees are seated at a time.
+#:
+#: Seating was serial: a key minted, a coupon redeemed and a seat taken, forty
+#: times over, which is eighty round trips of work that has no order to it —
+#: half a minute with a human watching. Bounded rather than unbounded because
+#: forty simultaneous joins, each debiting a fare and fencing a seat, is a
+#: thundering herd aimed at the one service the patron is waiting on.
+SEAT_BATCH = 8
+
 #: The most bees one shift will ever seat.
 #:
 #: It was `QUORUM - 1` — seven, exactly enough to complete a match-wide quorum
@@ -119,23 +137,51 @@ class Swarm:
             return 0
         short = sum(max(0, QUORUM - per.get(h, 0)) for h in range(HIVES))
 
-        want = min(short, MAX_BEES - len(self.bees))
-        for i in range(max(0, want)):
-            # `len(self.bees)` alone: it grows with each append, so adding `i`
-            # as well advanced the cycle twice a bee and only ever produced
-            # diggers and sealers — the rider and the driller, half the field the
-            # simulation was tuned against, never appeared at all.
-            strategy = sim_bees.STRATEGIES[len(self.bees) % len(sim_bees.STRATEGIES)]
-            bee = await self._mint(strategy, len(self.bees) + i)
+        want = max(0, min(short, MAX_BEES - len(self.bees)))
+        if not want:
+            return len(self.bees)
+
+        # Strategies dealt UP FRONT, off `len(self.bees)` before anybody is
+        # appended. That counter is what the round-robin used to read, and it
+        # cannot be read concurrently: forty coroutines all seeing the same
+        # length would every one of them be a digger.
+        base = len(self.bees)
+        plan = [
+            (sim_bees.STRATEGIES[(base + i) % len(sim_bees.STRATEGIES)], base + i)
+            for i in range(want)
+        ]
+
+        async def seat(strategy: str, n: int) -> SimBee | None:
+            bee = await self._mint(strategy, n)
             r = await bee.hive.call("join_match", label=bee.label)
             if not r.get("success"):
                 logger.warning("%s could not take a seat: %s", bee.label, r.get("error"))
-                await bee.hive.aclose()
-                continue
+                with contextlib.suppress(Exception):
+                    await bee.hive.aclose()
+                return None
             bee.hive_id, bee.seat = int(r.get("hive", 0)), int(r.get("seat", -1))
             bee.next_at = time.monotonic() + sim_bees.human_pause(self.rng)
-            self.bees.append(bee)
             logger.info("%s took hive %d seat %d", bee.label, bee.hive_id, bee.seat)
+            return bee
+
+        # In batches, because a HUMAN IS WAITING and this used to be serial.
+        # Forty bees is eighty round trips — a key minted, a coupon redeemed and
+        # a seat taken, one after another — which is half a minute of somebody
+        # watching an empty lobby for work that has no order to it.
+        #
+        # Bounded rather than all at once: forty simultaneous joins against a
+        # serverless host, each debiting a fare and fencing a seat, is a
+        # thundering herd aimed at the very service the patron is waiting on.
+        for i in range(0, len(plan), SEAT_BATCH):
+            done = await asyncio.gather(
+                *(seat(st, n) for st, n in plan[i : i + SEAT_BATCH]),
+                return_exceptions=True,
+            )
+            for got in done:
+                if isinstance(got, SimBee):
+                    self.bees.append(got)
+                elif isinstance(got, BaseException):
+                    logger.warning("a bee could not be seated: %s", got)
         return len(self.bees)
 
     def _board(self, state: dict[str, Any], hive_id: int) -> sim_bees.Board:
@@ -266,11 +312,19 @@ async def run(
 
             if str(state.get("state")) == "forming" and (state.get("bees") or []):
                 first_seen = first_seen or time.monotonic()
+                # How long the ROOM has waited, which is not how long this shift
+                # has watched it. The server reports the age of the longest
+                # seated bee; falling back to our own observation keeps this
+                # working against a service that has not shipped the field yet.
+                waited = max(
+                    float(state.get("waiting_s") or 0.0),
+                    time.monotonic() - first_seen,
+                )
                 # Two conditions, and the second is the one that stops bees being
-                # stranded: give the room a chance to fill itself, AND only take
+                # stranded: give the room a moment to fill itself, AND only take
                 # a match there is time left to see through.
                 room_to_finish = elapsed + ROUND_CEILING_S <= hard_cap
-                if time.monotonic() - first_seen >= PATIENCE_S and room_to_finish:
+                if waited >= PATIENCE_S and room_to_finish:
                     tally["joined"] = await swarm.top_up(state)
                 elif not room_to_finish and not swarm.bees:
                     logger.info("leaving this lobby to the next shift — not enough of mine left")
