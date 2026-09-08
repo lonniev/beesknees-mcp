@@ -68,6 +68,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The simulated bees arrive in about a fifth of the time.** A human alone in
+  a lobby waited close to three minutes, assembled out of three parts that each
+  looked reasonable: 45 seconds of deliberate patience, half a minute of
+  seating forty bees one at a time, and twenty of grace. Patience drops to 12
+  seconds and is now measured against how long the LOBBY has waited rather than
+  how long the current shift has been watching — a shift that starts beside a
+  room already waiting seats at once instead of restarting somebody else's
+  clock. Seating happens in batches of eight rather than one after another;
+  bounded rather than unbounded, because forty simultaneous joins is a
+  thundering herd aimed at the service the patron is waiting on.
+- `match_state` reports `waiting_s` for a forming match: the age of the
+  longest-seated bee, which is what a patron experiences as waiting. The
+  match's own age is the wrong clock — a forming match is opened the moment the
+  previous one starts and may sit empty for minutes.
+
 - `sim/run.ts` played four hundred rounds and printed a full report whenever
   anything imported it; `main()` is now guarded so it runs only when the file
   is run. Two dead locals went with it, which nothing had type-checked because
