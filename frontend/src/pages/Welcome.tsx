@@ -1,23 +1,66 @@
 /**
- * The guest welcome — why this game exists.
+ * The guest welcome — what this is, and why it exists.
  *
- * Written to be checkable. Every claim here is one a reader could look up and
- * find, and where the science is qualified the sentence is qualified too. The
- * page argues for the charity by being accurate about which bees are actually
- * in trouble, which is a stronger case than the one most bee campaigns make.
+ * It opens for somebody who knows nothing: not one word of jargon before the
+ * reader has been told what they are looking at. "A race to the queen" meant
+ * nothing to a first-time visitor, and neither did "most of what a round
+ * collects" — both assumed a game the reader had not yet been told about.
+ *
+ * After the introduction, written to be checkable. Every claim is one a reader
+ * could look up and find, and where the science is qualified the sentence is
+ * qualified too. The page argues for the charity by being accurate about which
+ * bees are actually in trouble, which is a stronger case than the one most bee
+ * campaigns make — and that accuracy is exactly why the introduction must not
+ * overstate to get somebody into it.
  */
 
 import { Link } from "react-router-dom";
+import { useCharity } from "../components/CharityNote.tsx";
 import LossChart from "../components/LossChart.tsx";
 import WildVsManaged from "../components/WildVsManaged.tsx";
 
 export default function Welcome() {
+  // The beneficiary is the operator's to choose and can change, so the page
+  // reads the live one rather than carrying a name that quietly goes stale.
+  const who = useCharity();
+
   return (
     <div className="mx-auto max-w-2xl px-5 py-10 leading-relaxed">
       <h1 className="text-3xl font-semibold tracking-tight">The Bee's Knees</h1>
-      <p className="mt-2 text-ink/78">
-        A race to the queen. Most of what a round collects goes to pollinator conservation.
+      <p className="mt-2 text-[17px] text-ink/85">
+        An online game you play against people anywhere, for a few fractions of a penny a move,
+        and most of the money raised goes to helping bees.
       </p>
+
+      <div className="mt-6 space-y-4 text-[15px] text-ink/90">
+        <p>
+          You take charge of a single worker bee in a meadow. Her job is the one real bees do: find
+          a flower, carry the pollen home through the door of her hive, and make her way in through
+          the wax to the queen at its centre. Every other bee in the meadow belongs to somebody
+          else and is trying to do the same thing first. That race is the game — it takes about
+          three minutes, and it is decided by judgement rather than by reflexes.
+        </p>
+        <p>
+          Each move your bee makes costs a few satoshis. A satoshi is the smallest piece of a
+          bitcoin, and a few of them is a fraction of one penny — you put a small amount in
+          beforehand and it lasts a long time. There is no subscription, no card kept on file, and
+          nothing interrupts a round to ask you for money.
+        </p>
+        <p>
+          Everything every player spends collects in one pot for that round.{" "}
+          <strong className="font-semibold">Eighty percent of it goes to{" "}
+          {who?.name ?? "the pollinator charity the operator has chosen"}</strong> — every pot,
+          every round, published afterwards with what was paid and when. Ten percent goes to the
+          bee that reached the queen first, and the winner may pass that on to the charity too.
+          The last tenth keeps the service running, and any odd penny that will not divide evenly
+          falls to the charity rather than to us.
+        </p>
+        <p>
+          The <Link to="/about" className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4">About page</Link>{" "}
+          covers how to play well and how the thing is built. But bees are the reason it exists at
+          all, so read on first.
+        </p>
+      </div>
 
       <ul className="mt-7 space-y-2 rounded-2xl bg-ink/4 p-4 text-[14px] text-ink/85">
         <li>
@@ -91,16 +134,21 @@ export default function Welcome() {
         </p>
 
         <p>
-          Which is why the money from this game goes to{" "}
-          <a
-            href="https://www.pollinator.org/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4"
-          >
-            Pollinator Partnership
-          </a>{" "}
-          rather than to a honeybee charity.
+          Which is why the beneficiary matters and is named rather than implied. It is{" "}
+          {who?.website ? (
+            <a
+              href={who.website}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4"
+            >
+              {who.name}
+            </a>
+          ) : (
+            <span className="font-semibold">{who?.name ?? "chosen by the operator"}</span>
+          )}{" "}
+          — read what they do and judge the choice for yourself. Every settled round records the
+          beneficiary it actually paid, so changing it never rewrites what came before.
         </p>
 
         <WildVsManaged />
@@ -108,9 +156,9 @@ export default function Welcome() {
         <h2 className="pt-2 text-lg font-semibold text-ink">🧾 Where the Money Goes</h2>
 
         <p>
-          You buy a worker bee a seat, and every motion it makes costs a little. Most of what a
-          round collects is owed to the charity, the winner takes a small share, and the operator
-          takes a small share. Every settled match is recorded with what it raised, and every
+          You buy a worker bee a seat, and every motion it makes costs a little. Eighty percent of
+          what a round collects is owed to the charity, the winner takes a tenth, and a tenth keeps
+          the service running. Every settled match is recorded with what it raised, and every
           payment to the charity is recorded with its transaction id — so you can check where it
           went rather than take anyone's word for it.
         </p>
