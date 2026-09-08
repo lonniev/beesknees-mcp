@@ -700,8 +700,16 @@ async def claim_prize(
     if not mine:
         raise ValueError("that match is not yours to claim")
     row = mine[0]
-    if str(row.get("prize_state")) != "unclaimed":
-        return {"success": True, "already": str(row["prize_state"]), "match_id": match_id}
+    state = str(row.get("prize_state"))
+    if state == "forfeited":
+        # Said plainly rather than as a bare state name: the window closed and
+        # the share went to the charity, which is not a failure and not
+        # something a retry will undo.
+        return {"success": True, "already": state, "match_id": match_id,
+                "outcome": f"unclaimed for {board_store.PRIZE_CLAIM_DAYS} days, "
+                           "so it went to the charity"}
+    if state != "unclaimed":
+        return {"success": True, "already": state, "match_id": match_id}
 
     # An unstated choice is not a missing one: it is whatever the winner already
     # said in their profile, and donating is the default for somebody who has
