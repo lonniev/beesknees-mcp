@@ -3,7 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#171227" />
+
+    <!-- What this is, for anything that reads the page rather than plays the
+         game. A crawler, a link preview, and an AI agent all land here first,
+         and this file used to say nothing but the title. -->
+    <meta
+      name="description"
+      content="The Bee's Knees — a monetized race to the queen. Buy a worker bee, forage, carry pollen home, and dig through the comb. 80% of every pot goes to pollinator conservation. Sign in with a Nostr key; play is metered in Bitcoin Lightning satoshis."
+    />
     <title>The Bee's Knees</title>
+
+    <!-- Where an agent should actually go. `llms.txt` is the fleet's
+         convention for orientation in prose an agent can read: what the game
+         is, which tools play it, and the two rules that make it a game rather
+         than a race to spend. Linked as well as served, because a convention
+         only found by guessing a path is a convention half the callers miss. -->
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="Guide for AI agents" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Bee's Knees" />
+    <meta property="og:title" content="The Bee's Knees" />
+    <meta property="og:description" content="A race to the queen. Most of what a round collects goes to pollinator conservation." />
+    <meta property="og:url" content="https://beesknees.tollbooth-dpyc.com" />
+    <!--
+      Deliberately NO og:image.
+
+      The sibling that had one served a screenshot of a real grower's block —
+      its name, its town, its acreage and a satellite view of the property — to
+      every crawler and every link preview of the domain. Nothing here is that
+      sensitive, but there is also no card worth the risk of one being wired up
+      later against live data. A preview with no image is a smaller loss than a
+      preview that shows somebody's board.
+    -->
   </head>
   <body>
     <div id="root"></div>
