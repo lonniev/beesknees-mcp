@@ -65,10 +65,10 @@
   /* Your hive's WALL — a different hue from your bee, which shared it and made
      the boundary and the halo read as the same thing. */
   --color-hive-mine: #7dd3fc;
-  /* Lavender heads. Retuned for the violet ground, but note that the board
-     draws a flower as a GLYPH, not a fill — shape is what tells a flower from
-     a bee at a glance, which is why they survive a ground the same hue as
-     they are. This token is here for anything that wants the hue in text. */
+  /* The spent flower's hue, for anything that wants it in text.
+     The board draws flowers as GLYPHS — yellow while they hold pollen, purple
+     once emptied — so this token colours no flower on the board. Shape and hue
+     do that work there. */
   --color-flower: #d8b4fe;
 }
 

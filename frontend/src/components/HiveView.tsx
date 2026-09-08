@@ -173,9 +173,21 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
 
       {/* Flowers were gold dots, which at this size is exactly what a distant
        * bee looks like — so the meadow read as forty bees rather than twelve
-       * bees among flowers. A glyph settles it at a glance. */}
+       * bees among flowers. A glyph settles it at a glance.
+       *
+       * COLOUR says whether it is worth flying to. A flower still holding
+       * pollen is yellow, which is the complement of the violet meadow and
+       * therefore the most visible thing on it — exactly right for the one
+       * cell a foraging bee wants. An emptied one turns purple, close in hue
+       * to the ground, so it recedes without vanishing: it is still a flower,
+       * and still somewhere a rival might be heading, just no longer a prize.
+       *
+       * This used to be one glyph at two opacities, which asked the player to
+       * judge brightness — the hardest comparison to make across a board where
+       * some cells are lit and some are in shadow. Two hues is a glance. */}
       {flowers.map((c) => {
         const [x, y] = cellCentre(g, c);
+        const full = Boolean(board.pollen[c]);
         return (
           <text
             key={`f${c}`}
@@ -183,10 +195,12 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
             y={y}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={focused ? 6 : 6}
-            opacity={board.pollen[c] ? 0.95 : 0.28}
+            fontSize={6}
+            // Still a small step, so a live flower leads even before the hue
+            // registers — but the hue is what carries it now.
+            opacity={full ? 0.95 : 0.62}
           >
-            🪻
+            {full ? "🌼" : "🪻"}
           </text>
         );
       })}
