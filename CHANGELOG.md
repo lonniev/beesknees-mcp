@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- The About page explains its own jargon. Every term it cannot avoid saying —
+  MCP, Nostr, satoshi, serverless, stateless, KYC — carries a short definition
+  on a dotted underline, opened by hover, by keyboard focus, or by a tap. The
+  idea is optionality-mcp's `annotate`; three things differ, and each is a
+  fault the original would have had here: a tap opens it (this site is read on
+  an iPad, where there is no hover at all), the popover measures itself and
+  stays on screen instead of hanging off the edge, and a term is marked once
+  per page rather than once per paragraph.
+- A "How it is built" section on the About page: tools rather than screens, a
+  board playable without seeing it, a stateless service over serverless
+  Postgres, one fenced statement per contended move, identity as a key with no
+  KYC, settlement over Lightning, and the scheduled swarm that keeps a thin
+  hive playable.
 - The board, the rules and the clock (`frontend/src/game/`) — a polar cell grid where
   rings narrow toward the queen, three acts (forage, return, tunnel), and three motions
   (fly, dig, seal).
