@@ -11,6 +11,10 @@
 import { useEffect, useState } from "react";
 import { Check, Share2, Users, Zap } from "lucide-react";
 import CharityNote, { useCharity } from "./CharityNote";
+import Elsewhere from "./Elsewhere";
+import Skep from "./Skep";
+import Sprigs from "./Sprigs";
+import { HIVE_NAMES } from "../game/match.ts";
 import QuoteScroller from "./QuoteScroller.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
@@ -113,7 +117,12 @@ export default function Lobby({
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center">
+    /* `relative`, because the flowers are absolutely positioned inside it.
+     * The column stays narrow on a phone and opens out on anything wider — the
+     * lobby had a single `max-w-md` column, so on an iPad five hives huddled in
+     * the middle third with the rest of the screen empty on both sides. */
+    <div className="relative mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center sm:max-w-3xl sm:gap-8 sm:py-12">
+      <Sprigs />
       <div>
         <div className="text-sm text-white/50">The hive is filling</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
@@ -134,10 +143,22 @@ export default function Lobby({
        * warming the cluster, each on its own offset so eight never buzz in
        * unison and turn back into a progress bar. An empty seat is a dim comb
        * cell waiting for somebody. */}
-      <div className="flex justify-center gap-2">
+      {/* One column per hive, given room to breathe. Each is a named place with
+        * a skep over it rather than an anonymous bar: seats are dealt
+        * round-robin now, so all five fill together and the row reads as five
+        * hives in a meadow instead of a chart with one tall column. */}
+      <div className="relative flex justify-center gap-3 sm:gap-8 lg:gap-14">
         {perHive.map((n, h) => (
-          <div key={h} className="flex flex-col items-center gap-1">
-            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-white/5 p-[3px]">
+          <div key={h} className="flex w-14 flex-col items-center gap-1.5 sm:w-20">
+            <Skep filling={n / QUORUM} yours={mine?.hive === h} className="max-w-[44px] sm:max-w-[64px]" />
+            <span
+              className={`text-[10px] font-medium tracking-wide sm:text-xs ${
+                mine?.hive === h ? "text-[var(--color-you)]" : "text-white/45"
+              }`}
+            >
+              {HIVE_NAMES[h]}
+            </span>
+            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-white/5 p-[3px] sm:h-32 sm:w-11">
               {Array.from({ length: QUORUM }, (_, i) =>
                 i < n ? (
                   <span
@@ -200,6 +221,10 @@ export default function Lobby({
         * wearing a different hat. This game also asks people to spend money on
         * pollinators, and this minute is the one they are certain to read. */}
       <QuoteScroller className="pt-1" />
+
+      {/* Somewhere to go, for the one screen where a visitor has nothing to do
+        * and is certain to read something. */}
+      <Elsewhere />
 
       <CharityNote />
 
