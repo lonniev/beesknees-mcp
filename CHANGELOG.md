@@ -38,6 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A match begins when a HIVE holds eight, which is what the About page has
+  always said.** It was briefly counted across the match instead — a shortcut
+  taken when round-robin seating arrived, on the reasoning that spreading seats
+  evenly means no hive ever fills. Eight bees dealt over five hives is one or
+  two each: a race between strangers who never meet, and an interface that had
+  become untrue about its own rule. The two rules do fit together, and the cost
+  is stated rather than dodged: a hive reaches eight only when the board is
+  nearly full, so a match needs around forty bees, and topping the room up to
+  that is what the simulated swarm is for. `top_up` now asks for the seats that
+  bring EVERY hive to quorum — `QUORUM - fullest` was arithmetic for the
+  match-wide rule, and under round-robin it seated seven bees and left the
+  lobby exactly as shut as it found it.
+- The reward tableau waits to be dismissed. The coronation runs about two
+  seconds and the opaque result card faded over it at 1.15 — so a bee crossed a
+  meadow, queued at a door and cut thirty cells of comb, and its reward was cut
+  off half way through by a button. The card now arrives on a tap.
+
 - The winner's 10% now reaches the charity whenever no person keeps it. It used
   to sit `unclaimed` for ever in three cases that produce no claimant — a round
   with no winner, a round won by a simulated bee whose key stops existing when

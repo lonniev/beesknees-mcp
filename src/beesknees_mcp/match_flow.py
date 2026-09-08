@@ -69,17 +69,24 @@ async def join(npub: str, label: str) -> dict[str, Any]:
     stay within one seat of each other and the whole board is underway rather
     than one hive playing while four sit dark.
 
-    This replaces filling the FULLEST hive first, which existed because quorum
-    used to mean "some hive reached eight": spread evenly, no hive ever did, and
-    nothing would have started. Quorum is now counted across the match (see
-    `seated_total`), so the two rules had to change together — round-robin with
-    a per-hive quorum is a lobby that never opens.
+    This replaces filling the FULLEST hive first. Balance is what makes thin
+    attendance fair rather than merely thin: twelve bees dealt round-robin is
+    two or three per hive, so everyone has a rival and nobody races an empty
+    board. The same twelve dealt fullest-first is one hive of twelve and four
+    empty ones — and an empty hive's single occupant wins almost by walking.
 
-    Balance is what makes thin attendance fair rather than merely thin. Twelve
-    bees dealt round-robin is two or three per hive: everyone has a rival and
-    nobody races an empty board. The same twelve dealt fullest-first is one hive
-    of twelve and four empty ones — and an empty hive's single occupant, once
-    one arrives, wins almost by walking.
+    Quorum stayed with the HIVE, which is what the game has always claimed:
+    a match begins once a hive holds eight. Counting it across the match
+    instead was a shortcut taken when this seating rule arrived — round-robin
+    fills five hives at once, so a match-wide eight is one or two bees per hive
+    and a race between strangers who never meet. It also made the interface a
+    liar: the About page says a hive, and the lobby started at eight spread
+    over five.
+
+    The two rules do fit together, and the cost is stated rather than dodged: a
+    hive reaches eight only when the board is nearly full, so a match now needs
+    around forty bees. That is what the simulated swarm is FOR — it tops up to
+    the quota rather than making up the numbers (see `sim_swarm.top_up`).
     """
     m = await ensure_forming()
     mid = str(m["match_id"])
@@ -97,13 +104,17 @@ async def join(npub: str, label: str) -> dict[str, Any]:
     hive = min(open_hives, key=lambda h: (counts.get(h, 0), h))
 
     seat = await store.take_seat(mid, npub, label, hive)
-    if sum((await store.seat_counts(mid)).values()) >= store.QUORUM:
+    # A HIVE holds quorum, not the match. Re-read rather than incremented: two
+    # bees can take the eighth and ninth seat of the same hive at once, and a
+    # count carried from before the write would miss it.
+    after = await store.seat_counts(mid)
+    if any(n >= store.QUORUM for n in after.values()):
         await _mark_quorum(mid)
     return {"match_id": mid, "already_seated": False, **seat}
 
 
 async def _mark_quorum(match_id: str) -> None:
-    """Stamp the moment a hive filled, once. The grace period runs from it."""
+    """Stamp the moment a hive reached eight, once. The grace runs from it."""
     await store._exec(
         f"UPDATE {store.MATCHES} SET quorum_at = now() "
         "WHERE match_id = $1 AND state = 'forming' AND quorum_at IS NULL",

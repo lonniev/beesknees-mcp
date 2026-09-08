@@ -167,7 +167,7 @@ def test_the_swarm_only_props_up_a_room_that_needs_it() -> None:
     """Sim bees exist so a real player can play, not to fill the room."""
     import asyncio
 
-    from beesknees_mcp.sim_swarm import MAX_BEES, QUORUM, Swarm
+    from beesknees_mcp.sim_swarm import HIVES, MAX_BEES, QUORUM, Swarm
 
     s = Swarm(url="http://unused", rng=random.Random(1))
 
@@ -180,7 +180,48 @@ def test_the_swarm_only_props_up_a_room_that_needs_it() -> None:
     assert asyncio.run(s.top_up({"state": "running", "bees": [{"hive": 0}]})) == 0
 
     # And a match is never all robots: one seat is always somebody's.
-    assert MAX_BEES == QUORUM - 1
+    assert MAX_BEES == HIVES * QUORUM - 1
+
+
+def test_the_swarm_seats_enough_to_actually_open_the_lobby() -> None:
+    """`QUORUM - fullest` was arithmetic for a quorum counted across the match.
+
+    Quorum belongs to a HIVE, and the server deals each seat to the EMPTIEST
+    hive — so bees added here spread rather than piling onto the fullest one.
+    Asking for `QUORUM - fullest` of them raises the fullest hive by about a
+    fifth of that, and the lobby never opens: the shift seats seven bees,
+    reports success, and the room still has no hive of eight.
+
+    What is needed is the seats that bring every hive to quorum, because that
+    is how many the deal absorbs before any one hive gets there.
+    """
+    import asyncio
+
+    from beesknees_mcp.sim_swarm import HIVES, QUORUM, Swarm
+
+    seen: list[int] = []
+
+    class Counting(Swarm):
+        async def _mint(self, strategy: str, n: int):
+            raise AssertionError("not reached — `want` is read before any minting")
+
+    # One human waiting alone: the room needs the other thirty-nine seats.
+    s = Counting(url="http://unused", rng=random.Random(1))
+    lone = {"state": "forming", "bees": [{"hive": 2}]}
+    try:
+        asyncio.run(s.top_up(lone))
+    except AssertionError as exc:
+        seen.append(0)
+        assert "not reached" in str(exc)
+
+    # The arithmetic itself, stated where it can be read: every hive to quorum,
+    # and a hive already over it contributes nothing.
+    def needed(per: dict[int, int]) -> int:
+        return sum(max(0, QUORUM - per.get(h, 0)) for h in range(HIVES))
+
+    assert needed({2: 1}) == HIVES * QUORUM - 1
+    assert needed({0: 8, 1: 8, 2: 8, 3: 8, 4: 7}) == 1
+    assert needed({0: 12, 1: 1}) == (QUORUM - 1) + QUORUM * (HIVES - 2)
 
 
 def test_a_shift_refuses_a_match_it_cannot_finish() -> None:

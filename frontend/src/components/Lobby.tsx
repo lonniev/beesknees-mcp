@@ -4,8 +4,12 @@
  * A patron who has paid for a bee and is looking at a still board needs one
  * question answered: how many more of us, and how long. A spinner answers
  * neither. The quorum is the honest number — a match starts when any single
- * hive reaches it, not when the whole field is full — so that is what counts
+ * HIVE reaches it, not when the whole field is full — so that is what counts
  * down, and the hive nearest it is the one shown filling.
+ *
+ * This briefly counted across the match instead, which made the big number a
+ * lie in the only place it mattered: it read 1/8 while the rule needed a hive
+ * of eight, and the race did not begin when it said it would.
  */
 
 import { useEffect, useState } from "react";
@@ -20,10 +24,11 @@ import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
 import type { Session } from "../lib/session.ts";
 
-/** Mirrors board_store.QUORUM — bees ACROSS the match, not in one hive.
+/** Mirrors board_store.QUORUM — bees in ONE hive, which is what starts a match.
  *
- * Seats are dealt round-robin now, so no single hive fills first and counting
- * the fullest one would have left this stuck one short for ever. */
+ * Seats are dealt round-robin, so the hives fill together and a hive reaches
+ * eight only when the board is nearly full. That is what the simulated swarm
+ * is for — it tops the room up to the quota rather than making up numbers. */
 const QUORUM = 8;
 
 export default function Lobby({
@@ -64,15 +69,18 @@ export default function Lobby({
 
   const mine = live.bees.find((b) => b.npub === session.npub) ?? null;
 
-  // Across the match, because that is what the quorum counts now. Seats are
-  // dealt to the emptiest hive, so the five stay within one of each other and
-  // the whole board starts together — which is exactly why the fullest hive is
-  // no longer the number that decides anything.
+  // The FULLEST hive, because that is what the quorum watches. Seats are dealt
+  // to the emptiest hive, so the five stay within one of each other and the
+  // whole board fills together — which means the fullest hive is also a fair
+  // picture of the room, not a lucky outlier.
   const perHive = Array.from({ length: live.hives }, (_, h) =>
     live.bees.filter((b) => b.hive === h).length,
   );
-  const seated = perHive.reduce((a, n) => a + n, 0);
-  const needed = Math.max(0, QUORUM - seated);
+  const fullest = perHive.length ? Math.max(...perHive) : 0;
+  // What the ROOM still needs, which is not `QUORUM - fullest`: another bee
+  // goes to the emptiest hive, so the fullest one only grows once every hive
+  // has caught up with it.
+  const needed = perHive.reduce((n, seats) => n + Math.max(0, QUORUM - seats), 0);
 
   /**
    * Hand the round to somebody else.
@@ -87,7 +95,7 @@ export default function Lobby({
   async function share() {
     const url = `${window.location.origin}/play`;
     const text =
-      "I'm one bee short of a race in The Bee's Knees — come play, " +
+      "I'm waiting on a hive in The Bee's Knees — come play, " +
       `80% of the pot goes to ${who?.name ?? "the pollinators"}.`;
     try {
       if (navigator.share) {
@@ -126,7 +134,7 @@ export default function Lobby({
       <div>
         <div className="text-sm text-ink/70">The hive is filling</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
-          <span className="text-5xl font-semibold tabular-nums">{seated}</span>
+          <span className="text-5xl font-semibold tabular-nums">{fullest}</span>
           <span className="text-2xl text-ink/65">/ {QUORUM}</span>
         </div>
         <div className="mt-1 text-sm text-ink/78">
