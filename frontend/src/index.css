@@ -231,9 +231,11 @@ svg.hive {
   animation: bk-rise var(--life) cubic-bezier(0.2, 0.6, 0.35, 1) var(--wait) both;
 }
 
-/* The result card, held back so the board gets its moment first. It covers
-   the hive, so arriving on the same frame as the wave would hide the wave. */
-@keyframes bk-settle {
+/* The result card. It used to be held back by a 1.15s timer and then cover the
+   coronation — which meant the flourish was cut off half way through by a
+   button, every time. It is held back by the PERSON now, so this is only the
+   fade in from their tap; the delay is gone because the wait already happened. */
+@keyframes bk-reveal {
   from {
     opacity: 0;
     backdrop-filter: blur(0);
@@ -243,8 +245,23 @@ svg.hive {
   }
 }
 
-.bk-settle {
-  animation: bk-settle 0.55s ease-out 1.15s both;
+.bk-reveal {
+  animation: bk-reveal 0.35s ease-out both;
+}
+
+/* The invitation to tap. Late and quiet: it arrives after the flourish has had
+   its moment, so it never competes with the thing it is inviting you to watch. */
+@keyframes bk-hint {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bk-hint {
+  animation: bk-hint 0.6s ease-out 1.9s both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -260,7 +277,8 @@ svg.hive {
     animation: none;
   }
 
-  .bk-settle {
+  .bk-reveal,
+  .bk-hint {
     animation: none;
   }
 }

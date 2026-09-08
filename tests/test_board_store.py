@@ -658,16 +658,10 @@ async def test_a_full_hive_turns_a_patron_away(vault):
 async def test_seats_are_dealt_round_robin_so_every_hive_gets_underway(vault):
     """The whole board plays, and it plays balanced.
 
-    Seats used to fill the FULLEST hive first, because quorum meant "some hive
-    reached eight" and spreading would have left no hive with eight and nothing
-    would ever have started. Quorum is now counted across the match, so the two
-    rules changed together — round-robin with a per-hive quorum is a lobby that
-    never opens.
-
-    Balance is what makes thin attendance fair rather than merely thin: twelve
-    bees dealt round-robin gives everyone a rival, while twelve dealt
-    fullest-first gives one crowded hive and four empty boards where a lone
-    arrival would win by walking.
+    Seats used to fill the FULLEST hive first. Balance is what makes thin
+    attendance fair rather than merely thin: twelve bees dealt round-robin
+    gives everyone a rival, while twelve dealt fullest-first gives one crowded
+    hive and four empty boards where a lone arrival would win by walking.
     """
     for i in range(store.QUORUM):
         await match_flow.join(f"npub{i}", f"P{i}")
@@ -679,23 +673,34 @@ async def test_seats_are_dealt_round_robin_so_every_hive_gets_underway(vault):
     assert max(counts.values()) - min(counts.values()) <= 1, (
         "round-robin must never leave one hive a seat richer than by one"
     )
-    assert m["quorum_at"] is not None, "reaching quorum must start the grace clock"
 
 
-async def test_quorum_counts_the_match_not_the_fullest_hive(vault):
-    """One short of quorum must not start, however the bees are spread.
+async def test_quorum_belongs_to_a_hive_not_to_the_match(vault):
+    """A match begins once a HIVE holds eight — which is what the game says.
 
-    With seats dealt round-robin no hive fills first, so a quorum that watched
-    the fullest hive would sit one short for ever.
+    It was briefly counted across the match instead, a shortcut taken when
+    round-robin seating arrived. Eight spread over five hives is one or two
+    bees each: a race between strangers who never meet, and an About page that
+    had become untrue.
+
+    The cost is real and is the point of the simulated swarm: a hive reaches
+    eight only when the board is nearly full.
     """
-    for i in range(store.QUORUM - 1):
+    # Eight bees, dealt round-robin. Every hive has one or two and NO hive has
+    # eight, so this is a lobby, not a match.
+    for i in range(store.QUORUM):
         await match_flow.join(f"npub{i}", f"P{i}")
     m = await store.forming_match()
-    assert m["quorum_at"] is None, "seven bees is not a quorum"
+    assert max((await store.seat_counts(str(m["match_id"]))).values()) < store.QUORUM
+    assert m["quorum_at"] is None, "eight bees across five hives is not a hive of eight"
 
-    await match_flow.join("npubLast", "the eighth")
+    # Fill the board. The first hive to reach eight starts the grace clock.
+    for i in range(store.QUORUM, store.HIVES * store.QUORUM):
+        await match_flow.join(f"npub{i}", f"P{i}")
     m = await store.forming_match()
-    assert m["quorum_at"] is not None
+    counts = await store.seat_counts(str(m["match_id"]))
+    assert max(counts.values()) >= store.QUORUM
+    assert m["quorum_at"] is not None, "a hive of eight must start the grace clock"
 
 
 def test_a_match_on_a_board_that_no_longer_exists_is_cleared_away(vault) -> None:

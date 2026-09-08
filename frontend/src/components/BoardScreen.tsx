@@ -198,6 +198,30 @@ export default function BoardScreen(p: BoardScreenProps) {
    * hives to enlarge a fifth would lose the thing the layout was built for.
    */
   const [zoomed, setZoomed] = useState(false);
+
+  /**
+   * Whether the reward tableau has been dismissed.
+   *
+   * The coronation runs for about two seconds and the result card is opaque
+   * and covered it at 1.15 — so a bee crossed a meadow, queued at a door and
+   * cut thirty cells of comb, and its reward was cut off half way through by a
+   * button. The card now waits to be asked for.
+   *
+   * Keyed on the win itself, so a fresh result starts a fresh flourish rather
+   * than arriving already dismissed by the last one.
+   */
+  const [dismissed, setDismissed] = useState("");
+  const won = p.winner ? `${p.winner.label}|${p.winner.detail}` : "";
+  // A flourish is motion, and somebody who asked for stillness gets none — so
+  // there is nothing to hold, and holding a blank board would be the opposite
+  // of a kindness. They get the card straight away.
+  const still =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Nobody won it, so there is no tableau to interrupt: the hourglass IS the
+  // result. Ceremony for a stalemate reads as mockery, and so does a wait.
+  const showCard = Boolean(p.winner) && (p.winner!.unwon || still || dismissed === won);
   const immersive = !wide && zoomed;
   const rivals = p.hives.filter((h) => h.id !== p.focus);
   const shown = p.focus === null ? null : p.hives.find((h) => h.id === p.focus) ?? null;
@@ -338,7 +362,22 @@ export default function BoardScreen(p: BoardScreenProps) {
               <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />
             )}
 
-            {p.winner && (
+            {p.winner && !showCard && (
+              /* The whole hive is the button. Nothing to aim at, and no way to
+               * miss it — the one thing a person wants here is to look, and
+               * then to be done looking. */
+              <button
+                onClick={() => setDismissed(won)}
+                aria-label="Dismiss the result"
+                className="absolute inset-0 z-20 flex items-end justify-center pb-6"
+              >
+                <span className="bk-hint rounded-full bg-black/45 px-3 py-1 text-[11px] text-white/85 backdrop-blur-sm">
+                  Tap when you have finished looking
+                </span>
+              </button>
+            )}
+
+            {showCard && p.winner && (
               <div
                 key={`card:${p.winner.detail}`}
                 /* Still a DARK surface, on an otherwise light page. Everything
@@ -346,7 +385,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                  * the page-wide swap to dark ink would have made this card
                  * unreadable, which is the one place the frame's palette must
                  * not reach. */
-                className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 text-white backdrop-blur-sm"
+                className="bk-reveal absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 text-white backdrop-blur-sm"
               >
                 {p.winner.unwon ? (
                   // No brood for a round nobody won. Ceremony for a stalemate

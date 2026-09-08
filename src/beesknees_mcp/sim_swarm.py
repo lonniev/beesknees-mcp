@@ -28,14 +28,23 @@ from beesknees_mcp.sim_client import Hive, new_key
 
 logger = logging.getLogger(__name__)
 
-#: Seats a hive needs before a match starts. Mirrors board_store.QUORUM.
+#: Seats a HIVE needs before a match starts. Mirrors board_store.QUORUM.
 QUORUM = 8
+
+#: Hives on the board. Mirrors board_store.HIVES.
+HIVES = 5
 #: Leave a real room room to fill itself before propping it up. A hive that has
 #: had a human in it for this long is not going to reach eight on its own.
 PATIENCE_S = 45.0
 #: Never seat more than this many, however empty the room is. A match of eight
 #: robots is not a game anybody is playing.
-MAX_BEES = QUORUM - 1
+#: The most bees one shift will ever seat.
+#:
+#: It was `QUORUM - 1` — seven, exactly enough to complete a match-wide quorum
+#: of eight around one human. Quorum belongs to a hive again, and seats are
+#: dealt round-robin, so a hive reaches eight only when the whole board is
+#: nearly full. One short of a full board is the honest ceiling now.
+MAX_BEES = HIVES * QUORUM - 1
 
 
 @dataclass
@@ -82,7 +91,20 @@ class Swarm:
         return bee
 
     async def top_up(self, state: dict[str, Any]) -> int:
-        """Seat enough bees to give the fullest hive its quorum. Returns how many."""
+        """Seat enough bees to bring a hive to quorum. Returns how many.
+
+        `QUORUM - fullest` was the old sum, and it was right for a quorum
+        counted across the match: one bee waiting, seven seated, eight, go.
+        Quorum belongs to a HIVE again and the server deals seats to the
+        emptiest hive, so bees added here do not pile onto the fullest one —
+        they spread. Seating `QUORUM - fullest` of them raises the fullest hive
+        by about a fifth of that, and the lobby never opens.
+
+        What is actually needed is the seats that bring EVERY hive to quorum,
+        because that is how many the deal will absorb before any one hive gets
+        there. A hive already over quorum contributes nothing, so a lopsided
+        board is not charged for its full hives.
+        """
         if str(state.get("state")) != "forming":
             return 0
         seated = state.get("bees") or []
@@ -92,10 +114,9 @@ class Swarm:
         per: dict[int, int] = {}
         for b in seated:
             per[int(b["hive"])] = per.get(int(b["hive"]), 0) + 1
-        fullest = max(per.values())
-        short = QUORUM - fullest
-        if short <= 0:
+        if max(per.values()) >= QUORUM:
             return 0
+        short = sum(max(0, QUORUM - per.get(h, 0)) for h in range(HIVES))
 
         want = min(short, MAX_BEES - len(self.bees))
         for i in range(max(0, want)):

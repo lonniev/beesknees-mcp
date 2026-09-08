@@ -15,7 +15,7 @@ There is no separate agent API — the buttons and the tools are the same thing.
 ## The game, in the terms an agent needs
 
 Five hives race at once, each on its own board, twelve seats each. A round starts
-once eight bees are seated across the match and a short grace period passes.
+once any one hive holds eight bees and a short grace period passes.
 
 Every bee lives in two geometries joined only at the doors: a square lattice
 **outside** the wall (the meadow, where the flowers are) and concentric rings
