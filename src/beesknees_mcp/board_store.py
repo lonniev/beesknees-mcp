@@ -1113,7 +1113,7 @@ async def obligations() -> dict[str, int]:
 
     Owed is what the settlements say; sent is what the payouts table says. The
     difference is the operator's outstanding liability, and it is the figure a
-    solvency check subtracts — a charity share counted as paid because somebody
+    payout check reports — a charity share counted as paid because somebody
     *meant* to pay it is how a node gets spent twice.
 
     A payment still `sending` counts as spent. It may yet fail, in which case
@@ -1144,3 +1144,30 @@ async def obligations() -> dict[str, int]:
         "charity_accrued_sats": owed_charity,
         "prizes_accrued_sats": owed_prizes,
     }
+
+
+async def settlement_of(match_id: str) -> dict[str, Any] | None:
+    """One settlement, by id.
+
+    A targeted read rather than a page scanned in Python. The page version was
+    not merely wasteful: `settlements()` caps at 200 rows ordered by date, so a
+    match older than the last 200 became invisible and the payout path reported
+    "no settled match with that id" for a settlement sitting right there.
+    """
+    r = await _exec(f"SELECT * FROM {SETTLEMENTS} WHERE match_id = $1", [match_id])
+    rows = _rows(r)
+    return rows[0] if rows else None
+
+
+async def payout_of(kind: str, match_id: str) -> dict[str, Any] | None:
+    """One payment attempt, by leg. Same reason as `settlement_of`.
+
+    Reading this from a capped page meant an older payment looked like no
+    payment — which, on the path that decides whether sats have already been
+    sent, is the worst possible way to be wrong.
+    """
+    r = await _exec(
+        f"SELECT * FROM {PAYOUTS} WHERE payout_id = $1", [f"{kind}:{match_id}"]
+    )
+    rows = _rows(r)
+    return rows[0] if rows else None
