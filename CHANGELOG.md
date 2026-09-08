@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The lobby has ground under it and bees over it. It is the longest wait in the
+  app — you sit there until forty bees have a seat — and it was the one screen
+  with no life on it, while the sign-in card, a five-second stop, had the drawn
+  meadow. Neither piece is new: `Meadowscape` shipped mounted on sign-in and
+  nowhere else, and the foragers were kept off this screen by a guard on the
+  PATH `/play`, which the lobby shares with the board that guard was written
+  for. A lobby is not a board — `LiveBoard` renders either one or the other —
+  so a forager here can never be a bee the rules know nothing about.
+
+### Removed
+
+- `Sprigs` — ten emoji in the margins, which existed for the same stated reason
+  the meadow does ("a wait on an empty screen reads as a page that failed to
+  load"). Two answers to one question, in two vocabularies, on the same screen.
+  The drawn one stays.
+
 - The drifting bees fly over the reading pages too — the welcome, About and the
   ledger. Split out of `Meadowscape` as `DriftingBees`, so a page can have the
   life without the landscape: a hill under three screens of prose about colony

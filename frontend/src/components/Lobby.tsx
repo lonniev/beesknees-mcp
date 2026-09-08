@@ -17,7 +17,8 @@ import { Check, Share2, Users, Zap } from "lucide-react";
 import CharityNote, { useCharity } from "./CharityNote";
 import Elsewhere from "./Elsewhere";
 import Skep from "./Skep";
-import Sprigs from "./Sprigs";
+import Meadowscape from "./Meadowscape.tsx";
+import { PageBees } from "./Meadow.tsx";
 import { HIVE_NAMES } from "../game/match.ts";
 import QuoteScroller from "./QuoteScroller.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
@@ -125,12 +126,32 @@ export default function Lobby({
   }
 
   return (
-    /* `relative`, because the flowers are absolutely positioned inside it.
-     * The column stays narrow on a phone and opens out on anything wider — the
-     * lobby had a single `max-w-md` column, so on an iPad five hives huddled in
-     * the middle third with the rest of the screen empty on both sides. */
-    <div className="relative mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center sm:max-w-3xl sm:gap-8 sm:py-12">
-      <Sprigs />
+    <>
+      {/* The lobby is the longest WAIT in the app — you sit here until forty
+          bees have a seat — and it was the one screen with no life on it. The
+          sign-in card, which is a five-second stop, had the drawn meadow; this
+          had ten emoji in the margins.
+
+          Neither of these is new. The ground is `Meadowscape`, which shipped
+          mounted on sign-in and nowhere else. The bees are the same foragers
+          the board and every reading page already run; they were kept off this
+          screen by `!onBoard` in App, which is a test on the PATH — and the
+          lobby shares `/play` with the board that guard was written for. This
+          is not a board: `LiveBoard` renders EITHER this or `BoardScreen`,
+          never both, so a forager here can never be a bee the rules know
+          nothing about. The guard still covers the case it was for.
+
+          Siblings of the column rather than children of it, exactly as
+          `SignIn` mounts the meadow. Both layers are `fixed` and negatively
+          stacked, and the working arrangement is the one to copy rather than
+          the one to reason about. */}
+      <Meadowscape />
+      <PageBees />
+
+      {/* The column stays narrow on a phone and opens out on anything wider —
+        * the lobby had a single `max-w-md` column, so on an iPad five hives
+        * huddled in the middle third with the screen empty on both sides. */}
+      <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center sm:max-w-3xl sm:gap-8 sm:py-12">
       <div>
         <div className="text-sm text-ink/70">The hive is filling</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
@@ -243,6 +264,7 @@ export default function Lobby({
         theirs only once the race is on. Every hive races its own board; the first
         bee to any queen ends the round.
       </p>
-    </div>
+      </div>
+    </>
   );
 }
