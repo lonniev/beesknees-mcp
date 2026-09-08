@@ -110,6 +110,7 @@ and riding one somebody else opened, which they can seal under you.
 ## Links
 
 - Web app: https://beesknees.tollbooth-dpyc.com
+- Preview card: https://beesknees.tollbooth-dpyc.com/og-image.jpg
 - MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp
 - Source: https://github.com/lonniev/beesknees-mcp
 - Every service on the network: https://mcps.tollbooth-dpyc.com

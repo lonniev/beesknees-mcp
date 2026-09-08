@@ -28,15 +28,27 @@
     <meta property="og:description" content="A race to the queen. Most of what a round collects goes to pollinator conservation." />
     <meta property="og:url" content="https://beesknees.tollbooth-dpyc.com" />
     <!--
-      Deliberately NO og:image.
+      The BOARD, not a person.
 
-      The sibling that had one served a screenshot of a real grower's block —
-      its name, its town, its acreage and a satellite view of the property — to
-      every crawler and every link preview of the domain. Nothing here is that
-      sensitive, but there is also no card worth the risk of one being wired up
-      later against live data. A preview with no image is a smaller loss than a
-      preview that shows somebody's board.
+      A solo round, so nothing on it belongs to a patron: no live match, no
+      balances beyond zeroes, and the only identifiers are the podium's
+      already-public npubs, truncated exactly as every visitor to the site sees
+      them. That test is the point of this comment. The sibling that got it
+      wrong served a screenshot of a real grower's block — its name, its town,
+      its acreage and a satellite view of the property — to every crawler and
+      every link preview of the domain. Before replacing this image, check what
+      is actually in the frame rather than what the page usually shows.
+
+      Absolute, not relative: a crawler resolves this with no page context, and
+      a relative path silently yields no preview at all. Served from public/ so
+      Vite copies it through unhashed and the URL survives every deploy — a
+      hashed asset name would break every link already shared.
     -->
+    <meta property="og:image" content="https://beesknees.tollbooth-dpyc.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Five hives racing: a polar comb with a queen at the centre, bees tunnelling inward across a lavender meadow." />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
