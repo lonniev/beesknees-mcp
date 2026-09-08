@@ -55,7 +55,7 @@ export default function Avatar({
           : undefined
       }
       style={{ width: size, height: size, minWidth: size, fontSize: Math.round(size * 0.55), lineHeight: 1 }}
-      className={`inline-flex items-center justify-center overflow-hidden rounded-full select-none border bg-stone-100 dark:bg-zinc-800 border-stone-300 dark:border-zinc-700 text-amber-600 dark:text-amber-400 ${
+      className={`inline-flex items-center justify-center overflow-hidden rounded-full select-none border bg-stone-100 dark:bg-zinc-800 border-stone-300 dark:border-zinc-700 text-[var(--color-wax-ink)] ${
         clickable ? "cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors" : ""
       } ${className}`}
     >

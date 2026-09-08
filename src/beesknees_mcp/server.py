@@ -300,27 +300,37 @@ NPUB_FIELD = Annotated[
 ]
 
 
-async def _charged(npub: str, match_id: str, tool: str) -> None:
-    """Record what this call cost, into the pot.
+def fare_just_charged() -> int:
+    """What the runtime ACTUALLY debited for the call now running.
 
-    The fare is read from the operator's own pricing model rather than from the
-    runtime, deliberately: `_last_debit_cost` is a single slot on a process-wide
-    singleton, so with sixty patrons moving at once two calls clobber each
-    other's value before either body reads it. A pot built on that would be
-    quietly wrong in exactly the situation the game is designed to create.
+    **Read this before the body's first `await`, or not at all.**
+
+    `paid_tool` computes the effective cost, assigns it to `_last_debit_cost`
+    on the runtime — one slot on a process-wide singleton — and then awaits the
+    tool body. Entering that body and running it to its first `await` happens
+    without yielding to the event loop, so a synchronous read at the top sees
+    this call's own figure. A read after any `await` may see a figure belonging
+    to whichever of the other fifty-nine bees moved in between.
+
+    That race is why this used to price the tool from the pricing model
+    instead. It avoided the race and introduced a worse fault: the model gives
+    RETAIL, and retail is not what anybody paid. A coupon that made a call free
+    still added full price to the pot, and the operator owed the charity 80% of
+    money that never arrived — eight sats owed on one sat collected, in the
+    first match ever played for real.
     """
-    identity = next((t for t in _DOMAIN_TOOLS if t.capability == tool), None)
-    sats = 0
-    if identity is not None and identity.category != "free":
-        try:
-            cost, denial = await runtime._resolve_pricing(
-                identity.tool_id, f"beesknees_{tool}", identity.category, None
-            )
-            sats = 0 if denial else int(cost)
-        except Exception as exc:  # noqa: BLE001
-            # A pot that silently loses fares is worse than a noisy one.
-            logger.error("could not price %s for the pot: %s", tool, exc)
-    await board_store.record_fare(match_id, npub, tool, sats)
+    return int(getattr(runtime, "_last_debit_cost", 0) or 0)
+
+
+async def _charged(npub: str, match_id: str, tool: str, sats: int) -> None:
+    """Put what was actually paid into the pot.
+
+    The pot is a promise: 80% of it is owed to a charity and will leave the
+    operator's node as real sats. So it may only ever hold money that really
+    came in. A fare of zero is still recorded — a coupon'd bee took part, and
+    its zero is the honest account of what its taking part raised.
+    """
+    await board_store.record_fare(match_id, npub, tool, max(0, int(sats)))
 
 
 def _upstream(exc: Exception, what: str) -> dict[str, Any]:
@@ -543,8 +553,9 @@ async def join_match(
     Args:
         label: The name your bee flies under.
     """
+    fare = fare_just_charged()  # FIRST. See `fare_just_charged`.
     seat = await match_flow.join(npub, label[:32] or "A bee")
-    await _charged(npub, str(seat["match_id"]), "join_match")
+    await _charged(npub, str(seat["match_id"]), "join_match", fare)
     await match_flow.advance()
     return {"success": True, **seat}
 
@@ -565,17 +576,25 @@ def _as_dt(v: Any) -> datetime:
     return datetime.fromisoformat(str(v).replace(" ", "T")).astimezone(UTC)
 
 
-async def _refund(tool_name: str, npub: str) -> None:
-    """Give the fare back by hand.
+async def _refund(tool_name: str, npub: str, sats: int) -> None:
+    """Give back exactly the fare that was taken.
 
     `paid_tool` only rolls back on the way out through an exception, and these
     paths RETURN a situation instead — which is the right shape for the caller
     and the wrong one for the ledger unless the refund is explicit.
+
+    Not `runtime.rollback_debit`, which credits `pricing.compute(...)` — the
+    BASE price, before any constraint. A bee playing on a 100%-off coupon paid
+    nothing, and a refused move handed it a sat it never spent: a refund that
+    MINTS. Refusals are ordinary here — a rival in the cell, the stagger — so
+    that is not a rounding error, it is a slow leak with a coupon on the end of
+    it. Nothing was taken when the fare was zero, so nothing goes back.
     """
-    uuid = _MOTION_UUIDS.get(tool_name)
-    if uuid:
-        with contextlib.suppress(Exception):
-            await runtime.rollback_debit(uuid, npub)
+    if sats <= 0 or tool_name not in _MOTION_UUIDS:
+        return
+    with contextlib.suppress(Exception):
+        cache = await runtime.ledger_cache()
+        await cache.credit(npub, int(sats), f"rollback:beesknees_{tool_name}")
 
 
 async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
@@ -596,6 +615,7 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
     another bee is not a crash, and telling somebody their game broke when it
     did exactly what it should is worse than the refusal.
     """
+    fare = fare_just_charged()  # FIRST. See `fare_just_charged`.
     live = await board_store.live_matches()
     running = [m for m in live if str(m["state"]) == "running"]
     if not running:
@@ -604,7 +624,7 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
     try:
         result = await run(mid)
     except board_store.BoardError as exc:
-        await _refund(tool_name, npub)
+        await _refund(tool_name, npub, fare)
         return {"success": False, "match_id": mid, "moved": False, "refused": str(exc)}
     except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
         # Anything the persistence layer throws. It used to escape here and the
@@ -612,7 +632,7 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
         # which tells a player nothing and cost a fare for a move that never
         # happened. Named, refunded, and reported — the patron can see whether
         # their game is broken or the hive is.
-        await _refund(tool_name, npub)
+        await _refund(tool_name, npub, fare)
         logger.exception("%s failed against the board", tool_name)
         return {
             "success": False,
@@ -621,7 +641,7 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
             "error": f"The hive could not move your bee: {type(exc).__name__}: {exc}",
             "error_code": "board_write_failed",
         }
-    await _charged(npub, mid, tool_name)
+    await _charged(npub, mid, tool_name, fare)
     await match_flow.advance()
     return {"success": True, "match_id": mid, **result}
 

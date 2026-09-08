@@ -71,12 +71,12 @@ export default function App() {
       {/* A lapsed proof is routine — an hour with the tab open does it — so it
        * is a calm strip above the page, not a redirect that loses your place. */}
       {session.notice && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
+        <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-[var(--color-wax-ink)]">
           <span className="flex-1">{session.notice}</span>
           <NavLink to="/signin" className="font-semibold underline">
             Sign in
           </NavLink>
-          <button onClick={session.dismissNotice} className="text-amber-300/60 hover:text-amber-300">
+          <button onClick={session.dismissNotice} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
             Dismiss
           </button>
         </div>

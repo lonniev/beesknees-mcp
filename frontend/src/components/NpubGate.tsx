@@ -215,7 +215,7 @@ export default function NpubGate({
                   <span className="font-mono text-xs truncate">
                     {e.npub.slice(0, 12)}…{e.npub.slice(-6)}
                   </span>
-                  <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
+                  <span className="text-xs text-[var(--color-wax-ink)] shrink-0 ml-2">
                     {ttl(e.expiresAt)} left
                   </span>
                 </button>

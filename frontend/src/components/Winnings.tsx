@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { LINK } from "../lib/ink";
 import { ExternalLink, HeartHandshake, Loader2 } from "lucide-react";
 import { payout, setPayout } from "../lib/mcp";
 import { useCharity } from "./CharityNote";
@@ -90,7 +91,7 @@ export default function Winnings({ npub }: { npub: string }) {
   return (
     <section className="rounded-xl border border-ink/14 p-4">
       <div className="flex items-center gap-2">
-        <HeartHandshake size={15} className="text-amber-300/80" />
+        <HeartHandshake size={15} className="text-[var(--color-wax-ink)]" />
         <h2 className="text-sm font-semibold text-ink/90">If you win</h2>
         {loading && <Loader2 size={13} className="animate-spin text-ink/65" />}
       </div>
@@ -112,7 +113,7 @@ export default function Winnings({ npub }: { npub: string }) {
                 target="_blank"
                 rel="noreferrer noopener"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-amber-300/80 underline decoration-amber-300/30 underline-offset-2 hover:text-amber-200"
+                className={LINK}
               >
                 {who.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                 <ExternalLink size={11} />
