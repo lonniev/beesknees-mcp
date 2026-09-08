@@ -9,7 +9,10 @@
  * The opening four paragraphs are the CODE OWNER'S OWN WORDS, kept as written.
  * Two edits only, both agreed: the racer is a drone rather than an unspecified
  * bee, and the money fights the viral contamination rather than supporting it,
- * which was a slip of a single verb.
+ * which was a slip of a single verb. The beneficiary is "the current pollinator
+ * conservation society chosen for support" in his own restatement — lowercase
+ * and descriptive, because "Pollinator Society" capitalised reads as the name
+ * of an organisation and there is no such body.
  *
  * Below the introduction, written to be checkable. Every claim is one a reader
  * could look up and find, and where the science is qualified the sentence is
@@ -52,7 +55,7 @@ export default function Welcome() {
         <p>
           Each of your moves costs a few satoshis — less than pennies. The money raised from all
           players collects in a honey pot. At the end of the game, 80% of the pot is paid to the
-          current Pollinator Society chosen to receive assistance
+          current pollinator conservation society chosen for support
           {who?.name ? <>, presently <span className="font-semibold">{who.name}</span></> : null}.
           10% is awarded to the winning bee. The remainder is retained to help the Tollbooth DPYC
           community offer this gamified charitable service.
