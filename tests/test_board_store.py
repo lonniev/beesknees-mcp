@@ -291,6 +291,22 @@ class FakeVault:
                 return {"rows": [], "rowCount": 1}
             return {"rows": [], "rowCount": 0}
 
+        if s.startswith(f"INSERT INTO {store.PAYOUTS} (payout_id, kind, match_id, destination, amount_sats) SELECT"):
+            if not hasattr(self, "payouts"):
+                self.payouts = {}
+            out = []
+            for row in self.settlements.values():
+                pid = f"charity:{row['match_id']}"
+                if row["charity_sats"] > 0 and pid not in self.payouts:
+                    self.payouts[pid] = {"payout_id": pid, "kind": "charity",
+                                         "match_id": row["match_id"], "destination": p[0],
+                                         "amount_sats": row["charity_sats"],
+                                         "state": "sending", "payment_hash": "",
+                                         "detail": "", "started_at": "now"}
+                    out.append({"match_id": row["match_id"],
+                                "amount_sats": row["charity_sats"]})
+            return {"rows": out, "rowCount": len(out)}
+
         if s.startswith(f"INSERT INTO {store.PAYOUTS}"):
             if not hasattr(self, "payouts"):
                 self.payouts = {}
@@ -301,6 +317,15 @@ class FakeVault:
                                   "state": "sending", "payment_hash": "", "detail": "",
                                   "started_at": "now"}
             return {"rows": [], "rowCount": 1}
+
+        if "WHERE state = 'sending' AND payout_id IN" in s:
+            n = 0
+            for pid in p[3:]:
+                row = getattr(self, "payouts", {}).get(pid)
+                if row and row["state"] == "sending":
+                    row.update(state=p[0], payment_hash=p[1], detail=p[2])
+                    n += 1
+            return {"rows": [], "rowCount": n}
 
         if s.startswith(f"UPDATE {store.PAYOUTS} SET state"):
             row = getattr(self, "payouts", {}).get(p[0])
@@ -1042,5 +1067,61 @@ def test_an_older_payment_is_still_found_when_deciding_if_sats_already_went(vaul
         found = await store.payout_of("charity", mid)
         assert found is not None and found["state"] == "paid"
         assert await store.payout_of("winner", mid) is None, "the other leg is its own payment"
+
+    asyncio.run(go())
+
+
+def test_the_charity_is_claimed_in_one_batch_and_never_twice(vault) -> None:
+    """Every unpaid leg at once, on the same key a single payout would use.
+
+    A match's charity share can be smaller than the fee floor it costs to
+    route, so paying per match can cost more than it delivers. Batching is the
+    point — but the accounting stays per match, so `obligations()` keeps
+    counting honestly and a reader can see which matches a payment covered.
+    """
+
+    async def go():
+        ids = []
+        for _ in range(3):
+            mid = await store.open_match()
+            await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                          operator=100, winner_npub="npub1w",
+                                          beneficiary="Pollinator Partnership")
+            ids.append(mid)
+
+        claimed = await store.claim_charity_arrears("p@wallet.com")
+        assert len(claimed) == 3
+        assert sum(int(c["amount_sats"]) for c in claimed) == 2400
+        assert (await store.obligations())["charity_unpaid_sats"] == 0
+
+        # A second press claims nothing — the legs are already spoken for.
+        assert await store.claim_charity_arrears("p@wallet.com") == []
+
+        # And a single-match payout cannot pay one of them again: same key.
+        assert await store.claim_payout("charity", ids[0], "p@wallet.com", 800) is False
+
+    asyncio.run(go())
+
+
+def test_a_failed_batch_gives_the_debt_back(vault) -> None:
+    """`obligations()` counts only `sending` and `paid`, so marking the legs
+    failed restores the debt — without losing the record of the attempt."""
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Somebody")
+        claimed = await store.claim_charity_arrears("p@wallet.com")
+        assert (await store.obligations())["charity_unpaid_sats"] == 0
+
+        n = await store.finish_charity_arrears(
+            [str(c["match_id"]) for c in claimed], state="failed", detail="no route"
+        )
+        assert n == 1
+        assert (await store.obligations())["charity_unpaid_sats"] == 800, (
+            "a failed payment must not leave the charity looking paid"
+        )
+        assert [p["state"] for p in await store.payouts(10)] == ["failed"]
 
     asyncio.run(go())

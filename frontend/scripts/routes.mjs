@@ -28,6 +28,9 @@ const ROUTES = [
   ["/ledger", /Pollinator|ledger|Ledger/i],
   ["/about", /./],
   ["/signin", /Sign in to The Bee(&#x27;|')s Knees/],
+  // The operator console. Server-rendered with nobody signed in, so what must
+  // appear is the REFUSAL — proof that the gate is drawn before the page is.
+  ["/operator", /belongs to whoever runs the hive|Asking the hive/],
   ["/profile", /not signed in/i], // signed out is the server's view of it
 ];
 
