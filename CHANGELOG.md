@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The About page now leads with **how the game is played** — a narrative of the
+  three acts, the wall and its doors, the funnel, and the one real choice
+  between cutting your own shaft and riding somebody else's — and only then
+  turns to the technology.
+- **"How we know it is a game"**: the measurements behind the design, including
+  the two rules that exist only because a batch of four hundred rounds demanded
+  them (a cuttable wall that 80% of bees chopped through, and a doorway 52.6%
+  of 1,218 crossings bounced back out of), and why five hives of twelve rather
+  than one of sixty.
+- **"What it raises"** states the money honestly: what is proven (the pot holds
+  what was charged, the shares sum exactly, a refund returns the fare taken)
+  and what is arithmetic still waiting on a price and on attendance. It does
+  not claim to be profitable.
+- A seeded playability guard runs with the tests (`game/playable.test.ts`). It
+  does not pin today's win rate — that would fail on any honest tuning — but it
+  fails if judgement stops beating a heuristic, or if a bee moving at random
+  starts winning. The About page's claim that the rules are still measured is
+  now true in the present tense.
+
+### Fixed
+
+- `sim/run.ts` played four hundred rounds and printed a full report whenever
+  anything imported it; `main()` is now guarded so it runs only when the file
+  is run. Two dead locals went with it, which nothing had type-checked because
+  no test had ever pulled the file into the project.
+
 - The About page explains its own jargon. Every term it cannot avoid saying —
   MCP, Nostr, satoshi, serverless, stateless, KYC — carries a short definition
   on a dotted underline, opened by hover, by keyboard focus, or by a tap. The

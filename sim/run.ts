@@ -9,6 +9,8 @@
  *   node sim/run.ts --rounds 500 --bees 50
  */
 
+import { pathToFileURL } from "node:url";
+
 import { chooseAction, STRATEGIES } from "../frontend/src/game/bots.ts";
 import {
   type Bee,
@@ -20,13 +22,12 @@ import {
   makeRound,
   mulberry32,
   progress,
-  ringOf,
 } from "../frontend/src/game/rules.ts";
 import { SEATS } from "../frontend/src/game/match.ts";
 
 const TICK_MS = 100;
 
-interface Arg {
+export interface Arg {
   rounds: number;
   bees: number;
   cooldown: number;
@@ -45,7 +46,7 @@ interface Arg {
   seed: number;
 }
 
-function args(): Arg {
+export function args(): Arg {
   const a = process.argv.slice(2);
   const num = (k: string, d: number) => {
     const i = a.indexOf(`--${k}`);
@@ -78,7 +79,7 @@ function args(): Arg {
   };
 }
 
-interface RoundResult {
+export interface RoundResult {
   ticks: number;
   winner: string;
   decided: boolean;
@@ -95,7 +96,7 @@ interface RoundResult {
   tunnelMoves: number;
 }
 
-function playOne(cfg: Arg, seed: number): RoundResult {
+export function playOne(cfg: Arg, seed: number): RoundResult {
   const rng = mulberry32(seed);
   const rules: Rules = {
     ...DEFAULT_RULES,
@@ -196,7 +197,6 @@ function main() {
 
   const durations = results.map((r) => (r.ticks * TICK_MS) / 1000);
   const decided = results.filter((r) => r.decided).length;
-  const meadowShare = results.reduce((a, r) => a + r.meadowMoves / Math.max(1, r.moves), 0) / results.length;
   const meadowTimeShare = results.reduce((a, r) => a + r.meadowTicks / Math.max(1, r.ticks), 0) / results.length;
   const winnerMeadow = results.reduce((a, r) => a + r.winnerMeadowShare, 0) / results.length;
   const collapses = results.reduce((a, r) => a + r.collapses, 0) / results.length;
@@ -280,4 +280,8 @@ function main() {
   );
 }
 
-main();
+// Only when somebody RUNS this, never when a test imports it. `playOne` is
+// shared with `frontend/src/game/playable.test.ts`, and an unguarded call here
+// played four hundred rounds and printed a full report every time that test
+// loaded the module.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) main();
