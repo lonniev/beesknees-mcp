@@ -103,6 +103,32 @@ class FakeVault:
                     for m in self.matches.values() if m.get("board") != p[0]]
             return {"rows": rows, "rowCount": len(rows)}
 
+        # The retention sweep. A fake cannot do Postgres date arithmetic, so
+        # the age predicate is modelled as a flag the test sets: what these
+        # branches prove is the ORDER and the SURVIVORS, not the interval.
+        if s.startswith(f"UPDATE {store.MATCHES} SET ended_at = now() - interval"):
+            self.matches[p[0]]["_aged_out"] = True
+            return {"rows": [], "rowCount": 1}
+
+        if "IN (SELECT match_id FROM" in s and s.startswith("DELETE FROM "):
+            table = s.split()[2]
+            doomed = {k for k, v in self.matches.items() if v.get("_aged_out")}
+            if table == store.BEES:
+                n = len([b for b in self.bees.values() if b["match_id"] in doomed])
+                self.bees = {k: b for k, b in self.bees.items() if b["match_id"] not in doomed}
+            elif table == store.FARES:
+                n = len([x for x in self.fares if x["match_id"] in doomed])
+                self.fares = [x for x in self.fares if x["match_id"] not in doomed]
+            else:
+                n = 0
+            return {"rows": [], "rowCount": n}
+
+        if s.startswith(f"DELETE FROM {store.MATCHES} WHERE ended_at IS NOT NULL"):
+            doomed = {k for k, v in self.matches.items() if v.get("_aged_out")}
+            for k in doomed:
+                del self.matches[k]
+            return {"rows": [], "rowCount": len(doomed)}
+
         if s.startswith(f"DELETE FROM {store.MATCHES} WHERE match_id"):
             gone = self.matches.pop(p[0], None)
             return {"rows": [], "rowCount": 1 if gone else 0}
@@ -270,6 +296,11 @@ class FakeVault:
         if s.startswith(f"INSERT INTO {store.FARES}"):
             self.fares.append({"match_id": p[0], "npub": p[1], "tool": p[2], "sats": p[3]})
             return {"rows": [], "rowCount": 1}
+
+        if s.startswith(f"DELETE FROM {store.FARES} WHERE match_id"):
+            before = len(self.fares)
+            self.fares = [x for x in self.fares if x["match_id"] != p[0]]
+            return {"rows": [], "rowCount": before - len(self.fares)}
 
         if "sum(sats)" in s:
             total = sum(f["sats"] for f in self.fares if f["match_id"] == p[0])
@@ -1193,3 +1224,101 @@ def test_a_bee_carrying_pollen_does_not_leave_the_hive(vault) -> None:
     inward = geo.inward(g, geo.ring_of(g, door), door - g.offset[g.wall])
     if inward is not None:
         store._require_commitment(g, {"phase": "tunnel", "cell": door}, inward)
+
+
+def test_settling_collapses_the_fares_into_the_pot(vault) -> None:
+    """The rows that added up to the pot go; the pot stays.
+
+    They are 93% of everything this service writes — about 6,758 per full
+    round once the tools are priced — and the moment `record_settlement`
+    stores their total they have done their whole job. Keeping them would mean
+    carrying a move-by-move record of every round ever played for the sake of
+    a number already stored.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        for i in range(5):
+            await store.record_fare(mid, f"npub{i}", "fly", 3)
+        assert await store.pot_of(mid) == 15
+
+        out = await match_flow.settle(mid)
+        assert out["pot"] == 15, "the pot is read BEFORE the rows are dropped"
+        assert await store.pot_of(mid) == 0, "the fare rows are gone"
+
+        # And the money survives them, which is the whole point.
+        rows = await store.settlements(10)
+        assert rows[0]["pot_sats"] == 15
+        # 13, not 12: the winner and the operator take floor(10%) — one sat
+        # each — and the charity takes what is left. Rounding falls to the
+        # charity by construction, never to the operator.
+        assert rows[0]["charity_sats"] == 13
+        assert sum(rows[0][k] for k in ("charity_sats", "winner_sats", "operator_sats")) == 15
+
+    asyncio.run(go())
+
+
+def test_a_replayed_settlement_does_not_delete_somebody_elses_evidence(vault) -> None:
+    """`record_settlement` returning False means somebody got there first.
+
+    Rolling up on that path would drop the fares of a match this call did not
+    settle — deleting the evidence on the way past, which is worse than
+    useless.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_fare(mid, "npub1a", "fly", 7)
+
+        first = await match_flow.settle(mid)
+        assert first["first_time"] is True
+        assert await store.pot_of(mid) == 0
+
+        # A second fare arrives late, after settlement. A replayed settle must
+        # leave it alone rather than tidying it away.
+        await store.record_fare(mid, "npub1b", "dig", 4)
+        again = await match_flow.settle(mid)
+        assert again["first_time"] is False
+        assert await store.pot_of(mid) == 4, "a replay must not delete what it did not settle"
+
+    asyncio.run(go())
+
+
+def test_old_rounds_forget_how_they_were_played_but_not_what_they_paid(vault) -> None:
+    """A retention window, because the danger is a good week and not a steady state.
+
+    Nothing used to reclaim anything: the only DELETE fired when the geometry
+    changed. A finished round kept every bee, every dug cell and every fare for
+    ever — roughly 1.9 MB apiece once priced, which is 6.6 GB a year at ten
+    rounds a day and 33 GB at fifty.
+
+    What must NOT go is the money. `settlement_history` and `payout_history`
+    are the claim a charity or a winner would come back and check, so they
+    outlive the board the round was won on.
+
+    The fake cannot do Postgres date arithmetic, so what this proves is the
+    order and the survivors — detail goes, ledger stays — rather than that the
+    interval is seven days. The interval is one constant in one statement.
+    """
+
+    async def go():
+        old = await store.open_match()
+        await store.record_settlement(old, pot=100, charity=80, winner=10, operator=10,
+                                      winner_npub="npub1w", beneficiary="Pollinator Partnership")
+        await store.take_seat(old, "npub1w", "W", 0)
+        # Ended eight days ago — one day past the window.
+        await store._exec(
+            f"UPDATE {store.MATCHES} SET ended_at = now() - interval '8 days' WHERE match_id = $1",
+            [old],
+        )
+
+        out = await store.purge_old_details()
+        assert out["matches"] == 1 and out["bees"] == 1
+
+        assert await store.get_match(old) is None, "the board is forgotten"
+        rows = await store.settlements(10)
+        assert len(rows) == 1 and rows[0]["charity_sats"] == 80, (
+            "the ledger outlives the round it recorded"
+        )
+
+    asyncio.run(go())

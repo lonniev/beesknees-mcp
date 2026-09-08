@@ -286,6 +286,13 @@ async def vault() -> Any:
                 await retire_stale_boards()
             except Exception as exc:  # noqa: BLE001
                 logger.error("could not retire stale boards: %s", exc)
+            # And forget how old rounds were played. Same reasoning: a sweep,
+            # not a guard, and bounded by a date rather than by how much has
+            # piled up — so a quiet week and a viral one cost the same to run.
+            try:
+                await purge_old_details()
+            except Exception as exc:  # noqa: BLE001
+                logger.error("could not purge old match detail: %s", exc)
     return _vault
 
 
@@ -1244,3 +1251,70 @@ async def finish_charity_arrears(
         [state, payment_hash[:120], detail[:400], *[f"charity:{m}" for m in match_ids]],
     )
     return _count(r)
+
+
+# ── Not hoarding old rounds ──────────────────────────────────────────────
+#
+# Nothing here reclaimed anything. The only DELETE was `retire_stale_boards`,
+# which fires when the GEOMETRY changes — so a completed, settled, fully paid
+# match was kept for ever along with every bee, every dug cell and every fare
+# row that made up its pot.
+#
+# Measured over the simulator, one full round of five hives leaves about 6,758
+# fare rows, 666 dug cells, 60 bees and 58 emptied flowers: roughly 1.9 MB once
+# the tools are priced, of which the fares are 93%. Ten rounds a day is 6.6 GB a
+# year and fifty is 33 GB. The danger is not the steady state — it is a good
+# week, where the bill arrives before anybody has noticed the growth.
+
+#: How long a finished round keeps its move-by-move detail.
+#:
+#: Long enough to look back at a recent game and to investigate a payment that
+#: did not land; short enough that a viral fortnight does not become a permanent
+#: bill. The MONEY is not on this clock — `bk_settlements` and `bk_payouts` are
+#: never purged, so the ledger that says where every sat went outlives the board
+#: it was won on.
+DETAIL_RETENTION_DAYS = 7
+
+
+async def roll_up_fares(match_id: str) -> int:
+    """Drop the fare rows once their total is safely in the settlement.
+
+    The pot is `sum(sats)` over these rows, and the moment `record_settlement`
+    stores it they have done their whole job. They are 93% of everything this
+    service writes, and the settlement they collapse into is the row anybody
+    actually audits.
+
+    Only ever called after a settlement is recorded FIRST — a replay finds the
+    settlement already there, takes no second pass at the money, and reaches
+    here with nothing left to delete.
+    """
+    r = await _exec(f"DELETE FROM {FARES} WHERE match_id = $1", [match_id])
+    return _count(r)
+
+
+async def purge_old_details(days: int = DETAIL_RETENTION_DAYS) -> dict[str, int]:
+    """Forget how old rounds were played. Never forget what they paid.
+
+    Bees, dug cells, emptied flowers and any surviving fares go; the match row
+    goes last. `bk_settlements` and `bk_payouts` are untouched, so
+    `settlement_history` and `payout_history` still answer for every round this
+    service has ever run — which is the claim that matters, and the one a
+    charity or a winner would come back to check.
+
+    Children first and the match last, so an interrupted sweep leaves a match
+    whose detail has been purged rather than orphans pointing at nothing.
+    """
+    where = (
+        f"match_id IN (SELECT match_id FROM {MATCHES} "
+        f"WHERE ended_at IS NOT NULL AND ended_at < now() - interval '{int(days)} days')"
+    )
+    out: dict[str, int] = {}
+    for name, table in (("bees", BEES), ("cells", CELLS), ("pollen", POLLEN), ("fares", FARES)):
+        out[name] = _count(await _exec(f"DELETE FROM {table} WHERE {where}"))
+    out["matches"] = _count(
+        await _exec(
+            f"DELETE FROM {MATCHES} WHERE ended_at IS NOT NULL "
+            f"AND ended_at < now() - interval '{int(days)} days'"
+        )
+    )
+    return out

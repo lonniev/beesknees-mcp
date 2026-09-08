@@ -241,6 +241,17 @@ async def settle(match_id: str) -> dict[str, Any]:
     state = "unclaimed"
     if first and winner_npub and parts["winner"] > 0:
         state = await resolve_prize(match_id, winner_npub, parts["winner"])
+
+    if first:
+        # The pot is in the settlement now, so the rows that added up to it have
+        # done their job. They are 93% of everything this service writes, and
+        # keeping them would mean carrying a move-by-move record of every round
+        # ever played for the sake of a number already stored.
+        #
+        # After the settlement, never before: `record_settlement` returning
+        # False means somebody else got there first, and deleting their evidence
+        # on the way past would be worse than useless.
+        await store.roll_up_fares(match_id)
     return {
         "match_id": match_id,
         "first_time": first,
