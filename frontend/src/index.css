@@ -15,8 +15,21 @@
   --color-comb-edge: #4a3819;
   --color-tunnel: #c9a227;
   --color-wax: #f2c14e;
-  --color-meadow: #33523a;
-  --color-sky: #0d1310;
+  /* The field itself. Its LIGHTNESS is the same as the green it replaced, to four
+     decimal places, and that is the whole trick: contrast depends on lightness
+     alone, so the hue could travel all the way from green to violet and the
+     bee's legibility on it did not move: 5.19:1 before, 5.18:1 after. What
+     WOULD wash the bees out is lightening it toward a sunnier green — measured
+     at 4.4:1, and visibly worse. Hue is free; lightness is not.
+
+     Violet also happens to be amber's complement, so a bee sits against this
+     more vividly than against the green it replaces. */
+  --color-meadow: #584461;
+  /* The page beyond the board: the field at dusk rather than a near-black
+     surround. Every foreground held its footing — body text 14.1:1, wax
+     10.9:1, your own bee 12.1:1 — within a hair of the near-black it
+     replaces. */
+  --color-sky: #171227;
   --color-queen: #ff5fa2;
   /* Your own bee. Deliberately the one hue nothing else on the board uses. */
   --color-you: #a3e635;
@@ -25,8 +38,11 @@
   /* Your hive's WALL — a different hue from your bee, which shared it and made
      the boundary and the halo read as the same thing. */
   --color-hive-mine: #7dd3fc;
-  /* Flowers. Purple reads as a flower against green in a way yellow does not. */
-  --color-flower: #c084fc;
+  /* Lavender heads. Retuned for the violet ground, but note that the board
+     draws a flower as a GLYPH, not a fill — shape is what tells a flower from
+     a bee at a glance, which is why they survive a ground the same hue as
+     they are. This token is here for anything that wants the hue in text. */
+  --color-flower: #d8b4fe;
 }
 
 :root {
