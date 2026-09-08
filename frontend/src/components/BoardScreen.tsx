@@ -65,6 +65,12 @@ export interface BoardScreenProps {
   elapsedSec: number;
   /** Offered only where starting again is yours to do, which live play is not. */
   onNewMatch?: () => void;
+  /**
+   * What that button says. Solo starts a fresh board on the spot; live cannot —
+   * the next round forms when enough bees have taken a seat — so it says what
+   * it actually does rather than promising an immediate game.
+   */
+  againLabel?: string;
 
   frame: number;
   target: number | null;
@@ -367,7 +373,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                     onClick={p.onNewMatch}
                     className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
                   >
-                    <Repeat size={15} /> Play Again
+                    <Repeat size={15} /> {p.againLabel ?? "Play Again"}
                   </button>
                 )}
               </div>

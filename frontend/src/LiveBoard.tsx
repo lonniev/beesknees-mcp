@@ -238,8 +238,16 @@ export default function LiveBoard({ session }: { session: Session }) {
    * payload, or a round that hit the ceiling with no winner at all, watched a
    * board quietly stop moving and was told nothing. Losing is a result and
    * deserves to be announced; a frozen board is not an announcement.
+   *
+   * Stated as "not still running" rather than as a list of endings — forming
+   * has already returned the lobby above. Listing them stranded a player once
+   * already: a match retired onto `abandoned` is neither `ended` nor
+   * `settled`, so the card never came, while `live_matches` had already
+   * dropped it — a frozen board, an enabled Fly! that answered "no match is
+   * running", and no way out but the browser's back button. Anything that is
+   * not still going is over, including the states nobody has invented yet.
    */
-  const ended = live.state === "ended" || live.state === "settled";
+  const ended = live.state !== "running";
 
   return (
     <BoardScreen
@@ -320,9 +328,23 @@ export default function LiveBoard({ session }: { session: Session }) {
               unwon: true,
             }
       }
-      // Leaving is the winner's own move: the result stays until they are done
-      // reading it, rather than the next lobby taking the screen from under them.
-      onNewMatch={winnerBee ? () => setWatching(null) : undefined}
+      // Leaving is the player's own move: the result stays until they are done
+      // reading it, rather than the next lobby taking the screen from under
+      // them. Offered on ANY ending, not only a win — the loser needs the way
+      // out more than the winner does, and it used to be the winner alone who
+      // got one.
+      //
+      // It polls as it goes, so the next lobby arrives now rather than at the
+      // end of a four-second cycle; the button reads as taking you somewhere.
+      onNewMatch={
+        ended
+          ? () => {
+              setWatching(null);
+              refresh();
+            }
+          : undefined
+      }
+      againLabel="Queue for the next round"
     />
   );
 }
