@@ -70,6 +70,15 @@
      once emptied — so this token colours no flower on the board. Shape and hue
      do that work there. */
   --color-flower: #d8b4fe;
+
+  /* Scenery greens. NOT `--color-meadow`, which is #584461 — the dusty violet
+     the BOARD paints its open ground with, correct there and a purple hill
+     anywhere a landscape is meant. Three steps of sage, far to near, chosen to
+     sit on the lavender page rather than to be green in the abstract. */
+  --color-far: #ced9c3;
+  --color-mid: #b7c9a7;
+  --color-near: #9cb489;
+  --color-stem: #7c9a6a;
 }
 
 :root {
@@ -132,6 +141,31 @@ svg.hive {
   25%      { transform: translate(0.6px, -0.8px) rotate(2deg); }
   50%      { transform: translate(-0.4px, 0.5px) rotate(-1deg); }
   75%      { transform: translate(0.5px, 0.6px) rotate(3deg); }
+}
+
+/* A bee crossing the margin of a quiet page. Long, slow and offset per bee, so
+   no two ever line up — the point is that the page is alive, not that anything
+   is happening. */
+@keyframes bk-drift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(26px, -18px) rotate(4deg);
+  }
+  50% {
+    transform: translate(6px, -34px) rotate(-3deg);
+  }
+  75% {
+    transform: translate(-22px, -14px) rotate(3deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+.bk-drift {
+  animation: bk-drift 60s ease-in-out infinite both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -279,6 +313,11 @@ svg.hive {
 
   .bk-reveal,
   .bk-hint {
+    animation: none;
+  }
+
+  /* The bees stay — a still meadow is still a meadow — they simply stop. */
+  .bk-drift {
     animation: none;
   }
 }
