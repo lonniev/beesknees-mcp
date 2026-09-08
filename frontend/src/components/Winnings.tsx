@@ -19,7 +19,7 @@ import { useCharity } from "./CharityNote";
 import { fetchProfile } from "../lib/nostrProfile";
 
 const field =
-  "w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm placeholder:text-white/25 focus:border-amber-400 focus:outline-none";
+  "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm placeholder:text-ink/50 focus:border-amber-400 focus:outline-none";
 
 export default function Winnings({ npub }: { npub: string }) {
   const [donate, setDonate] = useState(true);
@@ -88,14 +88,14 @@ export default function Winnings({ npub }: { npub: string }) {
   const needsAddress = !donate && !address.trim();
 
   return (
-    <section className="rounded-xl border border-white/10 p-4">
+    <section className="rounded-xl border border-ink/14 p-4">
       <div className="flex items-center gap-2">
         <HeartHandshake size={15} className="text-amber-300/80" />
-        <h2 className="text-sm font-semibold text-white/80">If you win</h2>
-        {loading && <Loader2 size={13} className="animate-spin text-white/30" />}
+        <h2 className="text-sm font-semibold text-ink/90">If you win</h2>
+        {loading && <Loader2 size={13} className="animate-spin text-ink/65" />}
       </div>
 
-      <p className="mt-1 text-xs text-white/45">
+      <p className="mt-1 text-xs text-ink/70">
         Ten percent of the pot goes to the winner. Say now what should happen to it.
         {!loading && !stated && " You have not said, so it goes to the charity."}
       </p>
@@ -132,7 +132,7 @@ export default function Winnings({ npub }: { npub: string }) {
 
       {!donate && (
         <div className="mt-3">
-          <label className="mb-1 block text-[11px] text-white/40">Lightning address</label>
+          <label className="mb-1 block text-[11px] text-ink/65">Lightning address</label>
           <input
             className={field}
             value={address}
@@ -155,7 +155,7 @@ export default function Winnings({ npub }: { npub: string }) {
       </button>
 
       {msg && (
-        <p className={`mt-3 text-xs ${msg.tone === "ok" ? "text-white/60" : "text-red-300/80"}`}>
+        <p className={`mt-3 text-xs ${msg.tone === "ok" ? "text-ink/78" : "text-red-300/80"}`}>
           {msg.text}
         </p>
       )}
@@ -180,19 +180,19 @@ function Choice({
       type="button"
       onClick={onSelect}
       className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ${
-        checked ? "border-amber-400/50 bg-amber-400/5" : "border-white/10 hover:bg-white/5"
+        checked ? "border-amber-400/50 bg-amber-400/5" : "border-ink/14 hover:bg-ink/4"
       }`}
     >
       <span
         className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border ${
-          checked ? "border-amber-400" : "border-white/25"
+          checked ? "border-amber-400" : "border-ink/32"
         }`}
       >
         {checked && <span className="h-2 w-2 rounded-full bg-amber-400" />}
       </span>
       <span className="min-w-0">
-        <span className="block text-sm text-white/85">{title}</span>
-        <span className="mt-0.5 block text-[11px] text-white/40">{note}</span>
+        <span className="block text-sm text-ink/95">{title}</span>
+        <span className="mt-0.5 block text-[11px] text-ink/65">{note}</span>
       </span>
     </button>
   );

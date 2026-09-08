@@ -1,16 +1,32 @@
 @import "tailwindcss";
 
-/* This app is dark. Not "dark if your laptop is".
+/* This app is LIGHT. Not "light if your laptop is".
  *
- * The identity screens were copied in from sibling services that support both
- * themes, so they carry ~50 `dark:` classes. Tailwind v4 resolves that variant
- * from `prefers-color-scheme` unless told otherwise — and nothing here sets a
- * `dark` class — so a visitor whose OS is in light mode would have got white
- * cards and stone-grey text sitting on this page's near-black ground. The board
- * has one palette and no light mode, so the variant is simply always on. */
-@custom-variant dark (&);
+ * It was dark, and a reader told us plainly: "we can hardly see your bees, and
+ * all your grey text is excruciating to read." They were right on both counts.
+ * The faint tiers this page leaned on — white/35 and white/40, its two most
+ * used — are barely 2:1 on a near-black ground. No amount of hue fixes that;
+ * only lightness does.
+ *
+ * The identity screens came from siblings that support both themes, so they
+ * carry ~70 `dark:` classes and were written LIGHT-first: `border-stone-200
+ * dark:border-zinc-800`. The variant used to be forced permanently on. Now it
+ * matches nothing, so those components fall back to the light halves they
+ * already had, and nothing needed rewriting to get them.
+ *
+ * The BOARD is deliberately still dark. It is a playfield inside a frame, its
+ * marks are tuned against a dark meadow, and the request was for the frame. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* Ink, and the ground it is read on.
+   *
+   * Every text tier is an alpha of this over that, and the ladder was measured
+   * rather than eyeballed: ink/65 is 4.76:1, ink/70 is 5.55, ink/78 is 7.15,
+   * ink/90 is 10.4. Nothing that carries words sits below ink/65, which is why
+   * the old white/35 and white/40 both moved UP rather than merely across —
+   * translating them one-for-one would have preserved the complaint. */
+  --color-ink: #241b33;
   --color-comb: #2f2410;
   --color-comb-edge: #4a3819;
   --color-tunnel: #c9a227;
@@ -29,12 +45,23 @@
      surround. Every foreground held its footing — body text 14.1:1, wax
      10.9:1, your own bee 12.1:1 — within a hair of the near-black it
      replaces. */
-  --color-sky: #171227;
+  /* The frame. A lavender field in daylight rather than at dusk — the page
+     around the board, which is what "frame background" meant. Full ink on it
+     is 13.6:1, so there is room for a whole ladder above the 4.5:1 floor. */
+  --color-sky: #ede7f6;
   --color-queen: #ff5fa2;
-  /* Your own bee. Deliberately the one hue nothing else on the board uses. */
+  /* Your own bee. Deliberately the one hue nothing else on the board uses.
+     Kept bright: it fills buttons and draws on the dark board, where it is
+     read against black text or dark comb. */
   --color-you: #a3e635;
+  /* The same identity, dark enough to be READ as text on the light frame.
+     Lime on lavender is 1.25:1 — a colour, not a word. This is 5.85:1. */
+  --color-you-ink: #3f6212;
   /* A hive where somebody has reached the inner rings. */
   --color-hot: #ff4d4d;
+  --color-hot-ink: #b91c1c;
+  /* Wax as a word rather than as a fill: #f2c14e is 1.39:1 on the frame. */
+  --color-wax-ink: #92400e;
   /* Your hive's WALL — a different hue from your bee, which shared it and made
      the boundary and the halo read as the same thing. */
   --color-hive-mine: #7dd3fc;
@@ -46,7 +73,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -58,7 +85,7 @@ body,
 body {
   margin: 0;
   background: var(--color-sky);
-  color: #e8e2d4;
+  color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   /* A tap on a cell must never be swallowed by a double-tap zoom. */
   touch-action: manipulation;

@@ -65,7 +65,7 @@ export default function Play() {
     <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Play</h1>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-ink/70">
           The same board either way. The difference is whether the other eleven bees
           belong to people, and whether the pot is real.
         </p>
@@ -73,12 +73,12 @@ export default function Play() {
 
       <button
         onClick={() => setMode("solo")}
-        className="flex items-start gap-3 rounded-xl border border-white/10 p-4 text-left hover:bg-white/5"
+        className="flex items-start gap-3 rounded-xl border border-ink/14 p-4 text-left hover:bg-ink/4"
       >
-        <Bot size={20} className="mt-0.5 shrink-0 text-white/50" />
+        <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
         <span>
           <span className="font-semibold">Practice</span>
-          <span className="block text-sm text-white/50">
+          <span className="block text-sm text-ink/70">
             Eleven bots, no sats, nothing at stake. Free, and always available.
           </span>
         </span>
@@ -89,28 +89,28 @@ export default function Play() {
         disabled={!canPlayLive}
         className={`flex items-start gap-3 rounded-xl border p-4 text-left ${
           canPlayLive
-            ? "border-[var(--color-you)]/40 hover:bg-white/5"
-            : "border-white/10 opacity-55"
+            ? "border-[var(--color-you)]/40 hover:bg-ink/4"
+            : "border-ink/14 opacity-55"
         }`}
       >
-        <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you)]" />
+        <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you-ink)]" />
         <span>
           <span className="font-semibold">The real game</span>
-          <span className="block text-sm text-white/50">
+          <span className="block text-sm text-ink/70">
             Real bees, a real pot, and 80% of it to the pollinators.
           </span>
           {!canPlayLive && known && (
-            <span className="mt-2 block text-sm text-[var(--color-wax)]">{why}</span>
+            <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">{why}</span>
           )}
         </span>
       </button>
 
       {!session.signedIn ? (
-        <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-white/60">
+        <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">
           Sign in
         </Link>
       ) : balance === 0 ? (
-        <Link to="/profile" className="text-center text-sm underline text-white/60">
+        <Link to="/profile" className="text-center text-sm underline text-ink/78">
           Add sats
         </Link>
       ) : null}

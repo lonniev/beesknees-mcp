@@ -123,7 +123,7 @@ function RivalTile({
           ? "border-[var(--color-hot)]"
           : yours
             ? "border-[var(--color-you)]"
-            : "border-white/10"
+            : "border-ink/14"
       }`}
     >
       <HiveView
@@ -136,7 +136,9 @@ function RivalTile({
         focused={false}
         armed={false}
       />
-      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/50 text-[9px] leading-tight text-white/75">
+      <span /* White, not ink: this strip is a dark scrim laid over the board
+        * thumbnail, so it keeps the board's palette rather than the frame's. */
+        className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55 text-[9px] leading-tight text-white/85">
         {hive.name}
       </span>
     </button>
@@ -186,14 +188,14 @@ export default function BoardScreen(p: BoardScreenProps) {
       <header className="flex shrink-0 items-center justify-between px-1">
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-semibold tracking-tight">The Bee's Knees</span>
-          {p.tag && <span className="text-xs text-white/40">{p.tag}</span>}
+          {p.tag && <span className="text-xs text-ink/65">{p.tag}</span>}
         </div>
-        <div className="flex items-center gap-3 text-xs tabular-nums text-white/60">
+        <div className="flex items-center gap-3 text-xs tabular-nums text-ink/78">
           <span>
             {String(Math.floor(p.elapsedSec / 60))}:{String(p.elapsedSec % 60).padStart(2, "0")}
           </span>
           {p.onNewMatch && (
-            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-white/10" title="New match">
+            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-ink/7" title="New match">
               <RotateCcw size={16} />
             </button>
           )}
@@ -214,14 +216,14 @@ export default function BoardScreen(p: BoardScreenProps) {
           {wide && <span className="w-24 shrink-0 lg:w-32 xl:w-40" />}
           <span className="min-w-0 flex-1 truncate text-center font-medium">
             {shown.queen}
-            {mineHere && <span className="ml-1.5 text-[var(--color-you)]">your hive</span>}
+            {mineHere && <span className="ml-1.5 text-[var(--color-you-ink)]">your hive</span>}
           </span>
           {wide && (
             <span className="flex w-24 shrink-0 justify-end lg:w-32 xl:w-40">
               {p.yourHive !== null && !mineHere && (
                 <button
                   onClick={() => p.onFocus(p.yourHive!)}
-                  className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you)]"
+                  className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you-ink)]"
                 >
                   Back to my bee
                 </button>
@@ -290,20 +292,25 @@ export default function BoardScreen(p: BoardScreenProps) {
             {p.winner && (
               <div
                 key={`card:${p.winner.detail}`}
-                className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm"
+                /* Still a DARK surface, on an otherwise light page. Everything
+                 * inside it keeps white-on-black ink and the bright accents —
+                 * the page-wide swap to dark ink would have made this card
+                 * unreadable, which is the one place the frame's palette must
+                 * not reach. */
+                className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 text-white backdrop-blur-sm"
               >
                 {p.winner.unwon ? (
                   // No crown and no trophy for a round nobody won. Ceremony for
                   // a stalemate reads as mockery.
-                  <Hourglass size={34} className="text-white/40" />
+                  <Hourglass size={34} className="text-white/45" />
                 ) : p.winner.yours ? (
                   <Crown size={44} className="bk-pulse text-[var(--color-wax)]" />
                 ) : (
-                  <Trophy size={38} className="text-white/70" />
+                  <Trophy size={38} className="text-white/75" />
                 )}
                 <div className="text-center">
                   <div className="text-xl font-semibold">{p.winner.label}</div>
-                  <div className="mt-0.5 text-sm text-white/60">{p.winner.detail}</div>
+                  <div className="mt-0.5 text-sm text-white/70">{p.winner.detail}</div>
                   {/* The money, on its own line. It was appended to the detail
                     * with a second dash, which read as an afterthought about
                     * the thing the whole game is for. */}
@@ -358,14 +365,14 @@ export default function BoardScreen(p: BoardScreenProps) {
           * the button rather than trailing off at the window's edge — and named
           * as a hint, in italics, so it is plainly the game talking to you and
           * not a label on something. */}
-        <span className="flex min-w-0 flex-1 items-center justify-center text-center text-[13px] italic leading-none text-white/60">
+        <span className="flex min-w-0 flex-1 items-center justify-center text-center text-[13px] italic leading-none text-ink/78">
           <span className="min-w-0">
-            <span className="not-italic text-white/35">Hint: </span>
+            <span className="not-italic text-ink/65">Hint: </span>
             {p.prompt}
           </span>
         </span>
 
-        <div className="flex gap-2 rounded-xl bg-white/5 p-1.5">
+        <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
           {p.verbs.map(({ id, hint, Icon }) => (
             <button
               key={id}
@@ -373,7 +380,7 @@ export default function BoardScreen(p: BoardScreenProps) {
               title={hint}
               aria-pressed={p.verb === id}
               className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
-                p.verb === id ? "bg-[var(--color-you)] text-black" : "text-white/55 hover:bg-white/10"
+                p.verb === id ? "bg-[var(--color-you)] text-black" : "text-ink/70 hover:bg-ink/7"
               }`}
             >
               <Icon size={19} />
@@ -385,7 +392,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           onClick={p.onAct}
           disabled={!p.actionEnabled}
           className={`relative min-w-40 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
-            p.actionEnabled ? "bg-[var(--color-you)] text-black" : "bg-white/10 text-white/45"
+            p.actionEnabled ? "bg-[var(--color-you)] text-black" : "bg-ink/7 text-ink/70"
           }`}
         >
           {/* The rest, drawn ON the button it gates: the unfilled part IS the

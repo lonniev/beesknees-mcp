@@ -16,28 +16,28 @@ const DOTS = 60;
 
 export default function WildVsManaged() {
   return (
-    <figure className="my-7 rounded-2xl bg-white/5 p-5">
-      <figcaption className="text-sm font-medium text-white/85">
+    <figure className="my-7 rounded-2xl bg-ink/4 p-5">
+      <figcaption className="text-sm font-medium text-ink/95">
         Which bees actually need the help
       </figcaption>
 
       <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <div>
-          <div className="text-4xl font-semibold tracking-tight text-[var(--color-wax)]">~4,000</div>
-          <div className="mt-1 text-sm text-white/70">
+          <div className="text-4xl font-semibold tracking-tight text-[var(--color-wax-ink)]">~4,000</div>
+          <div className="mt-1 text-sm text-ink/80">
             native bee species in North America
           </div>
-          <div className="mt-1 text-[11px] text-white/40">
+          <div className="mt-1 text-[11px] text-ink/65">
             Many in documented decline. None has a keeper.
           </div>
         </div>
 
-        <div className="hidden h-16 w-px bg-white/10 sm:block" />
+        <div className="hidden h-16 w-px bg-ink/7 sm:block" />
 
         <div>
-          <div className="text-4xl font-semibold tracking-tight text-white/80">1</div>
-          <div className="mt-1 text-sm text-white/70">managed for honey and pollination</div>
-          <div className="mt-1 text-[11px] text-white/40">
+          <div className="text-4xl font-semibold tracking-tight text-ink/90">1</div>
+          <div className="mt-1 text-sm text-ink/80">managed for honey and pollination</div>
+          <div className="mt-1 text-[11px] text-ink/65">
             Losses replaced each spring by splitting hives.
           </div>
         </div>
@@ -50,12 +50,12 @@ export default function WildVsManaged() {
           <span
             key={i}
             className={`h-1.5 w-1.5 rounded-full ${
-              i === 41 ? "bg-white/80" : "bg-[var(--color-wax)]/35"
+              i === 41 ? "bg-ink/85" : "bg-[var(--color-wax-ink)]/45"
             }`}
           />
         ))}
       </div>
-      <p className="mt-2 text-[10px] text-white/30">
+      <p className="mt-2 text-[10px] text-ink/65">
         Marks are illustrative, not to scale — the real ratio is about four thousand to one.
       </p>
     </figure>

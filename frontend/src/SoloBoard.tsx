@@ -341,7 +341,7 @@ export default function App() {
       onVerb={(v) => setVerb(v as Verb)}
       prompt={
         !ready ? (
-          <span className="text-[var(--color-you)]">
+          <span className="text-[var(--color-you-ink)]">
             {busyWord(you?.lastAction)} {(cooldownMs / 1000).toFixed(1)}s
           </span>
         ) : pending.action?.kind === "dig" ? (
