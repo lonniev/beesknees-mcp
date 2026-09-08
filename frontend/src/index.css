@@ -264,3 +264,57 @@ svg.hive {
     animation: none;
   }
 }
+
+/* ── The brood ────────────────────────────────────────────────────────────
+ *
+ * The winner's tableau: the queen, the bee that reached her, and the eggs.
+ * The eggs arrive AFTER the pair have settled, because a consequence that
+ * lands before its cause is not a joke, it is a rendering order. */
+
+/* She is unhurried. A queen does not bustle. */
+@keyframes bk-queen {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50%      { transform: rotate(2deg) translateY(-1.5px); }
+}
+
+.bk-queen {
+  animation: bk-queen 2.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* He has just flown thirty cells of comb and it shows. */
+@keyframes bk-suitor {
+  0%   { transform: translateX(26px) rotate(-12deg); opacity: 0; }
+  35%  { transform: translateX(0) rotate(4deg); opacity: 1; }
+  55%  { transform: translateX(-2px) rotate(-3deg); }
+  70%  { transform: translateX(1px) rotate(2deg); }
+  100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+}
+
+.bk-suitor {
+  animation: bk-suitor 1s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+  transform-origin: bottom center;
+}
+
+/* Each egg set down in its cell, in order. `both` so nothing shows before
+   its turn — an egg that is already there has not been laid. */
+@keyframes bk-egg {
+  0%   { transform: scale(0.2) translateY(-3px); opacity: 0; }
+  70%  { transform: scale(1.12) translateY(0); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bk-egg {
+  animation: bk-egg 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Stillness was asked for, so the scene is simply THERE — the queen, the
+     bee and a full frame of brood, with nothing arriving. */
+  .bk-queen,
+  .bk-suitor,
+  .bk-egg {
+    animation: none;
+    opacity: 1;
+  }
+}

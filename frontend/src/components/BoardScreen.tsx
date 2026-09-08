@@ -14,8 +14,9 @@
  */
 
 import type { ReactNode } from "react";
-import { Crown, Hourglass, RotateCcw, Trophy } from "lucide-react";
+import { Hourglass, RotateCcw } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
+import Brood from "./Brood.tsx";
 import Coronation from "./Coronation.tsx";
 import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
@@ -300,13 +301,14 @@ export default function BoardScreen(p: BoardScreenProps) {
                 className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 text-white backdrop-blur-sm"
               >
                 {p.winner.unwon ? (
-                  // No crown and no trophy for a round nobody won. Ceremony for
-                  // a stalemate reads as mockery.
+                  // No brood for a round nobody won. Ceremony for a stalemate
+                  // reads as mockery.
                   <Hourglass size={34} className="text-white/45" />
-                ) : p.winner.yours ? (
-                  <Crown size={44} className="bk-pulse text-[var(--color-wax)]" />
                 ) : (
-                  <Trophy size={38} className="text-white/75" />
+                  // A trophy is a sports cup, and this was a race to a queen.
+                  // The tableau says what actually happened; `yours` only makes
+                  // it bigger and lays two more eggs.
+                  <Brood yours={Boolean(p.winner.yours)} />
                 )}
                 <div className="text-center">
                   <div className="text-xl font-semibold">{p.winner.label}</div>
