@@ -13,8 +13,8 @@
  * written. Neither engine can change this layout without changing it for both.
  */
 
-import type { ReactNode } from "react";
-import { Hourglass, RotateCcw } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Hourglass, Maximize2, Minimize2, Repeat, RotateCcw } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import Brood from "./Brood.tsx";
 import Coronation from "./Coronation.tsx";
@@ -180,12 +180,28 @@ function RivalColumn({
 
 export default function BoardScreen(p: BoardScreenProps) {
   const wide = useWide();
+  /**
+   * A phone showing one hive and nothing else.
+   *
+   * On a narrow screen the board was the smallest thing on it: a header, the
+   * scoreboard, the queen's line, a strip of rivals and the controls all took
+   * their cut first, and what was left had to hold a 358-cell rosette. Tapping
+   * a hive now gives it the screen; the chrome comes back on the toggle.
+   *
+   * Never on a wide screen — there the gutters ARE the point, and hiding four
+   * hives to enlarge a fifth would lose the thing the layout was built for.
+   */
+  const [zoomed, setZoomed] = useState(false);
+  const immersive = !wide && zoomed;
   const rivals = p.hives.filter((h) => h.id !== p.focus);
   const shown = p.focus === null ? null : p.hives.find((h) => h.id === p.focus) ?? null;
   const mineHere = p.yourHive !== null && p.yourHive === p.focus;
 
   return (
-    <div className="flex h-full flex-col gap-2 p-2">
+    <div
+      className={`flex h-full flex-col ${immersive ? "gap-1 p-0" : "gap-2 p-2"}`}
+    >
+      {!immersive && (
       <header className="flex shrink-0 items-center justify-between px-1">
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-semibold tracking-tight">The Bee's Knees</span>
@@ -202,13 +218,14 @@ export default function BoardScreen(p: BoardScreenProps) {
           )}
         </div>
       </header>
+      )}
 
-      <Scoreboard />
+      {!immersive && <Scoreboard />}
 
       {/* Which hive you are looking at — and a way straight back to your own,
        * since watching a rival is a click away and finding your way home
        * should not be a hunt through the gutters. */}
-      {shown && (
+      {shown && !immersive && (
         <div className="flex shrink-0 items-center px-1 text-xs">
           {/* The gutters are as wide as the rival columns, so the middle of this
             * row is the middle of the BOARD. The name of the hive you are flying
@@ -286,7 +303,32 @@ export default function BoardScreen(p: BoardScreenProps) {
             {/* The flourish plays on the CLEAR board; the card follows. Both
               * are keyed on the winner's line so a fresh win replays them
               * rather than showing a finished animation and a new name. */}
-            {p.winner && !p.winner.unwon && (
+            {/* The way in and the way out of a full-screen hive. Over the board
+            * rather than in the header, because in immersive mode there is no
+            * header — a control that vanishes with the thing it undoes is a
+            * trap. Phone only: on a wide screen the gutters are the point. */}
+          {!wide && shown && (
+            <button
+              onClick={() => setZoomed((v) => !v)}
+              aria-pressed={zoomed}
+              title={zoomed ? "Show every hive" : "Fill the screen with this hive"}
+              className="absolute right-1.5 top-1.5 z-10 rounded-lg bg-black/45 p-2 text-white/85 backdrop-blur-sm"
+            >
+              {zoomed ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          )}
+
+          {/* While immersive the queen's line has nowhere else to live. */}
+          {immersive && shown && (
+            <div className="pointer-events-none absolute inset-x-0 top-1.5 z-10 text-center text-[11px] text-white/80">
+              <span className="rounded-md bg-black/45 px-2 py-1 backdrop-blur-sm">
+                {shown.queen}
+                {mineHere && <span className="ml-1.5 text-[var(--color-you)]">your hive</span>}
+              </span>
+            </div>
+          )}
+
+          {p.winner && !p.winner.unwon && (
               <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />
             )}
 
@@ -323,9 +365,9 @@ export default function BoardScreen(p: BoardScreenProps) {
                 {p.onNewMatch && (
                   <button
                     onClick={p.onNewMatch}
-                    className="rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
                   >
-                    Again
+                    <Repeat size={15} /> Play Again
                   </button>
                 )}
               </div>
@@ -343,8 +385,9 @@ export default function BoardScreen(p: BoardScreenProps) {
           )}
         </div>
 
-        {/* Narrow screens have no gutters, so the rivals go in a strip below. */}
-        {!wide && (
+        {/* Narrow screens have no gutters, so the rivals go in a strip below —
+          * and it is the first thing to go when one hive takes the screen. */}
+        {!wide && !immersive && (
           <div className="flex h-16 shrink-0 justify-center gap-1.5">
             {rivals.map((h) => (
               <RivalTile
@@ -362,17 +405,29 @@ export default function BoardScreen(p: BoardScreenProps) {
 
       {/* Controls. The prompt sits on the LEFT, where reading starts — after
        * the button it was an answer arriving behind its question. */}
-      <div className="flex shrink-0 items-center gap-4 pb-[env(safe-area-inset-bottom)]">
+      {/* On a phone the hint gets its own line. Sharing the row with two button
+        * groups gave it about a hundred pixels, and it wrapped to seven lines —
+        * stealing the height from the board it was meant to be helping with. */}
+      {!wide && (
+        <span className="shrink-0 px-2 text-center text-[13px] italic leading-snug text-ink/78">
+          <span className="not-italic text-ink/65">Hint: </span>
+          {p.prompt}
+        </span>
+      )}
+
+      <div className="flex shrink-0 items-center gap-4 px-1 pb-[env(safe-area-inset-bottom)]">
         {/* The hint, centred in its own half so it reads level with the verb on
           * the button rather than trailing off at the window's edge — and named
           * as a hint, in italics, so it is plainly the game talking to you and
-          * not a label on something. */}
+          * not a label on something. Wide screens only; see above. */}
+        {wide && (
         <span className="flex min-w-0 flex-1 items-center justify-center text-center text-[13px] italic leading-none text-ink/78">
           <span className="min-w-0">
             <span className="not-italic text-ink/65">Hint: </span>
             {p.prompt}
           </span>
         </span>
+        )}
 
         <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
           {p.verbs.map(({ id, hint, Icon }) => (
@@ -409,7 +464,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           <span className="relative">{p.actionLabel}</span>
         </button>
 
-        <span className="flex-1" />
+        {wide && <span className="flex-1" />}
       </div>
     </div>
   );
