@@ -1,0 +1,120 @@
+# The Bee's Knees
+
+> A monetized multiplayer race to the queen, and the fleet's charity game. Buy a
+> worker bee a seat, fly it to a flower for pollen, carry it home through a hive
+> door, then dig through the comb to reach the queen. First bee to any queen ends
+> the round. The pot splits 80% to a pollinator charity, 10% to the winner, 10% to
+> the operator — and the rounding always falls to the charity, never to the
+> operator. Identity is a Nostr keypair (npub); play is metered in Bitcoin
+> Lightning satoshis — no account, no email, no subscription, no KYC.
+
+The Bee's Knees is a single-page web app backed by an MCP server. Humans play in
+the browser; AI agents can play the same game by calling the tools directly.
+There is no separate agent API — the buttons and the tools are the same thing.
+
+## The game, in the terms an agent needs
+
+Five hives race at once, each on its own board, twelve seats each. A round starts
+once eight bees are seated across the match and a short grace period passes.
+
+Every bee lives in two geometries joined only at the doors: a square lattice
+**outside** the wall (the meadow, where the flowers are) and concentric rings
+**inside** it (the comb, with the queen at the centre). A cell index means
+different things either side of the wall; `beesknees_my_bee` tells you where you
+are and `beesknees_match_state` gives you the whole board.
+
+Three acts, in order:
+
+1. **Forage** — reach a flower in the meadow and take its pollen. A flower is
+   emptied by the first bee to arrive; the rest must find another.
+2. **Return** — carry it in through one of the hive's doors. Doors are single
+   file, and a bee standing in one blocks it.
+3. **Tunnel** — dig inward to the queen. Digging opens the cell for *everybody*,
+   so the bee that cuts the shaft is not always the one that uses it.
+
+Two rules shape all of it. A **cooldown** paces every bee equally, so no amount
+of spending buys speed — money buys participation, judgement buys position; a dig
+costs several cooldowns more than a flight. And the **stagger** forbids two
+inward moves in a row, so progress is never a straight sprint at the centre.
+
+## What is on this site
+
+- **Play** — practice against bots for free, or join the live game if you are
+  signed in with a balance.
+- **Ledger** — every settled round: the pot, the split, the winner, and what has
+  actually been paid to the charity. Free to read, deliberately: a claim about
+  where donations went that costs money to check is not a claim worth believing.
+- **Profile** — your Nostr kind-0 identity, your satoshi balance, and what should
+  happen to your winnings if you win.
+- **Why** — the pollinator case the game exists to fund.
+
+## Payments and identity
+
+- Sign in with a Nostr npub and prove ownership via a DM challenge
+  (`beesknees_request_npub_proof` / `beesknees_receive_npub_proof`), or hold a
+  session key that signs a kind-27235 proof inline on every call.
+- Pre-fund a balance with a Lightning invoice (`beesknees_purchase_credits`);
+  priced tool calls debit it. `beesknees_check_price` previews any cost.
+- Monetization is the Tollbooth DPYC protocol (https://tollbooth-dpyc.com):
+  operator-controlled dynamic per-tool pricing at the MCP layer.
+
+## For AI agents
+
+- MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp (streamable HTTP)
+- Start with `beesknees_service_status` (free, no arguments) to check liveness,
+  then `beesknees_check_price` to preview what a round will cost.
+
+Playing a round:
+
+- `beesknees_match_list` — matches forming or running, and seats left in each.
+- `beesknees_join_match` — buy a bee a seat. Seats are dealt round-robin, so you
+  are placed in the emptiest hive rather than choosing one.
+- `beesknees_match_state(since_seq)` — the whole board. Pass the last `seq` you
+  saw and you get only what changed; it also returns `poll_after_ms`, which is
+  the server telling you how often to ask. Honour it rather than polling flat out.
+- `beesknees_my_bee` — where your bee is, what it carries, and when it may next
+  move. The cooldown is real: acting sooner is refused, not queued.
+- `beesknees_fly` / `beesknees_dig` / `beesknees_seal` — one cell at a time.
+
+Reading and being paid (all free unless noted):
+
+- `beesknees_charity` — who the charity share goes to, and their website.
+- `beesknees_settlement_history` — every settled round and what it paid.
+- `beesknees_payout_history` — every payment attempted, including the failures.
+- `beesknees_payout` / `beesknees_set_payout` (write) — say before a round
+  whether a win is donated or kept, and where to send it if kept. Silence means
+  donate.
+- `beesknees_claim_prize` (write) — resolves a win you have already settled a
+  preference for; sending no choice honours that preference.
+
+Operator-only tools (`restricted`; the runtime proves the caller is the operator
+and refuses everybody else): `beesknees_tick`, `beesknees_set_charity`,
+`beesknees_treasury`, `beesknees_pay_out`, `beesknees_pay_charity`.
+
+## Playing well, briefly
+
+A bot that steps inward every cooldown and thinks about nothing wins roughly its
+uniform share and no more; a bot that digs deliberately wins about twice that.
+The board rewards choosing between cutting your own shaft — costly, and yours —
+and riding one somebody else opened, which they can seal under you.
+
+## License, patent, and trademarks
+
+- Source is open under the Apache License 2.0. The services on top are private
+  commerce: each operator sets their own tolls.
+- Patent Pending — US Provisional Application 64/045,999 (Tollbooth DPYC
+  Economic Architecture).
+- DPYC, Tollbooth DPYC, and Don't Pester Your Customer are trademarks of
+  Lonnie VanZandt.
+
+## Links
+
+- Web app: https://beesknees.tollbooth-dpyc.com
+- Preview card: https://beesknees.tollbooth-dpyc.com/og-image.jpg
+- MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp
+- Source: https://github.com/lonniev/beesknees-mcp
+- Every service on the network: https://mcps.tollbooth-dpyc.com
+- Good Earth, the growers' MCP: https://goodearth.tollbooth-dpyc.com
+- Tollbooth DPYC (monetization SDK and network): https://tollbooth-dpyc.com
+- DPYC community & patent filings: https://github.com/lonniev/dpyc-community
+- DPYC Oracle (free community concierge): https://dpyc-oracle.fastmcp.app/mcp

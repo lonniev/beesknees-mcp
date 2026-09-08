@@ -3,7 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#171227" />
+
+    <!-- What this is, for anything that reads the page rather than plays the
+         game. A crawler, a link preview, and an AI agent all land here first,
+         and this file used to say nothing but the title. -->
+    <meta
+      name="description"
+      content="The Bee's Knees — a monetized race to the queen. Buy a worker bee, forage, carry pollen home, and dig through the comb. 80% of every pot goes to pollinator conservation. Sign in with a Nostr key; play is metered in Bitcoin Lightning satoshis."
+    />
     <title>The Bee's Knees</title>
+
+    <!-- Where an agent should actually go. `llms.txt` is the fleet's
+         convention for orientation in prose an agent can read: what the game
+         is, which tools play it, and the two rules that make it a game rather
+         than a race to spend. Linked as well as served, because a convention
+         only found by guessing a path is a convention half the callers miss. -->
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="Guide for AI agents" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Bee's Knees" />
+    <meta property="og:title" content="The Bee's Knees" />
+    <meta property="og:description" content="A race to the queen. Most of what a round collects goes to pollinator conservation." />
+    <meta property="og:url" content="https://beesknees.tollbooth-dpyc.com" />
+    <!--
+      The BOARD, not a person.
+
+      A solo round, so nothing on it belongs to a patron: no live match, no
+      balances beyond zeroes, and the only identifiers are the podium's
+      already-public npubs, truncated exactly as every visitor to the site sees
+      them. That test is the point of this comment. The sibling that got it
+      wrong served a screenshot of a real grower's block — its name, its town,
+      its acreage and a satellite view of the property — to every crawler and
+      every link preview of the domain. Before replacing this image, check what
+      is actually in the frame rather than what the page usually shows.
+
+      Absolute, not relative: a crawler resolves this with no page context, and
+      a relative path silently yields no preview at all. Served from public/ so
+      Vite copies it through unhashed and the URL survives every deploy — a
+      hashed asset name would break every link already shared.
+    -->
+    <meta property="og:image" content="https://beesknees.tollbooth-dpyc.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Five hives racing: a polar comb with a queen at the centre, bees tunnelling inward across a lavender meadow." />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
