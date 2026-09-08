@@ -89,6 +89,18 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
   const [board, setBoard] = useState<LiveState | null>(null);
   const [error, setError] = useState("");
   const seq = useRef(-1);
+  /**
+   * Which match that `seq` belongs to.
+   *
+   * `seq` is per MATCH, and carrying one across a rollover is what stranded a
+   * player on a finished board: the browser kept sending the dead match's
+   * number, every poll came back `unchanged` with no board, and the screen
+   * never moved on. The server now refuses to answer `unchanged` to a client
+   * that is ahead of it, which fixes this for every client at once — this is
+   * the belt to that pair of braces, and it also covers the case where two
+   * matches happen to sit at the same seq.
+   */
+  const matchId = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
   /** When the board last actually came back. The watchdog reads this. */
@@ -126,8 +138,17 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
       }
       setError("");
       lastOk.current = Date.now();
+      // A different match than the one this sequence number came from: forget
+      // the number and ask again from scratch. Never carry it across — that is
+      // the whole bug.
+      if (res.match_id && res.match_id !== matchId.current && res.unchanged) {
+        seq.current = -1;
+        return 200;
+      }
+
       if (!res.unchanged && res.bees) {
         seq.current = res.seq ?? seq.current;
+        matchId.current = res.match_id ?? matchId.current;
         setBoard(res as LiveState);
       } else if (res.seq !== undefined) {
         seq.current = res.seq;
