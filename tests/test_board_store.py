@@ -1158,3 +1158,38 @@ def test_a_failed_batch_gives_the_debt_back(vault) -> None:
         assert [p["state"] for p in await store.payouts(10)] == ["failed"]
 
     asyncio.run(go())
+
+
+def test_a_bee_carrying_pollen_does_not_leave_the_hive(vault) -> None:
+    """The doorway rule, enforced where it counts.
+
+    A bee that has crossed a door does not step back out. It used to be free
+    to, and over 1,218 simulated crossings 52.6% did — every one carrying
+    pollen and heading for the queen. The cause is a doorway under pressure:
+    the cell inside is taken by whoever is queueing, the wall either side
+    cannot be cut, and the only legal move left is back into the meadow.
+
+    Asserted against the server rather than the browser because a rule only the
+    client checks is a rule only honest players follow.
+    """
+    g = geo.make_geometry()
+    door = next(c for c in range(g.hive_cells) if geo.ring_of(g, c) == g.wall)
+    outside = next(
+        (n for n in geo.neighbors(g, door) if geo.is_meadow(g, n)), None
+    )
+    assert outside is not None, "a door must open onto the meadow"
+
+    # Carrying pollen, standing in the doorway: the meadow is behind you now.
+    with pytest.raises(store.BoardError, match="not leaving the hive"):
+        store._require_commitment(g, {"phase": "tunnel", "cell": door}, outside)
+
+    # Still foraging, so the meadow is exactly where it should be going.
+    store._require_commitment(g, {"phase": "forage", "cell": door}, outside)
+
+    # And carrying pollen OUTSIDE, on its way in — untouched.
+    store._require_commitment(g, {"phase": "tunnel", "cell": outside}, outside)
+
+    # Inward is never what this rule is about.
+    inward = geo.inward(g, geo.ring_of(g, door), door - g.offset[g.wall])
+    if inward is not None:
+        store._require_commitment(g, {"phase": "tunnel", "cell": door}, inward)

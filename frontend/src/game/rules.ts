@@ -563,6 +563,30 @@ export function legal(round: Round, bee: Bee, a: Action): boolean {
   // digging, or a bee would simply ride a straight shaft somebody else cut.
   if (round.rules.staggerRequired && bee.cameInward && ringOf(g, a.to) < ringOf(g, bee.cell))
     return false;
+
+  /**
+   * Once in with your pollen, you are going to the queen.
+   *
+   * A bee that has crossed a door does not step back out. It was free to, and
+   * over 1,218 measured crossings 52.6% did — every one of them a `tunnel` bee
+   * that already had its pollen and had no business outside at all.
+   *
+   * The cause is a doorway under pressure. The cell inside is occupied by
+   * whoever is queueing, the wall to either side cannot be cut, and the only
+   * legal move left is back into the meadow — so the bots took it, and came
+   * straight back, because the meadow is further still. Leaving and returning
+   * costs two moves and hands the door to somebody else; waiting for it to
+   * clear costs one.
+   *
+   * A rule rather than a bot fix, because `bore` reaches this through a
+   * deliberately blind fallback and the human's own hint reads the same board.
+   * All three should agree about what a bee may do.
+   *
+   * The cost is the rare deliberate exit — backing out of a jammed door to try
+   * another. That bee now waits instead, which the measurement says it should
+   * have been doing anyway.
+   */
+  if (bee.phase === "tunnel" && isHive(g, bee.cell) && !isHive(g, a.to)) return false;
   if (a.kind === "fly") return board.state[a.to] === OPEN;
 
   // The WALL cannot be cut. Only the doors get you in.
