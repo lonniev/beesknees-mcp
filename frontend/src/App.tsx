@@ -12,9 +12,11 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import Avatar from "./components/Avatar.tsx";
 import { avatarFor } from "./lib/avatar";
 import { useSession } from "./lib/session.ts";
+import { useOperator } from "./lib/useOperator";
 import About from "./pages/About.tsx";
 import Ledger from "./pages/Ledger.tsx";
 import Play from "./pages/Play.tsx";
+import Operator from "./pages/Operator.tsx";
 import Profile from "./pages/Profile.tsx";
 import SignIn from "./pages/SignIn.tsx";
 import Welcome from "./pages/Welcome.tsx";
@@ -33,6 +35,9 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function App() {
   const session = useSession();
+  // The operator gets one more tab. Drawn from what the service says its own
+  // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
+  const { isOperator } = useOperator(session.npub, session.canSign);
 
   return (
     <div className="flex h-full flex-col">
@@ -44,6 +49,11 @@ export default function App() {
             {t.label}
           </NavLink>
         ))}
+        {isOperator && (
+          <NavLink to="/operator" className={tabClass}>
+            Books
+          </NavLink>
+        )}
 
         {/* Your own face, or the way to get one. Deliberately the last thing on
          * the bar and never a wall in front of the others. */}
@@ -80,6 +90,10 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/signin" element={<SignIn session={session} />} />
           <Route path="/profile" element={<Profile session={session} />} />
+          {/* Always routed, never always linked. The page gates itself, and the
+            * service gates it again — a route that only exists for some people
+            * is a route that 404s confusingly for the rest. */}
+          <Route path="/operator" element={<Operator session={session} />} />
           <Route path="*" element={<Welcome />} />
         </Routes>
       </div>

@@ -276,6 +276,10 @@ const BOOTSTRAP_TOOLS = new Set([
   // the process's own nsec; a patron calling these just sees empty/error).
   "get_operator_onboarding_status",
   "check_authority_balance",
+  // Reports the operator's own npub so the app can decide whether to DRAW the
+  // operator console. Free, and takes no envelope — a guest must be able to ask
+  // without an npub, or the gate cannot be evaluated before sign-in.
+  "list_canonical_identities",
   // Takes explicit patron_npub + dpop_token (the cached phrase), not the
   // injected envelope — same shape as receive_npub_proof.
   "check_proof_status",
@@ -911,4 +915,63 @@ export async function settlementHistory(limit = 25): Promise<SettlementHistory> 
 
 export async function checkNow(): Promise<Record<string, unknown>> {
   return callTool("check_now", {}, { bestEffort: true });
+}
+
+// ── The operator's own console ────────────────────────────────────────────
+//
+// Every one of these except `canonicalIdentities` is `restricted`: the runtime
+// proves the caller is the operator before it runs. The frontend's own gate is
+// cosmetic — it decides what to DRAW, never what is allowed — so a patron who
+// finds the route gets a page whose every button is refused by the service.
+
+export interface Treasury {
+  success: boolean;
+  node_reachable: boolean;
+  sendable_sats: number;
+  owed_sats: number;
+  owed_charity_sats: number;
+  owed_prizes_sats: number;
+  covers_everything_owed: boolean;
+  note: string;
+  /** The full record including the wallet — the free `charity` tool omits it. */
+  charity?: { name: string; website: string; lightning_address: string };
+  error?: string;
+}
+
+export async function treasury(): Promise<Treasury> {
+  return callTool<Treasury>("treasury", {}, { bestEffort: true });
+}
+
+export async function setCharity(
+  name: string,
+  website: string,
+  lightningAddress: string,
+): Promise<{ success: boolean; error?: string }> {
+  return callTool("set_charity", {
+    name,
+    website,
+    lightning_address: lightningAddress,
+  });
+}
+
+export interface CharityPayment {
+  success: boolean;
+  to?: string;
+  matches?: number;
+  amount_sats?: number;
+  state?: string;
+  settled?: boolean;
+  note?: string;
+  error?: string;
+  error_code?: string;
+}
+
+/** Pay every outstanding charity leg, in one Lightning payment. */
+export async function payCharity(): Promise<CharityPayment> {
+  return callTool<CharityPayment>("pay_charity", {}, { timeoutMs: 180_000 });
+}
+
+/** Who the service believes its operator is. Free, so the gate can be drawn. */
+export async function canonicalIdentities(): Promise<{ operator_npub?: string }> {
+  return callTool("list_canonical_identities", {}, { bestEffort: true });
 }

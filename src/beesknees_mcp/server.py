@@ -96,6 +96,7 @@ PAYOUT_UUID = "3b69029c-c9fa-5432-bd3d-95c23d1d919a"
 TREASURY_UUID = "5b7d7180-f951-523e-8964-2fbf503def3c"
 PAY_OUT_UUID = "324c5ea2-6215-5a8c-b2cd-f433b40f0c20"
 PAYOUT_HISTORY_UUID = "a60cc83e-8fe8-561b-ae4c-15747876c318"
+PAY_CHARITY_UUID = "530a2e01-5fc6-5e7f-a744-5499c5eaed7b"
 CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
 
 _DOMAIN_TOOLS = [
@@ -211,6 +212,13 @@ _DOMAIN_TOOLS = [
         # the runtime proves the caller is the operator before it runs.
         category="restricted",
         intent="Operator: send a settled match's charity or winner share",
+    ),
+    ToolIdentity(
+        tool_id=PAY_CHARITY_UUID,
+        capability="pay_charity",
+        # Restricted: it sends the operator's sats.
+        category="restricted",
+        intent="Operator: pay everything owed to the charity, in one payment",
     ),
     ToolIdentity(
         tool_id=PAYOUT_HISTORY_UUID,
@@ -760,7 +768,11 @@ async def treasury(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any
     second is also owed helps neither of them.
     """
     try:
-        return {"success": True, **await payouts_mod.look()}
+        # The charity's own record, including the wallet, because this is the
+        # operator's own console and they cannot confirm what they set from the
+        # free `charity` tool — which deliberately omits it.
+        c = await board_store.get_charity()
+        return {"success": True, **await payouts_mod.look(), "charity": c}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "treasury")
 
@@ -802,6 +814,34 @@ async def pay_out(
         return {"success": False, "error_code": "refused", "error": str(exc)}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "pay_out")
+
+
+@tool
+@runtime.paid_tool(PAY_CHARITY_UUID)
+async def pay_charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+    """Operator: pay everything owed to the charity, in one Lightning payment.
+
+    `restricted`, so the runtime requires the caller to be the operator, proven.
+
+    The charity share accrues match by match and settles as a batch, which is
+    the shape this always needed: a single match's share can be smaller than the
+    fee floor it would cost to route, so paying per match can cost more than it
+    delivers.
+
+    Every unpaid leg is claimed in ONE statement before the sats move, on the
+    same primary key a single-match `pay_out` uses — so the two cannot pay the
+    same match twice, and a second press collides on the key rather than at the
+    node. The accounting stays per match while the payment happens once.
+
+    A failure after the claim marks those legs failed rather than deleting them,
+    so the debt comes back on its own and the attempt stays on the record.
+    """
+    try:
+        return await payouts_mod.send_charity_arrears()
+    except board_store.BoardError as exc:
+        return {"success": False, "error_code": "refused", "error": str(exc)}
+    except (OSError, RuntimeError) as exc:
+        return _upstream(exc, "pay_charity")
 
 
 @tool

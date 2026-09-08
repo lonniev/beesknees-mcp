@@ -201,3 +201,97 @@ async def send(kind: str, match_id: str) -> dict[str, Any]:
         "payment_hash": str(result.get("paymentHash") or ""),
         "settled": state == "paid",
     }
+
+
+async def send_charity_arrears() -> dict[str, Any]:
+    """Pay everything owed to the charity, in one payment.
+
+    The charity share accrues match by match and is settled in a batch, which
+    is the shape this always needed: a single match's share can be smaller than
+    the fee floor it would cost to route, so paying per match can cost more than
+    it delivers.
+
+    The accounting stays per match — one claimed row each, so `obligations()`
+    still counts honestly and `payout_history` still shows which matches were
+    covered — while the sats move once. Claims happen before the payment, on the
+    same primary key a single-match `pay_out` uses, so the two cannot pay the
+    same leg twice.
+
+    A failure after the claim marks those legs `failed` rather than deleting
+    them: `obligations()` counts only `sending` and `paid`, so the debt comes
+    back on its own, and the attempt stays on the record.
+    """
+    charity = await store.get_charity()
+    address = charity["lightning_address"]
+    if not charity["name"]:
+        return {"success": False, "error_code": "no_charity",
+                "error": "no beneficiary is named — call set_charity first"}
+    if not address:
+        return {"success": False, "error_code": "no_address",
+                "error": f"no Lightning address on file for {charity['name']}"}
+
+    client = await _btcpay()
+    if client is None:
+        return {"success": False, "error_code": "no_btcpay",
+                "error": "BTCPay credentials are not available to this process"}
+    try:
+        sendable = int((await client.get_lightning_balance())["sendable_sats"])
+    except BTCPayError as exc:
+        return {"success": False, "error_code": "node_unreachable",
+                "error": f"the node did not report a balance, so nothing was sent: {exc}"}
+
+    owed = (await store.obligations())["charity_unpaid_sats"]
+    ok, why = treasury.may_pay(treasury.Wallet(sendable, owed), owed)
+    if not ok:
+        return {"success": False, "error_code": "insufficient_funds", "error": why,
+                "sendable_sats": sendable, "amount_sats": owed}
+
+    # Resolved BEFORE the claim, so an unreachable wallet does not leave a batch
+    # of legs claimed against a payment that was never attempted.
+    try:
+        bolt11 = await resolve_lightning_address(
+            address, owed, comment=f"The Bee's Knees — charity arrears for {charity['name']}"
+        )
+    except LnurlResolutionError as exc:
+        return {"success": False, "error_code": "address_unresolvable",
+                "error": f"{address} did not return an invoice: {exc}"}
+
+    claimed = await store.claim_charity_arrears(address)
+    if not claimed:
+        return {"success": True, "matches": 0, "amount_sats": 0,
+                "note": "nothing is owed to the charity"}
+
+    ids = [str(c["match_id"]) for c in claimed]
+    total = sum(int(c["amount_sats"]) for c in claimed)
+    if total != owed:
+        # The books moved between the quote and the claim — a match settled in
+        # the gap. Pay what was actually claimed, never what was quoted.
+        try:
+            bolt11 = await resolve_lightning_address(
+                address, total, comment=f"The Bee's Knees — charity arrears for {charity['name']}"
+            )
+        except LnurlResolutionError as exc:
+            await store.finish_charity_arrears(ids, state="failed", detail=str(exc)[:400])
+            return {"success": False, "error_code": "address_unresolvable",
+                    "error": f"{address} did not return an invoice for {total}: {exc}"}
+
+    try:
+        result = await client.pay_lightning_invoice(
+            bolt11, max_fee_sats=treasury.fee_allowance(total),
+            max_fee_percent=treasury.FEE_PERCENT,
+        )
+    except BTCPayError as exc:
+        await store.finish_charity_arrears(ids, state="failed", detail=str(exc)[:400])
+        return {"success": False, "error_code": "payment_failed", "error": str(exc),
+                "matches": len(ids), "amount_sats": total}
+
+    status = str(result.get("status") or "").lower()
+    state = "paid" if status == "complete" else "sending"
+    await store.finish_charity_arrears(
+        ids, state=state, payment_hash=str(result.get("paymentHash") or ""),
+        detail=status or "no status returned",
+    )
+    return {"success": True, "to": charity["name"], "matches": len(ids),
+            "amount_sats": total, "state": state, "status": status,
+            "payment_hash": str(result.get("paymentHash") or ""),
+            "settled": state == "paid"}

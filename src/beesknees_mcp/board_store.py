@@ -1171,3 +1171,50 @@ async def payout_of(kind: str, match_id: str) -> dict[str, Any] | None:
     )
     rows = _rows(r)
     return rows[0] if rows else None
+
+
+async def claim_charity_arrears(destination: str) -> list[dict[str, Any]]:
+    """Claim every unpaid charity leg at once, and say which they were.
+
+    One statement, so the whole claim is atomic on a driver that has no
+    transactions. `NOT EXISTS` makes two concurrent batches claim disjoint sets
+    rather than the same rows twice, and the per-match `payout_id` stays the
+    primary key — so this and a single `pay_out` for one match still collide
+    correctly instead of paying it twice.
+
+    A row per match even though one payment covers them all: the accounting
+    stays per match, which is what `obligations()` counts and what a reader of
+    `payout_history` needs, while the sats move once. Paying each match
+    separately would spend the routing fee floor on every one of them, and a
+    match whose charity share is smaller than that fee would cost more to send
+    than it delivers.
+    """
+    r = await _exec(
+        f"INSERT INTO {PAYOUTS} (payout_id, kind, match_id, destination, amount_sats) "
+        f"SELECT 'charity:' || s.match_id, 'charity', s.match_id, $1, s.charity_sats "
+        f"FROM {SETTLEMENTS} s "
+        "WHERE s.charity_sats > 0 AND NOT EXISTS ("
+        f"  SELECT 1 FROM {PAYOUTS} p WHERE p.payout_id = 'charity:' || s.match_id) "
+        "RETURNING match_id, amount_sats",
+        [destination],
+    )
+    return _rows(r)
+
+
+async def finish_charity_arrears(
+    match_ids: list[str], *, state: str, payment_hash: str = "", detail: str = ""
+) -> int:
+    """Record the outcome against exactly the legs this batch claimed.
+
+    Scoped to the ids rather than to `kind='charity' AND state='sending'`,
+    which would also stamp a concurrent batch's rows with this batch's result.
+    """
+    if not match_ids:
+        return 0
+    holes = ", ".join(f"${i + 4}" for i in range(len(match_ids)))
+    r = await _exec(
+        f"UPDATE {PAYOUTS} SET state = $1, payment_hash = $2, detail = $3, "
+        f"finished_at = now() WHERE state = 'sending' AND payout_id IN ({holes})",
+        [state, payment_hash[:120], detail[:400], *[f"charity:{m}" for m in match_ids]],
+    )
+    return _count(r)
