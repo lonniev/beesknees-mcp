@@ -3,7 +3,7 @@
 A race to the queen, monetized with Tollbooth DPYC™ Bitcoin Lightning
 micropayments — and run for the benefit of pollinators.
 
-Buy a worker bee a seat. Fly it to a flower, carry the pollen home through the
+Buy a drone a seat. Fly it to a flower, carry the pollen home through the
 hive wall, then tunnel inward. The first bee to reach a queen takes the round.
 Most of what the round collects goes to pollinator welfare; the winner and the
 operator each take a small share.
