@@ -18,8 +18,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { getStoredNpub, onProofExpired, setStoredNpub, setStoredProof } from "./mcp";
-import { clearSessionNsec, hasSessionNsec } from "./sessionNsec";
+import { currentClaim, onProofExpired, setStoredNpub, setStoredProof } from "./mcp";
+import { canSignFor, isProven } from "./signedIn";
+import { clearSessionNsec } from "./sessionNsec";
 
 export interface Session {
   npub: string;
@@ -34,16 +35,20 @@ export interface Session {
   dismissNotice: () => void;
 }
 
-function read(): { npub: string; canSign: boolean } {
+function read(): { npub: string; signedIn: boolean; canSign: boolean } {
   // Guarded because the shell is server-rendered by the smoke check, and there
   // is no localStorage on a server. A previous `window.location` at module
   // scope broke that render for exactly this reason.
-  if (typeof window === "undefined") return { npub: "", canSign: false };
-  return { npub: getStoredNpub(), canSign: hasSessionNsec() };
+  if (typeof window === "undefined") return { npub: "", signedIn: false, canSign: false };
+  const claim = currentClaim();
+  // `isProven`, not `Boolean(npub)`. This module used to decide for itself
+  // what signed in meant, and its answer was weaker than the one `mcp.ts`
+  // already had: an npub with nothing behind it counted.
+  return { npub: claim.npub, signedIn: isProven(claim), canSign: canSignFor(claim) };
 }
 
 export function useSession(): Session {
-  const [{ npub, canSign }, setState] = useState(read);
+  const [{ npub, signedIn, canSign }, setState] = useState(read);
   const [notice, setNotice] = useState("");
 
   const refresh = useCallback(() => {
@@ -57,7 +62,7 @@ export function useSession(): Session {
     clearSessionNsec();
     setStoredNpub("");
     setStoredProof("");
-    setState({ npub: "", canSign: false });
+    setState({ npub: "", signedIn: false, canSign: false });
     setNotice("");
   }, []);
 
@@ -66,16 +71,22 @@ export function useSession(): Session {
   useEffect(
     () =>
       onProofExpired(() => {
-        if (hasSessionNsec()) return; // this session signs its own; nothing lapsed
+        // A tab that can sign for THIS npub lost nothing. Merely holding a key
+        // is not enough — one left over from a previous identity signs proofs
+        // the service will refuse.
+        if (canSignFor(currentClaim())) return;
         setNotice("Your session lapsed while you were away. Sign in again to keep playing.");
-        setState({ npub: getStoredNpub(), canSign: false });
+        // Re-read rather than patching a field: the proof is gone, so this is
+        // no longer a session, and saying otherwise leaves the shell showing a
+        // signed-in person whose every paid call will be refused.
+        setState(read());
       }),
     [],
   );
 
   return {
     npub,
-    signedIn: Boolean(npub),
+    signedIn,
     canSign,
     notice,
     refresh,
