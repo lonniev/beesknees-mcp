@@ -143,31 +143,6 @@ svg.hive {
   75%      { transform: translate(0.5px, 0.6px) rotate(3deg); }
 }
 
-/* A bee crossing the margin of a quiet page. Long, slow and offset per bee, so
-   no two ever line up — the point is that the page is alive, not that anything
-   is happening. */
-@keyframes bk-drift {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(26px, -18px) rotate(4deg);
-  }
-  50% {
-    transform: translate(6px, -34px) rotate(-3deg);
-  }
-  75% {
-    transform: translate(-22px, -14px) rotate(3deg);
-  }
-  100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-}
-
-.bk-drift {
-  animation: bk-drift 60s ease-in-out infinite both;
-}
-
 @media (prefers-reduced-motion: reduce) {
   /* Somebody who has asked for stillness gets a seated bee, not a shivering
      one. It still stacks, and it still counts. */
@@ -313,11 +288,6 @@ svg.hive {
 
   .bk-reveal,
   .bk-hint {
-    animation: none;
-  }
-
-  /* The bees stay — a still meadow is still a meadow — they simply stop. */
-  .bk-drift {
     animation: none;
   }
 }

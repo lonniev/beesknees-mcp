@@ -37,6 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The bees on the non-board pages are the **live foragers from the playfield**,
+  not static SVGs on a CSS keyframe. The drifting pair were four copies of one
+  arc repeating for ever; these steer, accelerate and work a patch, and the
+  life on a reading page is now the same code as the life on the board rather
+  than a second thing that would come to differ from it. They are on every page
+  except `/play`, which runs the same foragers inside its own playfield where
+  the hives paint over them — a second layer there would put loose bees beside
+  the board with no such guarantee.
+- `Meadow` handles a screen with no hives at all: with nowhere to come home to
+  a bee wanders patch to patch rather than commuting, and it keeps out of the
+  reading column. Returning to `{0.5, 0.5}`, which is what it used to do with
+  no hives, sent every bee to the dead centre — the one place the words are.
+
 - The racer is a **drone**, not a worker. Worker bees are female and never
   mate; drones are male and reaching the queen is the whole of what they are
   for — which is the game that was already built, coronation and all. One word
