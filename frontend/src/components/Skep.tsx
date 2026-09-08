@@ -22,7 +22,9 @@ export default function Skep({
   yours?: boolean;
   className?: string;
 }) {
-  const ink = yours ? "var(--color-you)" : "var(--color-wax)";
+  // The INK variants. The bright originals are 1.25:1 and 1.39:1 on the light
+  // lobby ground — a colour, not a drawing. These are 5.85 and 5.86.
+  const ink = yours ? "var(--color-you-ink)" : "var(--color-wax-ink)";
   // Never fully dark: an invisible hive reads as a rendering fault, not as an
   // empty one. Never fully bright either — this sits behind the seats.
   const alpha = 0.28 + Math.min(1, Math.max(0, filling)) * 0.45;
