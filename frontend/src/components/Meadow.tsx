@@ -33,7 +33,7 @@
  * crosses the screen instead of orbiting a corner.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { aimBee, doorOn, drawnHive, type Hive } from "../lib/beeFlight.ts";
 
 type Phase = "leaving" | "foraging" | "returning" | "resting";
@@ -98,29 +98,51 @@ function measure(host: HTMLElement): Field {
 }
 
 /**
+ * The band a reading page keeps for its words, as fractions of the width.
+ *
+ * Only consulted when there are no hives — see `anyDoor`. A prose page has one
+ * column down the middle and margins either side, and a bee crossing the column
+ * is not scenery, it is something on top of the sentence.
+ */
+const COLUMN = { from: 0.26, to: 0.74 };
+
+/**
  * Somewhere worth visiting: out in the open, and far enough from every hive
  * that the trip is a trip rather than a hover at the door.
  */
-function patch(hs: Hive[]): { x: number; y: number } {
-  for (let i = 0; i < 10; i++) {
-    const p = { x: rnd(0.03, 0.97), y: rnd(0.05, 0.95) };
+function patch(hs: Hive[], keepColumnClear = false): { x: number; y: number } {
+  const side = () =>
+    Math.random() < 0.5 ? rnd(0.03, COLUMN.from) : rnd(COLUMN.to, 0.97);
+  for (let i = 0; i < 12; i++) {
+    const p = keepColumnClear
+      ? { x: side(), y: rnd(0.05, 0.95) }
+      : { x: rnd(0.03, 0.97), y: rnd(0.05, 0.95) };
     const clear = hs.every(
       (h) => Math.abs(p.x - h.cx) > h.hx * 1.35 || Math.abs(p.y - h.cy) > h.hy * 1.35,
     );
     if (clear) return p;
   }
-  return { x: rnd(0.03, 0.97), y: rnd(0.05, 0.95) };
+  return keepColumnClear
+    ? { x: side(), y: rnd(0.05, 0.95) }
+    : { x: rnd(0.03, 0.97), y: rnd(0.05, 0.95) };
 }
 
-/** A door on some hive, chosen at random — nobody here has a home hive. */
-function anyDoor(hs: Hive[]): { x: number; y: number } {
-  if (!hs.length) return { x: 0.5, y: 0.5 };
+/**
+ * A door on some hive, chosen at random — nobody here has a home hive.
+ *
+ * With NO hives on the screen there is nowhere to come home to, so the bee
+ * simply picks another patch: it wanders rather than commutes. Returning to
+ * `{0.5, 0.5}`, which is what this used to do, sent every bee on a page to the
+ * dead centre — the one place the words are.
+ */
+function anyDoor(hs: Hive[], keepColumnClear = false): { x: number; y: number } {
+  if (!hs.length) return patch(hs, keepColumnClear);
   return doorOn(hs[Math.floor(Math.random() * hs.length)], rnd(0, Math.PI * 2));
 }
 
-function spawn(n: number, hs: Hive[]): Forager[] {
+function spawn(n: number, hs: Hive[], keepColumnClear = false): Forager[] {
   return Array.from({ length: n }, (_, i) => {
-    const d = anyDoor(hs);
+    const d = anyDoor(hs, keepColumnClear);
     return {
       x: d.x,
       y: d.y,
@@ -138,7 +160,48 @@ function spawn(n: number, hs: Hive[]): Forager[] {
   });
 }
 
-export default function Meadow({ count = 8, rally = false }: { count?: number; rally?: boolean }) {
+/**
+ * The wandering bees, on a page that has no board.
+ *
+ * The static SVG bees this replaces drifted on one CSS keyframe: the same arc,
+ * for ever, four times over. These are the foragers from the playfield — real
+ * steering, real acceleration, the stop-start of something working a patch —
+ * and using them means the life on a reading page and the life on the board are
+ * one piece of code rather than two that will come to differ.
+ *
+ * Mounted rather than hidden below 1024px, because hidden is not unmounted and
+ * a still animation loop is a still animation loop. Below that the reading
+ * column is the whole width and there is nowhere for a bee to be that is not on
+ * top of the words.
+ */
+export function PageBees({ count = 6 }: { count?: number }) {
+  const [room, setRoom] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setRoom(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return room ? <Meadow count={count} over="page" /> : null;
+}
+
+export default function Meadow({
+  count = 8,
+  rally = false,
+  over = "board",
+}: {
+  count?: number;
+  rally?: boolean;
+  /**
+   * `board` is the original: a layer inside the playfield, behind the hives.
+   * `page` is the whole viewport on a screen that has no hives at all — the
+   * bees wander it and keep out of the reading column.
+   */
+  over?: "board" | "page";
+}) {
   const layer = useRef<HTMLDivElement | null>(null);
   const raf = useRef<number>(0);
   const pointer = useRef<{ x: number; y: number; until: number } | null>(null);
@@ -196,8 +259,9 @@ export default function Meadow({ count = 8, rally = false }: { count?: number; r
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const calm = reduced ? 0.4 : 1;
 
+    const wander = over === "page";
     let field = measure(host);
-    const bees = spawn(count, field.hives);
+    const bees = spawn(count, field.hives, wander);
 
     host.replaceChildren();
     const nodes = bees.map((b) => {
@@ -263,7 +327,7 @@ export default function Meadow({ count = 8, rally = false }: { count?: number; r
             b.ty = d.y;
             b.phase = "returning";
           } else {
-            const p = patch(field.hives);
+            const p = patch(field.hives, wander);
             b.tx = p.x;
             b.ty = p.y;
             b.phase = "leaving";
@@ -275,7 +339,7 @@ export default function Meadow({ count = 8, rally = false }: { count?: number; r
           b.phase = "returning";
           // Any hive, not the one it left — which is what puts traffic BETWEEN
           // the hives rather than a private orbit around each.
-          const d = anyDoor(field.hives);
+          const d = anyDoor(field.hives, wander);
           b.tx = d.x;
           b.ty = d.y;
         } else if (b.phase === "returning" && Math.hypot(b.tx - b.x, b.ty - b.y) < 0.03) {
@@ -317,7 +381,7 @@ export default function Meadow({ count = 8, rally = false }: { count?: number; r
             ay += (dy / d) * push;
             if (b.phase === "resting") {
               b.phase = "leaving";
-              const p = patch(field.hives);
+              const p = patch(field.hives, wander);
               b.tx = p.x;
               b.ty = p.y;
             }
@@ -371,13 +435,15 @@ export default function Meadow({ count = 8, rally = false }: { count?: number; r
       cancelAnimationFrame(raf.current);
       window.clearInterval(remeasure);
     };
-  }, [count]);
+  }, [count, over]);
 
   return (
     <div
       ref={layer}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      className={`pointer-events-none -z-10 overflow-hidden ${
+        over === "page" ? "fixed inset-0" : "absolute inset-0"
+      }`}
     />
   );
 }

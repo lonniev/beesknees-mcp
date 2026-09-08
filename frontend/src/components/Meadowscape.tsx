@@ -10,6 +10,11 @@
  * request rather than an asset set per density. A bitmap would have been
  * quicker to make and wrong at exactly the sizes this app is read at.
  *
+ * The BEES are not here. They were, drifting on one CSS keyframe — the same arc
+ * four times over — and they are the live foragers from the playfield now,
+ * mounted once for the whole app (`Meadow`, `PageBees`). This is the ground
+ * they fly over and nothing else.
+ *
  * Three rules it obeys, because scenery that breaks any of them stops being
  * scenery:
  *
@@ -27,96 +32,6 @@
  * `Sprigs` learned first: this renders on the server for the route check and
  * again in the browser, and randomness makes those two disagree.
  */
-
-/** left %, top %, scale, seconds, delay — dealt by hand to look unplanned. */
-const BEES: [number, number, number, number, number][] = [
-  [8, 20, 1.0, 64, 0],
-  [90, 30, 0.78, 78, -22],
-  [17, 55, 0.68, 71, -41],
-  [84, 62, 0.86, 59, -13],
-];
-
-/**
- * Why there is no fifth bee across the middle.
- *
- * There was, at 50% and 13%, and it flew straight through the heading. The
- * rule at the top of this file is not decoration: a bee over the words is not
- * scenery, it is a smudge on the one sentence the page exists to say.
- */
-
-/**
- * A bee, big enough to be one.
- *
- * The first pass drew it at 26px with 18%-opacity wings, and on a light page
- * that is a beige speck — a smudge somebody would try to wipe off the screen.
- * Twice the size, a drawn outline, and stripes with real contrast: at this
- * scale the silhouette has to do all the work, so it is a body, two bands and
- * a pair of wings and nothing else.
- */
-function Bee({ scale }: { scale: number }) {
-  return (
-    <svg
-      width={44 * scale}
-      height={32 * scale}
-      viewBox="0 0 44 32"
-      className="block"
-      aria-hidden="true"
-    >
-      {/* Wings first, so the body sits on top of them. */}
-      <g fill="#fff" stroke="var(--color-ink)" strokeWidth="1" opacity="0.55">
-        <ellipse cx="17" cy="9" rx="9" ry="5.4" transform="rotate(-26 17 9)" />
-        <ellipse cx="26" cy="9" rx="9" ry="5.4" transform="rotate(26 26 9)" />
-      </g>
-      <g transform="translate(22 19)">
-        <ellipse rx="12" ry="7.6" fill="var(--color-wax)" />
-        {/* Two bands. Clipped to the body so they end where it does. */}
-        <g fill="var(--color-comb)" opacity="0.9">
-          <path d="M-3.4-7.2A12 7.6 0 0 0-6.6-6.1v12.2a12 7.6 0 0 0 3.2 1.1z" />
-          <path d="M2.6-7.4A12 7.6 0 0 1 5.6-6.2V6a12 7.6 0 0 1-3 1.2z" />
-        </g>
-        <ellipse rx="12" ry="7.6" fill="none" stroke="var(--color-wax-ink)" strokeWidth="1.1" opacity="0.7" />
-        {/* The head end, so it is pointing somewhere. */}
-        <circle cx="-12.2" cy="0" r="3.6" fill="var(--color-comb)" opacity="0.9" />
-      </g>
-    </svg>
-  );
-}
-
-/**
- * The bees on their own, without the ground.
- *
- * The long reading pages want the life and not the landscape: a hill under
- * three screens of prose about colony loss would be scenery arguing with the
- * argument. So the drift is separable, and this is the half that travels.
- *
- * Hidden below `lg`. The bees fly at 8% and 90% of the viewport, which is
- * margin on a wide screen and the middle of a sentence on a phone — where the
- * reading column is the whole width, there is nowhere for a bee to be that is
- * not on top of the words.
- */
-export function DriftingBees() {
-  return (
-    <div
-      className="pointer-events-none fixed inset-0 -z-10 hidden overflow-hidden lg:block"
-      aria-hidden="true"
-    >
-      {BEES.map(([x, y, scale, secs, delay], i) => (
-        <div
-          key={i}
-          className="bk-drift absolute"
-          style={{
-            left: `${x}%`,
-            top: `${y}%`,
-            animationDuration: `${secs}s`,
-            animationDelay: `${delay}s`,
-          }}
-        >
-          <Bee scale={scale} />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function Meadowscape() {
   return (
@@ -224,9 +139,6 @@ export default function Meadowscape() {
         </svg>
       </div>
 
-      {/* The same bees the quiet pages get. One definition, so the drift
-          cannot come to differ between the pages that show it. */}
-      <DriftingBees />
     </>
   );
 }

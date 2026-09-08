@@ -11,7 +11,6 @@
  */
 
 import { useEffect, useState } from "react";
-import { DriftingBees } from "../components/Meadowscape.tsx";
 import { LINK } from "../lib/ink";
 import { HeartHandshake, Trophy, Coins, ExternalLink } from "lucide-react";
 import { settlementHistory, type SettlementHistory } from "../lib/mcp";
@@ -42,8 +41,6 @@ export default function Ledger() {
   const charity = data?.accrued_sats ?? 0;
 
   return (
-    <>
-      <DriftingBees />
     <div className="mx-auto max-w-3xl px-5 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Where the money went</h1>
       <Beneficiary name={data?.beneficiary ?? ""} website={data?.charity?.website ?? ""} />
@@ -120,7 +117,6 @@ export default function Ledger() {
         what makes this checkable by somebody who trusts nothing else on this page.
       </p>
     </div>
-    </>
   );
 }
 

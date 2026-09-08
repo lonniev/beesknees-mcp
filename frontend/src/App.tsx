@@ -8,9 +8,10 @@
  * stranger, and signing in is a choice they make when they want a bee.
  */
 
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import Avatar from "./components/Avatar.tsx";
 import { avatarFor } from "./lib/avatar";
+import { PageBees } from "./components/Meadow.tsx";
 import { useSession } from "./lib/session.ts";
 import { useOperator } from "./lib/useOperator";
 import About from "./pages/About.tsx";
@@ -35,6 +36,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function App() {
   const session = useSession();
+  const onBoard = useLocation().pathname.startsWith("/play");
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
   const { isOperator } = useOperator(session.npub, session.signedIn);
@@ -81,6 +83,16 @@ export default function App() {
           </button>
         </div>
       )}
+
+      {/* The wandering bees, on every page that has no board of its own.
+        *
+        * NOT on /play: that screen runs the same foragers inside the playfield,
+        * where the hives paint over them so a loose bee can never be mistaken
+        * for a racer. A second layer behind the whole app would put bees beside
+        * the board with no such guarantee — a bee on the field that the rules
+        * know nothing about, which is exactly what `Meadow` was written to
+        * avoid. */}
+      {!onBoard && <PageBees />}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Routes>
