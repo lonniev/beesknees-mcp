@@ -3,8 +3,8 @@
 # lagging main). Changing this file forces Horizon to rebuild rather than
 # re-serve cached bytes. See capability: Horizon Deploy Freshness.
 #
-# issue: https://github.com/lonniev/beesknees-mcp/issues/4
-# expected_main_sha: 607ef9c15ae30af7d1e8f7f70bf7b61a1f6df59c
-# observed_live_version: 0.1.0
-# bumped_to: 0.1.1
-# touched_at: 2026-09-07T23:49:02Z
+# issue: https://github.com/lonniev/beesknees-mcp/issues/9
+# expected_main_sha: 22e68b7ef873f88bbd7016f1dd51f5c02896ce75
+# observed_live_version: 0.1.1
+# bumped_to: 0.1.2
+# touched_at: 2026-09-08T02:10:49Z

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "beesknees-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "The Bee's Knees — a monetized multiplayer race to the queen, on Tollbooth DPYC"
 readme = "README.md"
 license = "Apache-2.0"

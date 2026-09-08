@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # The version deploy-verify observed on the live service when it opened the
 # stale-wheel issue. A redeploy that does not move past this is not a redeploy.
-_STALE_LIVE_VERSION = "0.1.0"
+_STALE_LIVE_VERSION = "0.1.1"
 
 
 def test_package_version_moved_past_the_stale_live_build() -> None:
