@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A meadow behind the sign-in screen (`components/Meadowscape.tsx`). One card
+  in the middle of a very large lavender field read as a page that had failed
+  to load rather than a page that was calm. Rolling ground, grass in tufts,
+  clover and dandelion, and four bees drifting in the margins — drawn as SVG
+  paths, so it is as sharp on a 3x tablet as on a laptop and costs one request
+  rather than an asset set per density. It takes no taps, holds no text, keeps
+  clear of the reading column, and stops moving under
+  `prefers-reduced-motion`.
+- Scenery greens as tokens (`--color-far`, `--color-mid`, `--color-near`,
+  `--color-stem`). The first attempt reused `--color-meadow`, which is #584461
+  — the dusty violet the BOARD paints its open ground with, and a purple hill
+  anywhere a landscape is meant.
+
 - The welcome page now starts from nothing. It opened with "A race to the
   queen. Most of what a round collects goes to pollinator conservation." —
   two sentences that both assume a game the reader has not been told about
