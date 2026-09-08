@@ -62,56 +62,42 @@ async def _btcpay() -> Any:
 
 
 async def look() -> dict[str, Any]:
-    """What the operator holds, what it owes, and what it may therefore send.
+    """What the wallet can send, and what is owed out of it.
 
     Free of side effects on purpose: an operator should be able to ask this
-    before, during and after a payout without changing anything, and the
-    numbers here are the same ones `send` gates on — one rule, read from one
-    place, so the answer cannot disagree with the decision.
+    before, during and after a payout without changing anything, and these are
+    the same numbers `send` gates on — one rule, read from one place, so the
+    answer cannot disagree with the decision.
     """
     obligations = await store.obligations()
 
     sendable: int | None = None
-    reachable = False
     why = ""
     client = await _btcpay()
-    if client is not None:
+    if client is None:
+        why = "BTCPay credentials are not available to this process"
+    else:
         try:
-            balance = await client.get_lightning_balance()
-            sendable = int(balance["sendable_sats"])
-            reachable = True
+            sendable = int((await client.get_lightning_balance())["sendable_sats"])
         except BTCPayError as exc:
-            # A permissions failure is the likely one and it is worth naming:
-            # an invoice-only API key cannot read a node balance, and the
-            # operator needs to know that rather than "payout unavailable".
+            # Worth naming rather than flattening to "unavailable": an
+            # invoice-only API key cannot read a node balance, and that reads
+            # identically to an outage unless the error is passed through.
             why = f"the node did not answer: {exc}"
             logger.warning("lightning balance unavailable: %s", exc)
-    else:
-        why = "BTCPay credentials have not been delivered"
 
-    ledgers: list[tuple[str, str]] | None = None
-    try:
-        ledgers = await (await store.vault()).fetch_all_balances()
-    except Exception as exc:  # noqa: BLE001
-        why = why or f"patron balances could not be read: {exc}"
-        logger.warning("patron float unavailable: %s", exc)
-
-    s = treasury.solvency(
-        sendable_sats=sendable,
-        ledgers=ledgers,
-        unpaid_obligations_sats=obligations["unpaid_sats"],
-    )
+    w = treasury.Wallet(sendable_sats=sendable, owed_sats=obligations["unpaid_sats"])
     return {
-        "node_reachable": reachable,
-        "sendable_sats": s.sendable_sats,
-        "patron_float_sats": s.patron_float_sats,
-        "owed_sats": obligations["unpaid_sats"],
+        "node_reachable": sendable is not None,
+        "sendable_sats": sendable or 0,
+        "owed_sats": w.owed_sats,
         "owed_charity_sats": obligations["charity_unpaid_sats"],
         "owed_prizes_sats": obligations["prizes_unpaid_sats"],
-        "payable_sats": s.payable_sats,
-        "unreadable_ledgers": s.unreadable_ledgers,
-        "trustworthy": s.trustworthy,
-        "note": why or s.note,
+        # Reported, not enforced. An operator should see that they owe more than
+        # they hold; refusing one charity because a second is also owed helps
+        # neither of them.
+        "covers_everything_owed": sendable is not None and sendable >= w.owed_sats,
+        "note": why or "clear",
     }
 
 
@@ -156,34 +142,22 @@ async def send(kind: str, match_id: str) -> dict[str, Any]:
         return {"success": False, "error_code": "no_address",
                 "error": f"no Lightning address on file for {who}"}
 
-    # Can it honestly be afforded? Everything else owed is counted, minus this
-    # payment, which is not a reason to refuse itself.
-    obligations = await store.obligations()
+    # Can the wallet actually do it?
     client = await _btcpay()
     if client is None:
         return {"success": False, "error_code": "no_btcpay",
-                "error": "BTCPay credentials have not been delivered"}
+                "error": "BTCPay credentials are not available to this process"}
     try:
         sendable = int((await client.get_lightning_balance())["sendable_sats"])
     except BTCPayError as exc:
         return {"success": False, "error_code": "node_unreachable",
                 "error": f"the node did not report a balance, so nothing was sent: {exc}"}
-    try:
-        ledgers = await (await store.vault()).fetch_all_balances()
-    except Exception as exc:  # noqa: BLE001
-        return {"success": False, "error_code": "float_unknown",
-                "error": f"patron balances could not be read, so nothing was sent: {exc}"}
 
-    s = treasury.solvency(
-        sendable_sats=sendable,
-        ledgers=ledgers,
-        unpaid_obligations_sats=max(0, obligations["unpaid_sats"] - amount),
-        about_to_pay_sats=amount,
-    )
-    ok, why = treasury.may_pay(s, amount)
+    owed = (await store.obligations())["unpaid_sats"]
+    ok, why = treasury.may_pay(treasury.Wallet(sendable, owed), amount)
     if not ok:
         return {"success": False, "error_code": "insufficient_funds", "error": why,
-                "payable_sats": s.payable_sats, "amount_sats": amount}
+                "sendable_sats": sendable, "amount_sats": amount}
 
     # An invoice for exactly what is owed, from the address that will receive
     # it. Resolved BEFORE the claim, so an unreachable wallet does not burn the

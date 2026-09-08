@@ -743,20 +743,21 @@ async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]
 @tool
 @runtime.paid_tool(TREASURY_UUID)
 async def treasury(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
-    """Operator: what is held, what is owed, and what may honestly be sent.
+    """Operator: what the wallet can send, and what is owed out of it.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
 
-    The node's balance is NOT the operator's money. Patrons pre-fund by paying
-    an invoice, so their sats really are on the node, but what they hold back is
-    credit they can spend at any time. `payable_sats` is what is left after that
-    float and everything already owed elsewhere:
+    `sendable_sats` is the local end of the node's channels — the only balance a
+    Lightning payment can draw on. `owed_sats` is what this service's own
+    settlements say is still to go out, computed from its own tables.
 
-        payable = sendable − patron float − unpaid obligations
-
-    `trustworthy` false means a figure could not be measured — an unreachable
-    node, an API key without permission to ask, an unreadable ledger — and
+    `node_reachable: false` means the balance could not be asked for at all — an
+    unreachable node, or an API key without `canuselightningnode` — and
     `pay_out` refuses on it. An unknown balance is not an optimistic one.
+
+    `covers_everything_owed` is reported, not enforced: an operator should see
+    that they owe more than they hold, but refusing to pay one charity because a
+    second is also owed helps neither of them.
     """
     try:
         return {"success": True, **await payouts_mod.look()}
@@ -783,10 +784,11 @@ async def pay_out(
     pays the beneficiary the match itself recorded, so a match settled under a
     previous charity still pays the charity it promised.
 
-    Solvency is checked before anything moves and the payment is claimed in the
-    database before the sats leave, so a retry, a double press, or two operators
-    at once collide on a primary key rather than at the node. Calling it again
-    after a success reports the existing payment rather than making a second.
+    Before anything moves the wallet is asked whether it can cover the payment
+    plus its routing fee, and the payment is claimed in the database before the
+    sats leave — so a retry, a double press, or two operators at once collide on
+    a primary key rather than at the node. Calling it again after a success
+    reports the existing payment rather than making a second.
 
     Nothing here is automatic. A payment leaves because somebody asked.
 

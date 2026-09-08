@@ -1113,7 +1113,7 @@ async def obligations() -> dict[str, int]:
 
     Owed is what the settlements say; sent is what the payouts table says. The
     difference is the operator's outstanding liability, and it is the figure a
-    solvency check subtracts — a charity share counted as paid because somebody
+    payout check reports — a charity share counted as paid because somebody
     *meant* to pay it is how a node gets spent twice.
 
     A payment still `sending` counts as spent. It may yet fail, in which case
