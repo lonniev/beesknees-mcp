@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The welcome page now starts from nothing. It opened with "A race to the
   queen. Most of what a round collects goes to pollinator conservation." —
   two sentences that both assume a game the reader has not been told about
-  yet. There is now a plain introduction: what the game is, what a move costs
-  in terms somebody who has never held a satoshi can weigh, where the money
-  goes, and a pointer to About for strategy and technology.
+  yet. The introduction is the code owner's own, in his words: what the game
+  is, what a move costs, where the pot goes, and a pointer to About for
+  strategy and technology.
 
 ### Changed
 

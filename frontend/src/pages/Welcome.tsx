@@ -6,12 +6,25 @@
  * nothing to a first-time visitor, and neither did "most of what a round
  * collects" — both assumed a game the reader had not yet been told about.
  *
- * After the introduction, written to be checkable. Every claim is one a reader
+ * The opening four paragraphs are the CODE OWNER'S OWN WORDS, kept as written.
+ * Two edits only, both agreed: the racer is a drone rather than an unspecified
+ * bee, and the money fights the viral contamination rather than supporting it,
+ * which was a slip of a single verb. The beneficiary is "the current pollinator
+ * conservation society chosen for support" in his own restatement — lowercase
+ * and descriptive, because "Pollinator Society" capitalised reads as the name
+ * of an organisation and there is no such body.
+ *
+ * Below the introduction, written to be checkable. Every claim is one a reader
  * could look up and find, and where the science is qualified the sentence is
  * qualified too. The page argues for the charity by being accurate about which
  * bees are actually in trouble, which is a stronger case than the one most bee
- * campaigns make — and that accuracy is exactly why the introduction must not
- * overstate to get somebody into it.
+ * campaigns make.
+ *
+ * The opener and that argument are not in perfect register — it says "native
+ * bee populations in the US and UK" while the sections below distinguish
+ * honeybee livestock from the wild species nobody keeps. That is the owner's
+ * call, made knowingly: a welcome may speak broadly where an argument must be
+ * precise.
  */
 
 import { Link } from "react-router-dom";
@@ -27,39 +40,36 @@ export default function Welcome() {
   return (
     <div className="mx-auto max-w-2xl px-5 py-10 leading-relaxed">
       <h1 className="text-3xl font-semibold tracking-tight">The Bee's Knees</h1>
-      <p className="mt-2 text-[17px] text-ink/85">
-        An online game you play against people anywhere, for a few fractions of a penny a move,
-        and most of the money raised goes to helping bees.
-      </p>
-
-      <div className="mt-6 space-y-4 text-[15px] text-ink/90">
+      <div className="mt-4 space-y-4 text-[15px] text-ink/90">
         <p>
-          You take charge of a single drone in a meadow. A drone is a male bee, and reaching the
-          queen is the whole of what he is for. Yours has to find a flower, carry the pollen home
-          through the door of his hive, and cut his way in through the wax to the queen at its
-          centre. Every other drone out there belongs to somebody else and wants the same thing
-          first. That race is the game — it takes about three minutes, and it is decided by
-          judgement rather than by reflexes.
+          This site offers an online worldwide game whose purpose is to entertain while raising
+          money to fight the viral contamination of native bee populations in the US and UK, if
+          not everywhere.
         </p>
         <p>
-          Each move your bee makes costs a few satoshis. A satoshi is the smallest piece of a
-          bitcoin, and a few of them is a fraction of one penny — you put a small amount in
-          beforehand and it lasts a long time. There is no subscription, no card kept on file, and
-          nothing interrupts a round to ask you for money.
+          Game play consists of joining a community of bees whose role in life is to pollinate
+          flowers, to bring pollen to their hive, and to mate with the queen of the hive to
+          propagate the community. Your drone competes against the other drones of the meadow to
+          complete its mission first: to reach the queen to be her mate.
         </p>
         <p>
-          Everything every player spends collects in one pot for that round.{" "}
-          <strong className="font-semibold">Eighty percent of it goes to{" "}
-          {who?.name ?? "the pollinator charity the operator has chosen"}</strong> — every pot,
-          every round, published afterwards with what was paid and when. Ten percent goes to the
-          bee that reached the queen first, and the winner may pass that on to the charity too.
-          The last tenth keeps the service running, and any odd penny that will not divide evenly
-          falls to the charity rather than to us.
+          Each of your moves costs a few satoshis — less than pennies. The money raised from all
+          players collects in a honey pot. At the end of the game, 80% of the pot is paid to the
+          current pollinator conservation society chosen for support
+          {who?.name ? <>, presently <span className="font-semibold">{who.name}</span></> : null}.
+          10% is awarded to the winning bee. The remainder is retained to help the Tollbooth DPYC
+          community offer this gamified charitable service.
         </p>
         <p>
-          The <Link to="/about" className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4">About page</Link>{" "}
-          covers how to play well and how the thing is built. But bees are the reason it exists at
-          all, so read on first.
+          Turn to the{" "}
+          <Link
+            to="/about"
+            className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4"
+          >
+            About page
+          </Link>{" "}
+          to read more on game strategy and on the technology used to build the game. But, first,
+          read on to learn about why this game matters.
         </p>
       </div>
 
