@@ -158,7 +158,7 @@ export default function Lobby({
             >
               {HIVE_NAMES[h]}
             </span>
-            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-ink/4 p-[3px] sm:h-32 sm:w-11">
+            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-ink/6 p-[3px] sm:h-32 sm:w-11">
               {Array.from({ length: QUORUM }, (_, i) =>
                 i < n ? (
                   <span
@@ -171,7 +171,9 @@ export default function Lobby({
                     🐝
                   </span>
                 ) : (
-                  <span key={i} className="flex-1 text-[13px] leading-none opacity-15">
+                  // An empty seat is an absence, but it is still a comb cell somebody
+                  // could sit in. `opacity-15` was invisible once the page went light.
+                  <span key={i} className="flex-1 text-[13px] leading-none text-ink/50">
                     ⬡
                   </span>
                 ),

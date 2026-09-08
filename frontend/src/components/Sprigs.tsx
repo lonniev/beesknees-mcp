@@ -44,9 +44,11 @@ export default function Sprigs() {
             top: `${y}%`,
             fontSize: size,
             transform: `translate(-50%, -50%) rotate(${rot}deg)`,
-            // Faint. They are the ground, not the subject — a flower that
-            // competes with the seat count has stopped being scenery.
-            opacity: 0.22,
+            // Faint, but present. 0.22 was judged against a near-black page;
+            // the same value on light lavender is a smudge. They are still the
+            // ground rather than the subject — a flower that competes with the
+            // seat count has stopped being scenery.
+            opacity: 0.45,
           }}
         >
           {GLYPHS[i % GLYPHS.length]}
