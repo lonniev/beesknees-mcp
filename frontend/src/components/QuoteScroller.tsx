@@ -46,12 +46,12 @@ export default function QuoteScroller({ className = "" }: { className?: string }
         className="mx-auto flex min-h-[6.5rem] max-w-lg flex-col justify-center gap-2"
         style={{ opacity: visible ? 1 : 0, transition: `opacity ${FADE_MS}ms ease` }}
       >
-        <p className="font-serif text-[15px] italic leading-relaxed text-white/70">
-          <span className="text-[var(--color-wax)]">“</span>
+        <p className="font-serif text-[15px] italic leading-relaxed text-ink/80">
+          <span className="text-[var(--color-wax-ink)]">“</span>
           {q.text}
-          <span className="text-[var(--color-wax)]">”</span>
+          <span className="text-[var(--color-wax-ink)]">”</span>
         </p>
-        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">{q.author}</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink/65">{q.author}</p>
       </div>
     </div>
   );

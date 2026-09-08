@@ -30,7 +30,7 @@ const TABS = [
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-lg px-3 py-1.5 text-sm transition ${
-    isActive ? "bg-white/10 text-white" : "text-white/50 hover:text-white/80"
+    isActive ? "bg-ink/7 text-ink" : "text-ink/70 hover:text-ink/90"
   }`;
 
 export default function App() {
@@ -41,7 +41,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <nav className="flex shrink-0 items-center gap-1 border-b border-white/10 px-2 py-1.5">
+      <nav className="flex shrink-0 items-center gap-1 border-b border-ink/14 px-2 py-1.5">
         <span className="px-2 text-sm font-semibold tracking-tight">🐝 The Bee's Knees</span>
         <div className="flex-1" />
         {TABS.map((t) => (
@@ -58,7 +58,7 @@ export default function App() {
         {/* Your own face, or the way to get one. Deliberately the last thing on
          * the bar and never a wall in front of the others. */}
         {session.signedIn ? (
-          <NavLink to="/profile" title="You" className="ml-1 rounded-lg p-0.5 hover:bg-white/10">
+          <NavLink to="/profile" title="You" className="ml-1 rounded-lg p-0.5 hover:bg-ink/7">
             <Avatar value={avatarFor(session.npub)} size={26} />
           </NavLink>
         ) : (

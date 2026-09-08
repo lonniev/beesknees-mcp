@@ -34,8 +34,8 @@ export default function CharityNote({ className = "" }: { className?: string }) 
   if (!who) return null;
 
   return (
-    <p className={`text-xs leading-relaxed text-white/40 ${className}`}>
-      80% of every pot goes to <span className="text-white/70">{who.name}</span>
+    <p className={`text-xs leading-relaxed text-ink/65 ${className}`}>
+      80% of every pot goes to <span className="text-ink/80">{who.name}</span>
       {who.website && (
         <>
           {" — "}

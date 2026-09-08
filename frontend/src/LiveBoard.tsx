@@ -215,7 +215,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   }, [ready, busy, verb, target, next, round, refresh]);
 
   if (!live) {
-    return <div className="p-8 text-center text-sm text-white/50">{error || "Finding a hive…"}</div>;
+    return <div className="p-8 text-center text-sm text-ink/70">{error || "Finding a hive…"}</div>;
   }
 
   // Nobody has enough bees yet. That is a state worth showing properly, not a
@@ -270,7 +270,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       onVerb={(v) => setVerb(v as "move" | "seal")}
       prompt={
         !ready && left > 0 ? (
-          <span className="text-[var(--color-you)]">
+          <span className="text-[var(--color-you-ink)]">
             {digging ? "Digging" : "Resting"} {(left / 1000).toFixed(1)}s
           </span>
         ) : (

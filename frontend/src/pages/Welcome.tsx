@@ -15,11 +15,11 @@ export default function Welcome() {
   return (
     <div className="mx-auto max-w-2xl px-5 py-10 leading-relaxed">
       <h1 className="text-3xl font-semibold tracking-tight">The Bee's Knees</h1>
-      <p className="mt-2 text-white/60">
+      <p className="mt-2 text-ink/78">
         A race to the queen. Most of what a round collects goes to pollinator conservation.
       </p>
 
-      <ul className="mt-7 space-y-2 rounded-2xl bg-white/5 p-4 text-[14px] text-white/75">
+      <ul className="mt-7 space-y-2 rounded-2xl bg-ink/4 p-4 text-[14px] text-ink/85">
         <li>
           <span aria-hidden="true">🕷️</span> A parasitic mite and the viruses it carries
           are the largest single cause of colony death.
@@ -38,8 +38,8 @@ export default function Welcome() {
         </li>
       </ul>
 
-      <div className="mt-8 space-y-5 text-[15px] text-white/80">
-        <h2 className="text-lg font-semibold text-white">📉 The Current Pollinator Crisis</h2>
+      <div className="mt-8 space-y-5 text-[15px] text-ink/90">
+        <h2 className="text-lg font-semibold text-ink">📉 The Current Pollinator Crisis</h2>
 
         <p>
           Beekeepers in the United States have been losing a large share of their colonies every
@@ -64,7 +64,7 @@ export default function Welcome() {
 
         <LossChart />
 
-        <h2 className="pt-2 text-lg font-semibold text-white">🏡 Suburban Lawns and Spring Forage</h2>
+        <h2 className="pt-2 text-lg font-semibold text-ink">🏡 Suburban Lawns and Spring Forage</h2>
 
         <p>
           Dandelion and white clover are among the first reliable sources of nectar and pollen in
@@ -81,7 +81,7 @@ export default function Welcome() {
           leave the dandelions, skip the broadleaf spray, let the clover be.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-white">🐝 Wild Bees most at Risk</h2>
+        <h2 className="pt-2 text-lg font-semibold text-ink">🐝 Wild Bees most at Risk</h2>
 
         <p>
           Honeybees are livestock. They are not an endangered species — colony numbers hold up
@@ -96,7 +96,7 @@ export default function Welcome() {
             href="https://www.pollinator.org/"
             target="_blank"
             rel="noreferrer"
-            className="text-[var(--color-wax)] underline decoration-dotted underline-offset-4"
+            className="text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4"
           >
             Pollinator Partnership
           </a>{" "}
@@ -105,7 +105,7 @@ export default function Welcome() {
 
         <WildVsManaged />
 
-        <h2 className="pt-2 text-lg font-semibold text-white">🧾 Where the Money Goes</h2>
+        <h2 className="pt-2 text-lg font-semibold text-ink">🧾 Where the Money Goes</h2>
 
         <p>
           You buy a worker bee a seat, and every motion it makes costs a little. Most of what a
@@ -125,13 +125,13 @@ export default function Welcome() {
         </Link>
         <Link
           to="/ledger"
-          className="rounded-full bg-white/10 px-5 py-2.5 text-sm font-medium text-white/80"
+          className="rounded-full bg-ink/7 px-5 py-2.5 text-sm font-medium text-ink/90"
         >
           Where the money went
         </Link>
       </div>
 
-      <p className="mt-6 text-xs text-white/35">
+      <p className="mt-6 text-xs text-ink/65">
         The practice hive costs nothing and pays nothing — it fills the other seats with bots so you
         can learn the board before a real match.
       </p>

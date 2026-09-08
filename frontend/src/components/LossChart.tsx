@@ -56,10 +56,10 @@ export default function LossChart() {
 
   return (
     <figure className="my-7">
-      <figcaption className="text-sm font-medium text-white/85">
+      <figcaption className="text-sm font-medium text-ink/95">
         Share of US managed colonies lost each year
       </figcaption>
-      <p className="mt-0.5 text-[11px] text-white/40">
+      <p className="mt-0.5 text-[11px] text-ink/65">
         Beekeeper-reported annual losses. Years without a dot are years I have no figure for, not
         years without losses.
       </p>
@@ -79,10 +79,10 @@ export default function LossChart() {
               y1={y(v)}
               y2={y(v)}
               stroke="currentColor"
-              className="text-white/8"
+              className="text-ink/8"
               strokeWidth={1}
             />
-            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" className="fill-white/35 text-[10px]">
+            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" className="fill-ink/65 text-[10px]">
               {v}%
             </text>
           </g>
@@ -110,7 +110,7 @@ export default function LossChart() {
             x={x(i)}
             y={H - 10}
             textAnchor="middle"
-            className={`text-[9px] ${d.loss === null ? "fill-white/20" : "fill-white/40"}`}
+            className={`text-[9px] ${d.loss === null ? "fill-ink/65" : "fill-ink/65"}`}
           >
             {d.year.slice(2)}
           </text>
@@ -131,7 +131,7 @@ export default function LossChart() {
               cx={x(d.i)}
               cy={y(d.loss as number)}
               r={hover === d.i ? 7 : 5}
-              fill="var(--color-wax)"
+              fill="var(--color-wax-ink)"
               stroke="var(--color-sky)"
               strokeWidth={2}
             />
@@ -146,7 +146,7 @@ export default function LossChart() {
               width={84}
               height={24}
               rx={5}
-              fill="#000"
+              fill="var(--color-ink)"
               opacity={0.82}
             />
             <text
@@ -164,17 +164,17 @@ export default function LossChart() {
       {/* Identity is never colour-alone, and the numbers are readable without
           hovering anything. */}
       <details className="mt-2">
-        <summary className="cursor-pointer text-[11px] text-white/35">The figures</summary>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/55">
+        <summary className="cursor-pointer text-[11px] text-ink/65">The figures</summary>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink/70">
           {points.map((d) => (
             <span key={d.year} className="tabular-nums">
-              {d.year} <span className="text-white/85">{d.loss}%</span>
+              {d.year} <span className="text-ink/95">{d.loss}%</span>
             </span>
           ))}
         </div>
       </details>
 
-      <p className="mt-2 text-[10px] text-white/30">
+      <p className="mt-2 text-[10px] text-ink/65">
         Source: Bee Informed Partnership / Apiary Inspectors of America national colony loss surveys.
       </p>
     </figure>

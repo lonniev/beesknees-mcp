@@ -61,19 +61,19 @@ export default function Scoreboard() {
 
   return (
     <div className="flex shrink-0 items-start justify-between gap-4 px-1 text-[11px]">
-      <div className="flex items-center gap-1.5 text-white/50">
+      <div className="flex items-center gap-1.5 text-ink/70">
         <Coins size={13} />
         <span>raised</span>
-        <span className="font-medium tabular-nums text-white/85">{sats(raised)}</span>
-        <span className="text-white/35">sats</span>
+        <span className="font-medium tabular-nums text-ink/95">{sats(raised)}</span>
+        <span className="text-ink/65">sats</span>
       </div>
 
       <div className="flex min-w-0 flex-col items-end gap-1">
-        <div className="flex items-center gap-1.5 text-white/50">
-          <HeartHandshake size={13} className="text-[var(--color-wax)]" />
+        <div className="flex items-center gap-1.5 text-ink/70">
+          <HeartHandshake size={13} className="text-[var(--color-wax-ink)]" />
           <span>to pollinators</span>
-          <span className="font-medium tabular-nums text-[var(--color-wax)]">{sats(charity)}</span>
-          <span className="text-white/35">sats</span>
+          <span className="font-medium tabular-nums text-[var(--color-wax-ink)]">{sats(charity)}</span>
+          <span className="text-ink/65">sats</span>
         </div>
 
         {/* The three best bees in the hive, by ROUNDS WON.
@@ -87,16 +87,16 @@ export default function Scoreboard() {
           * empty board says so, because "nobody has won yet" is an invitation
           * and a list of zeroes is not. */}
         {top.length > 0 && (
-          <div className="flex items-center gap-2.5 text-white/40">
-            <Trophy size={11} className="text-[var(--color-wax)]" />
+          <div className="flex items-center gap-2.5 text-ink/65">
+            <Trophy size={11} className="text-[var(--color-wax-ink)]" />
             {top.map((row, i) => (
               <span key={row.npub} className="tabular-nums" title={row.npub}>
                 <span aria-hidden>{["🥇", "🥈", "🥉"][i]}</span>{" "}
                 <span className="font-mono text-[10px]">{short(row.npub)}</span>{" "}
-                <span className="text-white/75">
+                <span className="text-ink/85">
                   {row.wins} {row.wins === 1 ? "win" : "wins"}
                 </span>
-                {row.sats > 0 && <span className="pl-1 text-white/45">· {sats(row.sats)}</span>}
+                {row.sats > 0 && <span className="pl-1 text-ink/70">· {sats(row.sats)}</span>}
               </span>
             ))}
           </div>

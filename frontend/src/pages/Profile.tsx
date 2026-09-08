@@ -95,7 +95,7 @@ export default function Profile({ session }: { session: Session }) {
 
   if (!session.signedIn) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center text-sm text-white/60">
+      <div className="mx-auto max-w-md px-4 py-16 text-center text-sm text-ink/78">
         <p className="mb-4">You are not signed in.</p>
         <Link
           to="/signin"
@@ -120,10 +120,10 @@ export default function Profile({ session }: { session: Session }) {
         * knowing: how this session is signing, and how to end it. */}
       <NostrProfilePanel npub={session.npub} />
 
-      <section className="rounded-xl border border-white/10 p-4">
+      <section className="rounded-xl border border-ink/14 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-white/60">Balance</span>
-          <button onClick={load} title="Refresh" className="rounded-lg p-1.5 text-white/40 hover:bg-white/10">
+          <span className="text-sm text-ink/78">Balance</span>
+          <button onClick={load} title="Refresh" className="rounded-lg p-1.5 text-ink/65 hover:bg-ink/7">
             <RefreshCw size={14} />
           </button>
         </div>
@@ -131,10 +131,10 @@ export default function Profile({ session }: { session: Session }) {
           <span className="text-2xl font-semibold tabular-nums">
             {sats(reachable ? balance : null)}
           </span>
-          <span className="text-sm text-white/40">sats</span>
+          <span className="text-sm text-ink/65">sats</span>
         </div>
         {!reachable && (
-          <p className="mt-2 text-xs text-white/45">
+          <p className="mt-2 text-xs text-ink/70">
             The hive did not answer. That is not the same as an empty balance, so nothing is
             shown rather than a nought.
           </p>
@@ -147,7 +147,7 @@ export default function Profile({ session }: { session: Session }) {
                 key={n}
                 disabled={busy}
                 onClick={() => topUp(n)}
-                className="flex-1 rounded-lg border border-white/15 py-2 text-sm hover:bg-white/10 disabled:opacity-40"
+                className="flex-1 rounded-lg border border-ink/20 py-2 text-sm hover:bg-ink/7 disabled:opacity-40"
               >
                 +{n.toLocaleString("en-US")}
               </button>
@@ -167,33 +167,33 @@ export default function Profile({ session }: { session: Session }) {
               <button
                 disabled={busy}
                 onClick={confirm}
-                className="flex-1 rounded-lg border border-white/15 py-2 text-sm hover:bg-white/10 disabled:opacity-40"
+                className="flex-1 rounded-lg border border-ink/20 py-2 text-sm hover:bg-ink/7 disabled:opacity-40"
               >
                 I've paid — check
               </button>
               <button
                 onClick={() => setInvoice(null)}
-                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/50 hover:bg-white/10"
+                className="rounded-lg border border-ink/20 px-3 py-2 text-sm text-ink/70 hover:bg-ink/7"
               >
                 Cancel
               </button>
             </div>
           </div>
         )}
-        {msg && <p className="mt-3 text-xs text-white/60">{msg}</p>}
+        {msg && <p className="mt-3 text-xs text-ink/78">{msg}</p>}
       </section>
 
       <Winnings npub={session.npub} />
 
       <div className="flex items-center gap-3 px-1 pb-2">
-        <span className="min-w-0 flex-1 text-[11px] leading-snug text-white/35">
+        <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
           {session.canSign
             ? "Signing with a session key held in this tab."
             : "Signed in on a cached proof, which expires."}
         </span>
         <button
           onClick={session.signOut}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/55 hover:bg-white/10"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/7"
         >
           <LogOut size={14} /> Sign out
         </button>

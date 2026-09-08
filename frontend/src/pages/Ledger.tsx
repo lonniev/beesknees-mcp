@@ -53,33 +53,33 @@ export default function Ledger() {
         />
       </div>
 
-      <h2 className="mt-9 flex items-center gap-2 text-sm font-semibold text-white/80">
+      <h2 className="mt-9 flex items-center gap-2 text-sm font-semibold text-ink/90">
         <Trophy size={15} /> Most won
       </h2>
       {data?.leaderboard?.length ? (
-        <ul className="mt-3 divide-y divide-white/5 rounded-xl bg-white/5">
+        <ul className="mt-3 divide-y divide-ink/10 rounded-xl bg-ink/4">
           {data.leaderboard.map((row, i) => (
             <li key={row.npub} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="w-5 tabular-nums text-white/35">{i + 1}</span>
-              <span className="flex-1 truncate font-mono text-[12px] text-white/70">
+              <span className="w-5 tabular-nums text-ink/65">{i + 1}</span>
+              <span className="flex-1 truncate font-mono text-[12px] text-ink/80">
                 {shortNpub(row.npub)}
               </span>
-              <span className="text-white/40">{row.wins}×</span>
+              <span className="text-ink/65">{row.wins}×</span>
               <span className="tabular-nums font-medium">{sats(row.sats)}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-sm text-white/40">
+        <p className="mt-3 text-sm text-ink/65">
           {failed ? "The hive did not answer." : "No match has been settled yet."}
         </p>
       )}
 
-      <h2 className="mt-9 text-sm font-semibold text-white/80">Every settled match</h2>
+      <h2 className="mt-9 text-sm font-semibold text-ink/90">Every settled match</h2>
       {data?.settlements?.length ? (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-[13px]">
-            <thead className="text-white/40">
+            <thead className="text-ink/65">
               <tr>
                 <th className="py-2 pr-4 font-normal">Match</th>
                 <th className="py-2 pr-4 text-right font-normal">Raised</th>
@@ -88,28 +88,28 @@ export default function Ledger() {
                 <th className="py-2 font-normal">Settled</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-ink/10">
               {data.settlements.map((s) => (
                 <tr key={s.match_id}>
-                  <td className="py-2 pr-4 font-mono text-[11px] text-white/50">{s.match_id}</td>
+                  <td className="py-2 pr-4 font-mono text-[11px] text-ink/70">{s.match_id}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">{sats(s.pot_sats)}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums text-[var(--color-wax)]">
+                  <td className="py-2 pr-4 text-right tabular-nums text-[var(--color-wax-ink)]">
                     {sats(s.charity_sats)}
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">{sats(s.winner_sats)}</td>
-                  <td className="py-2 text-white/40">{s.created_at?.slice(0, 10)}</td>
+                  <td className="py-2 text-ink/65">{s.created_at?.slice(0, 10)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-white/40">
+        <p className="mt-3 text-sm text-ink/65">
           {failed ? "The hive did not answer." : "No match has been settled yet."}
         </p>
       )}
 
-      <p className="mt-8 text-xs leading-relaxed text-white/35">
+      <p className="mt-8 text-xs leading-relaxed text-ink/65">
         A match's share accrues here and is paid to the charity in batches — a single round's share
         is small enough that a network fee could exceed it, so settling each one would destroy the
         thing it is meant to deliver. Each payment is recorded with its transaction id, which is
@@ -121,8 +121,8 @@ export default function Ledger() {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white/5 px-4 py-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-white/45">
+    <div className="rounded-xl bg-ink/4 px-4 py-3">
+      <div className="flex items-center gap-1.5 text-[11px] text-ink/70">
         {icon}
         {label}
       </div>
@@ -141,12 +141,12 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
  */
 function Beneficiary({ name, website }: { name: string; website: string }) {
   // A held line rather than a guess while it loads: the name IS the claim.
-  if (!name) return <p className="mt-1 text-sm text-white/50">&nbsp;</p>;
+  if (!name) return <p className="mt-1 text-sm text-ink/70">&nbsp;</p>;
 
   return (
-    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/50">
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/70">
       <span>
-        Beneficiary: <span className="text-white/75">{name}</span>
+        Beneficiary: <span className="text-ink/85">{name}</span>
       </span>
       {website && (
         <a

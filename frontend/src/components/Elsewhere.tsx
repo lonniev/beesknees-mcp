@@ -29,17 +29,17 @@ function Card({
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="group flex flex-1 items-start gap-3 rounded-xl border border-white/10 p-3 text-left transition hover:border-white/25 hover:bg-white/5"
+      className="group flex flex-1 items-start gap-3 rounded-xl border border-ink/14 p-3 text-left transition hover:border-ink/32 hover:bg-ink/4"
     >
       <span className="select-none text-lg leading-none" aria-hidden="true">
         {glyph}
       </span>
       <span className="min-w-0">
-        <span className="flex items-center gap-1 text-[13px] font-medium text-white/85">
+        <span className="flex items-center gap-1 text-[13px] font-medium text-ink/95">
           {title}
-          <ExternalLink size={11} className="text-white/30 group-hover:text-white/60" />
+          <ExternalLink size={11} className="text-ink/65 group-hover:text-ink/78" />
         </span>
-        <span className="mt-0.5 block text-[11px] leading-snug text-white/45">{blurb}</span>
+        <span className="mt-0.5 block text-[11px] leading-snug text-ink/70">{blurb}</span>
       </span>
     </a>
   );

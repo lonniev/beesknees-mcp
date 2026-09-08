@@ -124,12 +124,12 @@ export default function Lobby({
     <div className="relative mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center sm:max-w-3xl sm:gap-8 sm:py-12">
       <Sprigs />
       <div>
-        <div className="text-sm text-white/50">The hive is filling</div>
+        <div className="text-sm text-ink/70">The hive is filling</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
           <span className="text-5xl font-semibold tabular-nums">{seated}</span>
-          <span className="text-2xl text-white/40">/ {QUORUM}</span>
+          <span className="text-2xl text-ink/65">/ {QUORUM}</span>
         </div>
-        <div className="mt-1 text-sm text-white/60">
+        <div className="mt-1 text-sm text-ink/78">
           {needed === 0
             ? "Quorum reached — the round is about to start."
             : `${needed} more ${needed === 1 ? "bee" : "bees"} and the race begins.`}
@@ -153,12 +153,12 @@ export default function Lobby({
             <Skep filling={n / QUORUM} yours={mine?.hive === h} className="max-w-[44px] sm:max-w-[64px]" />
             <span
               className={`text-[10px] font-medium tracking-wide sm:text-xs ${
-                mine?.hive === h ? "text-[var(--color-you)]" : "text-white/45"
+                mine?.hive === h ? "text-[var(--color-you-ink)]" : "text-ink/70"
               }`}
             >
               {HIVE_NAMES[h]}
             </span>
-            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-white/5 p-[3px] sm:h-32 sm:w-11">
+            <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-ink/4 p-[3px] sm:h-32 sm:w-11">
               {Array.from({ length: QUORUM }, (_, i) =>
                 i < n ? (
                   <span
@@ -179,7 +179,7 @@ export default function Lobby({
             </div>
             <span
               className={`text-[10px] ${
-                mine?.hive === h ? "text-[var(--color-you)]" : "text-white/35"
+                mine?.hive === h ? "text-[var(--color-you-ink)]" : "text-ink/65"
               }`}
             >
               {n}
@@ -189,7 +189,7 @@ export default function Lobby({
       </div>
 
       {mine ? (
-        <div className="text-sm text-white/55">
+        <div className="text-sm text-ink/70">
           <Users size={14} className="mr-1 inline" />
           Your bee has a seat. Waiting {Math.floor(waited / 60)}:
           {String(waited % 60).padStart(2, "0")}
@@ -210,9 +210,9 @@ export default function Lobby({
         * the seat eventually; a friend is a better game. */}
       <button
         onClick={share}
-        className="mx-auto flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white/75 hover:bg-white/5"
+        className="mx-auto flex items-center gap-2 rounded-xl border border-ink/20 px-4 py-2.5 text-sm text-ink/85 hover:bg-ink/4"
       >
-        {shared ? <Check size={15} className="text-[var(--color-you)]" /> : <Share2 size={15} />}
+        {shared ? <Check size={15} className="text-[var(--color-you-ink)]" /> : <Share2 size={15} />}
         {shared ? "Link copied — send it to a friend" : "Share it — bring a friend to the race"}
       </button>
 
@@ -228,7 +228,7 @@ export default function Lobby({
 
       <CharityNote />
 
-      <p className="text-xs leading-relaxed text-white/35">
+      <p className="text-xs leading-relaxed text-ink/65">
         Nothing is spent while you wait — a seat costs a fare, and the motions cost
         theirs only once the race is on. Every hive races its own board; the first
         bee to any queen ends the round.
