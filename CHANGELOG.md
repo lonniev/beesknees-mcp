@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The racer is a **drone**, not a worker. Worker bees are female and never
+  mate; drones are male and reaching the queen is the whole of what they are
+  for — which is the game that was already built, coronation and all. One word
+  fixes both the story and the biology, where "male worker bee" would have put
+  a plainly false claim in the first paragraph of the page that argues for
+  pollinator charity by being accurate about bees.
+
 - The welcome page reads the operator's configured beneficiary rather than
   naming one in the markup. It hardcoded "Pollinator Partnership" while the
   service was in fact paying the Vermont Beekeepers Association, so the page
