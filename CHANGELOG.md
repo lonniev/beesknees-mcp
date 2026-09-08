@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The drifting bees fly over the reading pages too — the welcome, About and the
+  ledger. Split out of `Meadowscape` as `DriftingBees`, so a page can have the
+  life without the landscape: a hill under three screens of prose about colony
+  loss would be scenery arguing with the argument. Hidden below `lg`, because
+  the bees fly at 8% and 90% of the viewport — margin on a wide screen, and the
+  middle of a sentence where the reading column is the whole width.
+
 - A meadow behind the sign-in screen (`components/Meadowscape.tsx`). One card
   in the middle of a very large lavender field read as a page that had failed
   to load rather than a page that was calm. Rolling ground, grass in tufts,

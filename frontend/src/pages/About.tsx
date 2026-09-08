@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { DriftingBees } from "../components/Meadowscape.tsx";
 import { annotate } from "../lib/glossary.tsx";
 import { serviceStatus } from "../lib/mcp";
 
@@ -166,6 +167,8 @@ export default function About() {
     : [];
 
   return (
+    <>
+      <DriftingBees />
     <div className="mx-auto max-w-2xl px-5 py-8 leading-relaxed">
       <h1 className="text-2xl font-semibold tracking-tight">About</h1>
 
@@ -277,5 +280,6 @@ export default function About() {
         holds its quorum of eight bees.
       </p>
     </div>
+    </>
   );
 }

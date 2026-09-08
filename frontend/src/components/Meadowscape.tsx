@@ -82,6 +82,42 @@ function Bee({ scale }: { scale: number }) {
   );
 }
 
+/**
+ * The bees on their own, without the ground.
+ *
+ * The long reading pages want the life and not the landscape: a hill under
+ * three screens of prose about colony loss would be scenery arguing with the
+ * argument. So the drift is separable, and this is the half that travels.
+ *
+ * Hidden below `lg`. The bees fly at 8% and 90% of the viewport, which is
+ * margin on a wide screen and the middle of a sentence on a phone — where the
+ * reading column is the whole width, there is nowhere for a bee to be that is
+ * not on top of the words.
+ */
+export function DriftingBees() {
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 -z-10 hidden overflow-hidden lg:block"
+      aria-hidden="true"
+    >
+      {BEES.map(([x, y, scale, secs, delay], i) => (
+        <div
+          key={i}
+          className="bk-drift absolute"
+          style={{
+            left: `${x}%`,
+            top: `${y}%`,
+            animationDuration: `${secs}s`,
+            animationDelay: `${delay}s`,
+          }}
+        >
+          <Bee scale={scale} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Meadowscape() {
   return (
     <>
@@ -188,23 +224,9 @@ export default function Meadowscape() {
         </svg>
       </div>
 
-      {/* The bees. Kept to the margins, where the reading column is not. */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-        {BEES.map(([x, y, scale, secs, delay], i) => (
-          <div
-            key={i}
-            className="bk-drift absolute"
-            style={{
-              left: `${x}%`,
-              top: `${y}%`,
-              animationDuration: `${secs}s`,
-              animationDelay: `${delay}s`,
-            }}
-          >
-            <Bee scale={scale} />
-          </div>
-        ))}
-      </div>
+      {/* The same bees the quiet pages get. One definition, so the drift
+          cannot come to differ between the pages that show it. */}
+      <DriftingBees />
     </>
   );
 }
