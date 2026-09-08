@@ -230,6 +230,16 @@ export default function LiveBoard({ session }: { session: Session }) {
     ? live.bees.find((b) => b.npub === live.winner_npub) ?? null
     : null;
   const iWon = Boolean(live.winner_npub) && live.winner_npub === session.npub;
+  /**
+   * The round is over, whoever it belonged to.
+   *
+   * Keyed on the MATCH's state rather than on finding the winner's bee row,
+   * which is what it used to do — so a player whose rival's row was not in the
+   * payload, or a round that hit the ceiling with no winner at all, watched a
+   * board quietly stop moving and was told nothing. Losing is a result and
+   * deserves to be announced; a frozen board is not an announcement.
+   */
+  const ended = live.state === "ended" || live.state === "settled";
 
   return (
     <BoardScreen
@@ -284,21 +294,31 @@ export default function LiveBoard({ session }: { session: Session }) {
       onAct={act}
       restLeft={left > 0 ? left / servedMs : 0}
       winner={
-        winnerBee
+        !ended
+          ? null
+          : winnerBee || live.winner_npub
           ? iWon
             ? {
-                label: `Consort to Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]}`,
-                detail: `Hive ${HIVE_NAMES[winnerBee.hive]} is yours — first bee home`,
+                label: `Consort to Queen ${QUEEN_NAMES[(winnerBee?.hive ?? 0) % QUEEN_NAMES.length]}`,
+                detail: `Hive ${HIVE_NAMES[winnerBee?.hive ?? 0]} is yours — first bee home`,
                 // Where the winner's share went, on its own line rather than
                 // tacked onto the sentence with a second dash.
                 note: claimed ? claimed.replace(/^\s*—\s*/, "") : undefined,
                 yours: true,
               }
             : {
-                label: winnerBee.label || winnerBee.npub.slice(0, 12),
-                detail: `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`,
+                label: winnerBee?.label || live.winner_npub.slice(0, 12),
+                detail: winnerBee
+                  ? `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`
+                  : "reached the queen first",
               }
-          : null
+          : {
+              // Ended with nobody home: the ceiling ran out. Still a result,
+              // and still owed to everyone who was playing.
+              label: "The round is over",
+              detail: "Time ran out before anybody reached a queen.",
+              unwon: true,
+            }
       }
       // Leaving is the winner's own move: the result stays until they are done
       // reading it, rather than the next lobby taking the screen from under them.

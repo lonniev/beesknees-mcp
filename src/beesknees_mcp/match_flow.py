@@ -65,11 +65,21 @@ async def ensure_forming() -> dict[str, Any]:
 async def join(npub: str, label: str) -> dict[str, Any]:
     """Buy a seat in the next match.
 
-    Seats fill the FULLEST hive that still has room, which is what makes the
-    quorum rule reachable: eight bees spread evenly over five hives leaves no
-    hive with eight, and nobody would ever start. The consequence is honest and
-    worth knowing — a lightly attended match runs in one or two hives, and the
-    empty ones simply take no part.
+    Seats go round-robin — always into the emptiest hive — so the five hives
+    stay within one seat of each other and the whole board is underway rather
+    than one hive playing while four sit dark.
+
+    This replaces filling the FULLEST hive first, which existed because quorum
+    used to mean "some hive reached eight": spread evenly, no hive ever did, and
+    nothing would have started. Quorum is now counted across the match (see
+    `seated_total`), so the two rules had to change together — round-robin with
+    a per-hive quorum is a lobby that never opens.
+
+    Balance is what makes thin attendance fair rather than merely thin. Twelve
+    bees dealt round-robin is two or three per hive: everyone has a rival and
+    nobody races an empty board. The same twelve dealt fullest-first is one hive
+    of twelve and four empty ones — and an empty hive's single occupant, once
+    one arrives, wins almost by walking.
     """
     m = await ensure_forming()
     mid = str(m["match_id"])
@@ -82,11 +92,12 @@ async def join(npub: str, label: str) -> dict[str, Any]:
     open_hives = [h for h in range(store.HIVES) if counts.get(h, 0) < store.SEATS]
     if not open_hives:
         raise store.BoardError("every hive is full — the next match opens shortly")
-    hive = max(open_hives, key=lambda h: counts.get(h, 0))
+    # Emptiest first; hive id breaks ties, so the deal is deterministic and a
+    # replay of the same joins produces the same board.
+    hive = min(open_hives, key=lambda h: (counts.get(h, 0), h))
 
     seat = await store.take_seat(mid, npub, label, hive)
-    counts = await store.seat_counts(mid)
-    if max(counts.values(), default=0) >= store.QUORUM:
+    if sum((await store.seat_counts(mid)).values()) >= store.QUORUM:
         await _mark_quorum(mid)
     return {"match_id": mid, "already_seated": False, **seat}
 

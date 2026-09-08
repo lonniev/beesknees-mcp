@@ -16,7 +16,10 @@ import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
 import type { Session } from "../lib/session.ts";
 
-/** Mirrors board_store.QUORUM. A match starts when one hive holds this many. */
+/** Mirrors board_store.QUORUM — bees ACROSS the match, not in one hive.
+ *
+ * Seats are dealt round-robin now, so no single hive fills first and counting
+ * the fullest one would have left this stuck one short for ever. */
 const QUORUM = 8;
 
 export default function Lobby({
@@ -57,13 +60,15 @@ export default function Lobby({
 
   const mine = live.bees.find((b) => b.npub === session.npub) ?? null;
 
-  // Per hive, because the quorum is per hive. The fullest one is the one that
-  // will actually start the match, so it is the one worth watching.
+  // Across the match, because that is what the quorum counts now. Seats are
+  // dealt to the emptiest hive, so the five stay within one of each other and
+  // the whole board starts together — which is exactly why the fullest hive is
+  // no longer the number that decides anything.
   const perHive = Array.from({ length: live.hives }, (_, h) =>
     live.bees.filter((b) => b.hive === h).length,
   );
-  const fullest = Math.max(0, ...perHive);
-  const needed = Math.max(0, QUORUM - fullest);
+  const seated = perHive.reduce((a, n) => a + n, 0);
+  const needed = Math.max(0, QUORUM - seated);
 
   /**
    * Hand the round to somebody else.
@@ -112,7 +117,7 @@ export default function Lobby({
       <div>
         <div className="text-sm text-white/50">The hive is filling</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
-          <span className="text-5xl font-semibold tabular-nums">{fullest}</span>
+          <span className="text-5xl font-semibold tabular-nums">{seated}</span>
           <span className="text-2xl text-white/40">/ {QUORUM}</span>
         </div>
         <div className="mt-1 text-sm text-white/60">

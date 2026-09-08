@@ -14,7 +14,7 @@
  */
 
 import type { ReactNode } from "react";
-import { Crown, RotateCcw, Trophy } from "lucide-react";
+import { Crown, Hourglass, RotateCcw, Trophy } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import Coronation from "./Coronation.tsx";
 import Meadow from "./Meadow.tsx";
@@ -87,7 +87,14 @@ export interface BoardScreenProps {
    * The end of the race. `yours` turns the flourish up — it is still the end
    * of the race when a rival wins, but it is not your wedding.
    */
-  winner?: { label: string; detail: string; note?: string; yours?: boolean } | null;
+  winner?: {
+    label: string;
+    detail: string;
+    note?: string;
+    yours?: boolean;
+    /** Nobody reached a queen — the ceiling ran out. A result, not a victory. */
+    unwon?: boolean;
+  } | null;
 }
 
 function RivalTile({
@@ -276,14 +283,20 @@ export default function BoardScreen(p: BoardScreenProps) {
             {/* The flourish plays on the CLEAR board; the card follows. Both
               * are keyed on the winner's line so a fresh win replays them
               * rather than showing a finished animation and a new name. */}
-            {p.winner && <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />}
+            {p.winner && !p.winner.unwon && (
+              <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />
+            )}
 
             {p.winner && (
               <div
                 key={`card:${p.winner.detail}`}
                 className="bk-settle absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm"
               >
-                {p.winner.yours ? (
+                {p.winner.unwon ? (
+                  // No crown and no trophy for a round nobody won. Ceremony for
+                  // a stalemate reads as mockery.
+                  <Hourglass size={34} className="text-white/40" />
+                ) : p.winner.yours ? (
                   <Crown size={44} className="bk-pulse text-[var(--color-wax)]" />
                 ) : (
                   <Trophy size={38} className="text-white/70" />
