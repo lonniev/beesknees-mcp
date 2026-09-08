@@ -68,6 +68,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A thin lobby is never left uncovered.** The swarm does re-check and top up
+  on every poll — that part was right — but a shift only seats while it could
+  still see a whole round out, which is `elapsed + 660 <= 840`, or its first
+  180 seconds. Shifts started every 360, so **180 seconds of every 360 had no
+  shift willing to seat a bee at all**, and somebody arriving in one of those
+  holes waited the gap out in front of an empty lobby. Shifts now start every
+  three minutes, so the windows abut; the handover is staggered by
+  `PATIENCE_S`, so two shifts never seat into one lobby. It went from a
+  nuisance to a wall the moment quorum became per-hive: a room used to need
+  seven bees and now needs about forty.
+- Retiring a cohort closes its connections. `forget_finished` cleared the list
+  and left every bee's `httpx.AsyncClient` open — harmless at seven bees a
+  match, less so at forty across several rounds, and a cleared list is one
+  `aclose()` can no longer reach.
+
 - `sim/run.ts` played four hundred rounds and printed a full report whenever
   anything imported it; `main()` is now guarded so it runs only when the file
   is run. Two dead locals went with it, which nothing had type-checked because

@@ -16,6 +16,7 @@ on top of its cooldown, jittered, so the eight of them do not move in lockstep.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
 import time
@@ -199,10 +200,24 @@ class Swarm:
                 logger.debug("%s: %s", bee.label, r.get("refused") or r.get("reason"))
         return moves
 
-    def forget_finished(self, state: dict[str, Any]) -> None:
-        """A round is over; the bees that played it are spent."""
-        if str(state.get("state")) in ("ended", "settled"):
-            self.bees.clear()
+    async def forget_finished(self, state: dict[str, Any]) -> int:
+        """A round is over; the bees that played it are spent. Returns how many.
+
+        Their connections go with them. This used to `clear()` the list and
+        leave every bee's `httpx.AsyncClient` open with its own pool — harmless
+        at the seven bees a match-wide quorum needed, and not harmless now that
+        a per-hive quorum wants about forty and a shift plays several rounds.
+        A cleared list is also an unreachable one: `aclose()` at the end of the
+        shift could only close the cohort still in it.
+        """
+        if str(state.get("state")) not in ("ended", "settled"):
+            return 0
+        spent = self.bees
+        self.bees = []
+        for b in spent:
+            with contextlib.suppress(Exception):
+                await b.hive.aclose()
+        return len(spent)
 
 
 #: How long a round can possibly last: the server's ceiling, plus room to settle.
@@ -236,7 +251,7 @@ async def run(
     reader = Hive(url, *new_key())
     started = time.monotonic()
     first_seen: float | None = None
-    tally = {"joined": 0, "moves": 0, "polls": 0}
+    tally = {"joined": 0, "moves": 0, "polls": 0, "retired": 0}
     try:
         while True:
             state = await reader.call("match_state")
@@ -263,7 +278,7 @@ async def run(
                 first_seen = None
 
             tally["moves"] += await swarm.play_once(state)
-            swarm.forget_finished(state)
+            tally["retired"] += await swarm.forget_finished(state)
 
             # Stop taking work after the window, but never walk out on bees that
             # are still playing.

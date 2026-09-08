@@ -64,7 +64,27 @@ config = modal.Secret.from_name("beesknees-sim", required_keys=["BEESKNEES_URL"]
     # committed to, and it refuses a lobby it has not the time left to finish.
     # The timeout is the outermost ring and must sit outside the hard cap in
     # `run`, or Modal kills a shift that has bees still out.
-    schedule=modal.Period(minutes=6),
+    #
+    # EVERY THREE MINUTES, not six, and the arithmetic is the reason.
+    #
+    # A shift only seats while it could still see a whole round out:
+    # `elapsed + ROUND_CEILING_S <= hard_cap` is `elapsed <= 180s`. It then
+    # spends the rest of its life refusing — which is correct, and was invisible
+    # while shifts started every six minutes, because it left a 180-second hole
+    # in every 360 where NO shift would seat a bee at all. A patron who arrived
+    # in one of those holes waited out the entire gap watching an empty lobby.
+    #
+    # At three minutes the windows abut: [0,180], [180,360], [360,540]. There is
+    # always exactly one shift willing to seat, and the handover is staggered by
+    # `PATIENCE_S` — an arriving shift waits 45s before its first top-up, by
+    # which time the outgoing one is out of its window — so the two never seat
+    # into the same lobby at once.
+    #
+    # It costs twice the invocations, each of them I/O-bound and mostly asleep.
+    # That is the price of a lobby that is never uncovered, and it went up in
+    # value the moment quorum became per-hive: a room used to need seven bees
+    # and now needs about forty.
+    schedule=modal.Period(minutes=3),
     timeout=900,
     # Entirely I/O bound: it waits on HTTP and on its own deliberate pauses.
     cpu=0.5,
