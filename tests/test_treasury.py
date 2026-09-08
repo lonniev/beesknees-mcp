@@ -11,7 +11,22 @@ from beesknees_mcp import treasury as t
 
 
 def _ledger(sats: int) -> str:
-    return json.dumps({"balance_api_sats": sats, "tranches": []})
+    """A ledger in the shape the SDK actually writes.
+
+    Built from `UserLedger.to_json()`'s real schema rather than a convenient
+    invention — a fixture that agrees with the code instead of with the SDK
+    proves only that the code agrees with itself.
+    """
+    return json.dumps({
+        "v": 4,
+        "tranches": [
+            {"granted_at": "2026-09-01T00:00:00", "original_sats": sats,
+             "remaining_sats": sats, "invoice_id": "inv1"},
+        ],
+        "total_deposited_api_sats": sats,
+        "total_consumed_api_sats": 0,
+        "total_expired_api_sats": 0,
+    })
 
 
 def test_a_node_balance_is_not_the_operators_money() -> None:
@@ -109,9 +124,38 @@ def test_the_fee_reserve_has_a_floor_because_a_percentage_of_little_is_nothing()
     assert t.fee_allowance(100_000) == 2_000
 
 
-def test_a_ledger_of_tranches_is_read_when_there_is_no_running_total() -> None:
-    """Somebody else's format, and it is money — so read it more than one way."""
-    blob = json.dumps(
-        {"tranches": [{"remaining_api_sats": 400}, {"remaining_api_sats": 350}]}
-    )
+def test_the_balance_is_summed_from_tranches_because_there_is_no_balance_field() -> None:
+    """`remaining_sats`, and nothing else.
+
+    There is no running total in the schema: it carries deposited, consumed and
+    expired, and deposited-minus-consumed is not the balance because expiry is a
+    third term. So the tranches ARE the balance.
+    """
+    blob = json.dumps({"v": 4, "tranches": [
+        {"remaining_sats": 400, "original_sats": 400},
+        {"remaining_sats": 350, "original_sats": 1000},
+    ]})
     assert t.patron_float([("npub1a", blob)]) == 750
+
+
+def test_a_ledger_this_code_cannot_read_is_unreadable_not_empty() -> None:
+    """The failure that reads as a bigger number is the one to be strict about.
+
+    This was first written against `remaining_api_sats`, `amount_api_sats` and
+    `amount` — none of which exist in the SDK's schema. Every miss looked like a
+    patron holding nothing, so the estate's float summed to zero and the
+    operator was told the whole node balance was theirs to send. A wrong key
+    here does not fail loudly; it hands over other people's deposits.
+    """
+    # A dict with no `tranches` list is a schema this code has not been taught.
+    surprising = json.dumps({"v": 9, "balances": {"api_sats": 5000}})
+    assert t.unreadable_ledgers([("npub1a", surprising)]) == 1
+
+    s = t.solvency(sendable_sats=100_000, ledgers=[("npub1a", surprising)],
+                   unpaid_obligations_sats=0)
+    assert not s.trustworthy, "an unrecognised ledger must not read as zero float"
+    ok, _ = t.may_pay(s, 1)
+    assert not ok
+
+    # An empty string is what the vault returns for a row it could not decrypt.
+    assert t.unreadable_ledgers([("npub1a", "")]) == 1

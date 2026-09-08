@@ -86,38 +86,49 @@ def unreadable_ledgers(ledgers: list[tuple[str, str]]) -> int:
 
 
 def _parse(blob: str) -> dict[str, Any]:
+    """One ledger, as the SDK actually writes it.
+
+    Strict on purpose. `UserLedger.to_json()` always emits a `tranches` list, so
+    a blob without one is not an empty ledger — it is a schema this code has not
+    been taught, and the caller needs to hear that as "unreadable" rather than
+    as "this patron holds nothing". Guessing zero is the dangerous direction:
+    it understates the float, which overstates what the operator may spend.
+    """
     data = json.loads(blob) if isinstance(blob, str) else blob
     if not isinstance(data, dict):
         raise TypeError("a ledger is an object")
+    if not isinstance(data.get("tranches"), list):
+        raise TypeError("a ledger has a tranches list")
     return data
 
 
 def _unspent(blob: str) -> int:
-    """One patron's remaining credit.
+    """One patron's remaining credit, in sats.
 
-    The ledger is the SDK's own `UserLedger.to_json()`: tranches, each with an
-    amount and a spent count. Read defensively — this is somebody else's
-    format, and it is money.
+    Summed from the tranches, because there is no running total to read: the
+    SDK's schema carries `total_deposited_api_sats` and `total_consumed_api_sats`
+    but no balance field, and deposited-minus-consumed is not the balance either
+    — expiry is a third term (see `total_expired_api_sats`).
+
+    The key is `remaining_sats`. It is worth saying plainly that this was first
+    written against `remaining_api_sats`, `amount_api_sats` and `amount`, none of
+    which exist. Every one of those misses reads as a patron holding nothing, so
+    the whole estate's float came to zero and the operator was told the entire
+    node balance was theirs to send. A wrong key here does not fail — it hands
+    over other people's deposits.
     """
     try:
         data = _parse(blob)
     except (ValueError, TypeError):
         return 0
 
-    # The SDK keeps a running figure; prefer it, and fall back to the tranches
-    # it was computed from rather than guessing zero.
-    for key in ("balance_api_sats", "balance", "remaining_api_sats"):
-        v = data.get(key)
-        if isinstance(v, (int, float)):
-            return max(0, int(v))
-
     total = 0
-    for t in data.get("tranches", []) or []:
+    for t in data["tranches"]:
         if not isinstance(t, dict):
             continue
-        amount = t.get("remaining_api_sats", t.get("amount_api_sats", t.get("amount", 0)))
-        if isinstance(amount, (int, float)):
-            total += max(0, int(amount))
+        remaining = t.get("remaining_sats")
+        if isinstance(remaining, (int, float)):
+            total += max(0, int(remaining))
     return total
 
 
