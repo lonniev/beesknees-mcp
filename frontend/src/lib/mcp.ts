@@ -18,6 +18,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { clearSessionNsec, hasSessionNsec, sessionNsecNpub } from "./sessionNsec";
+import { isProven, type Claim } from "./signedIn";
 import { debugPush } from "./debugLog";
 import { signInlineProof } from "./inlineProof";
 
@@ -35,6 +36,7 @@ const MCP_URL = _envUrl.startsWith("/")
 
 const NPUB_STORAGE_KEY = "beesknees:patron_npub:v1";
 const PROOF_STORAGE_KEY = "beesknees:proof_token:v1";
+const LAST_TYPED_KEY = "beesknees:last_typed_npub:v1";
 
 let client: Client | null = null;
 let connecting: Promise<void> | null = null;
@@ -172,14 +174,34 @@ export function forgetRecentLogin(npub: string): void {
   writeRecentLogins(readRecentLogins().filter((e) => e.npub !== npub));
 }
 
+/// The claim this browser is making, and what backs it. Read once and handed
+/// to the pure predicates in `signedIn.ts`, so the shell and this module
+/// cannot drift into two different ideas of who is signed in — which is
+/// exactly what happened.
+export function currentClaim(): Claim {
+  return {
+    npub: getStoredNpub(),
+    proof: getStoredProof(),
+    sessionNpub: hasSessionNsec() ? sessionNsecNpub() : null,
+  };
+}
+
 /// "Logged in" = we have the patron's npub AND a way to prove ownership:
 /// either a cached DM proof_token, or a session nsec whose npub matches.
 export function isLoggedIn(): boolean {
-  const npub = getStoredNpub();
-  if (!npub) return false;
-  if (getStoredProof()) return true;
-  if (hasSessionNsec() && sessionNsecNpub() === npub) return true;
-  return false;
+  return isProven(currentClaim());
+}
+
+/// The npub the person typed last, remembered ONLY to prefill the field.
+/// Deliberately not `NPUB_STORAGE_KEY`: that one is the identity the app acts
+/// as, and writing a name there before it is proven is what let an unanswered
+/// challenge become a session.
+export function getLastTypedNpub(): string {
+  return readStored(LAST_TYPED_KEY);
+}
+
+export function setLastTypedNpub(npub: string): void {
+  writeStored(LAST_TYPED_KEY, npub);
 }
 
 export function logOut(): void {

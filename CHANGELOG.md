@@ -57,6 +57,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   again.
 - Operator console: text left in dark-theme amber and emerald after the palette
   moved to light lavender, sitting near 1.5:1 against the card.
+- **A challenge nobody answered no longer counts as a sign-in.** The npub was
+  written to storage the moment the proof DM was *sent* — so the field would be
+  prefilled next time — and the shell read "signed in" as "we know an npub".
+  Someone who asked for a DM and did not reply was let in on the next render,
+  unproven. `mcp.isLoggedIn()` had the correct rule all along; `useSession`
+  had quietly written a weaker second one. Both now come from one pure
+  predicate (`lib/signedIn.ts`), the identity is stored only once the reply
+  lands, and the prefill lives in a key of its own. A lapsed proof now ends the
+  session instead of leaving a signed-in person whose every paid call is
+  refused. The server was never fooled — every paid tool proves its caller —
+  but the interface was.
+- Sign-in now reads a waking service as a wait, not a fault. A cold container
+  that cannot reach the Oracle for its relay set showed the patron the SDK's
+  own diagnosis (`asyncio.run() cannot be called from a running event loop`),
+  which reads as "your key is broken" when the next attempt usually works. The
+  service's exact words are kept underneath, because interpreting an error is
+  not hiding it.
 
 ### Notes
 

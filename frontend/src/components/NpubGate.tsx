@@ -2,16 +2,18 @@ import { useState } from "react";
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import {
   forgetRecentLogin,
-  getStoredNpub,
+  getLastTypedNpub,
   getValidRecentLogins,
   receiveNpubProof,
   recordRecentLogin,
   requestNpubProof,
+  setLastTypedNpub,
   setStoredNpub,
   setStoredProof,
   type RecentLogin,
 } from "../lib/mcp";
 import { setSessionNsec } from "../lib/sessionNsec";
+import { readSignInFailure } from "../lib/signInSituation";
 
 // Flow mirrors optionality-mcp's NpubGate (the reference "good" npub-login):
 //   begin → request_npub_proof → awaiting-reply → receive_npub_proof → app.
@@ -30,6 +32,10 @@ const ghost =
   "w-full text-sm py-2 rounded-lg border border-stone-300 dark:border-zinc-700 text-stone-600 dark:text-zinc-300 hover:bg-stone-100 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors";
 const errBox =
   "rounded-lg p-3 text-xs bg-red-50 border border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-400";
+// A service that is merely waking is not a fault, and red says it is. Amber,
+// the same note this component already uses for a lapsed proof.
+const warnBox =
+  "rounded-lg p-3 text-xs bg-amber-50 border border-amber-200 text-[var(--color-wax-ink)]";
 
 export default function NpubGate({
   onLogin,
@@ -42,7 +48,10 @@ export default function NpubGate({
   // working). Rendered as a calm amber note, not a red error — nothing broke.
   notice?: string;
 }) {
-  const [value, setValue] = useState(getStoredNpub());
+  // Prefilled from what was typed last, NOT from the stored identity. They
+  // used to be the same key, which is how a challenge nobody answered still
+  // left an npub behind for the shell to treat as a session.
+  const [value, setValue] = useState(getLastTypedNpub());
   const [stage, setStage] = useState<Stage>("begin");
   const [pendingProof, setPendingProof] = useState("");
   const [busy, setBusy] = useState(false);
@@ -82,8 +91,12 @@ export default function NpubGate({
     try {
       const decoded = nip19.decode(trimmed);
       if (decoded.type !== "nsec") throw new Error("Not a bech32 nsec");
+      const npub = nip19.npubEncode(getPublicKey(decoded.data as Uint8Array));
+      // Stored at once, and that is correct here: this session holds the key
+      // that proves it. Nothing is being taken on trust.
       setSessionNsec(trimmed);
-      setStoredNpub(nip19.npubEncode(getPublicKey(decoded.data as Uint8Array)));
+      setStoredNpub(npub);
+      setLastTypedNpub(npub);
       onLogin();
     } catch (e) {
       setError(`Couldn't read that nsec: ${(e as Error).message}`);
@@ -115,11 +128,14 @@ export default function NpubGate({
         setError("The service did not return a session phrase. Try again.");
         return;
       }
-      setStoredNpub(trimmed);
+      // Remembered for the field, and nowhere else. The identity is written
+      // only by `finish()`, once the human has actually answered the DM —
+      // waiting for that reply is the whole point of the challenge.
+      setLastTypedNpub(trimmed);
       setPendingProof(r.dpop_token);
       setStage("awaiting");
     } catch (e) {
-      setError(`Could not send the proof DM: ${(e as Error).message}`);
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -307,11 +323,30 @@ export default function NpubGate({
           </>
         )}
 
-        {error && <div className={errBox}>{error}</div>}
+        {error && <Trouble raw={error} />}
         {note && (
           <div className="text-xs text-center text-stone-400 dark:text-zinc-500 italic">{note}</div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A failure, read to the person in front of it.
+ *
+ * The lead sentence says what happened and whether trying again is worth it;
+ * the service's own words stay underneath, smaller, because that is what makes
+ * a bug report worth reading. Nothing is swallowed.
+ */
+function Trouble({ raw }: { raw: string }) {
+  const s = readSignInFailure(raw);
+  return (
+    <div className={s.retryable ? warnBox : errBox}>
+      {s.lead}
+      {s.detail && (
+        <div className="mt-2 font-mono text-[10px] leading-relaxed opacity-70">{s.detail}</div>
+      )}
     </div>
   );
 }
