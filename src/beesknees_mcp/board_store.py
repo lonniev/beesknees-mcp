@@ -286,6 +286,18 @@ async def vault() -> Any:
                 await retire_stale_boards()
             except Exception as exc:  # noqa: BLE001
                 logger.error("could not retire stale boards: %s", exc)
+            # Then square the books, BEFORE anything is forgotten. A match
+            # abandoned with fares in it has a pot and no settlement, and the
+            # purge below would delete both — so it is settled here first, and
+            # a prize nobody claimed is handed to the charity, which is where
+            # the money was always going if no person took it.
+            try:
+                from beesknees_mcp import match_flow
+
+                await match_flow.settle_abandoned()
+                await forfeit_stale_prizes()
+            except Exception as exc:  # noqa: BLE001
+                logger.error("could not square the books: %s", exc)
             # And forget how old rounds were played. Same reasoning: a sweep,
             # not a guard, and bounded by a date rather than by how much has
             # piled up — so a quiet week and a viral one cost the same to run.
@@ -967,9 +979,37 @@ async def pot_of(match_id: str) -> int:
     return int(rows[0]["pot"]) if rows else 0
 
 
+#: How long a winner has to say what to do with their share before it goes to
+#: the charity. Long enough that somebody who played on a Friday and came back
+#: the following weekend still has their prize; short enough that a share
+#: nobody will ever claim does not sit in the books for ever.
+PRIZE_CLAIM_DAYS = 14
+
+#: Prize states in which the winner's share belongs to the charity. `donated`
+#: is a winner who said so; `forfeited` is a share no person can take — a match
+#: that ended with no human winner, or one nobody claimed inside the window.
+CHARITY_PRIZE_STATES = ("donated", "forfeited")
+
+
+def charity_due(alias: str = "") -> str:
+    """SQL for what one settlement owes the charity.
+
+    The charity's share plus the winner's, whenever no person kept the winner's.
+    Written once and used by every place that counts, accrues or pays it,
+    because three hand-written copies of this rule is three chances for the
+    books to disagree about the same sats.
+    """
+    p = f"{alias}." if alias else ""
+    states = ", ".join(f"'{s}'" for s in CHARITY_PRIZE_STATES)
+    return (
+        f"({p}charity_sats + CASE WHEN {p}prize_state IN ({states}) "
+        f"THEN {p}winner_sats ELSE 0 END)"
+    )
+
+
 async def charity_owed() -> dict[str, int]:
     """Everything accrued to the charity, and what has been settled against it."""
-    r = await _exec(f"SELECT coalesce(sum(charity_sats), 0) AS owed FROM {SETTLEMENTS}")
+    r = await _exec(f"SELECT coalesce(sum({charity_due()}), 0) AS owed FROM {SETTLEMENTS}")
     rows = _rows(r)
     return {"accrued_sats": int(rows[0]["owed"]) if rows else 0}
 
@@ -1152,9 +1192,15 @@ async def obligations() -> dict[str, int]:
     A payment still `sending` counts as spent. It may yet fail, in which case
     the money comes back and the figure improves; assuming it failed would let
     the same sats be promised again while the first attempt is still in flight.
+
+    Only a prize a person actually `kept` is owed to a person. Every other
+    outcome — donated, or forfeited because no human won or nobody claimed —
+    is counted with the charity, which is why `charity_due()` and this
+    `prize_state = 'kept'` test are two halves of one rule and must stay so:
+    loosen either and the same sats are owed twice.
     """
     r = await _exec(
-        f"SELECT coalesce(sum(charity_sats), 0)::int AS charity, "
+        f"SELECT coalesce(sum({charity_due()}), 0)::int AS charity, "
         "coalesce(sum(CASE WHEN prize_state = 'kept' THEN winner_sats ELSE 0 END), 0)::int "
         f"AS prizes FROM {SETTLEMENTS}"
     )
@@ -1221,36 +1267,92 @@ async def claim_charity_arrears(destination: str) -> list[dict[str, Any]]:
     separately would spend the routing fee floor on every one of them, and a
     match whose charity share is smaller than that fee would cost more to send
     than it delivers.
+
+    Two legs per match, not one: the charity's own share under `charity:<id>`,
+    and a winner's share that came to the charity under `prize:<id>`. They are
+    separate rows because they become due at different times — a prize is
+    donated or forfeited long after the match settled, and folding it into an
+    amount already claimed under `charity:<id>` would mean it could never be
+    claimed at all.
     """
     r = await _exec(
         f"INSERT INTO {PAYOUTS} (payout_id, kind, match_id, destination, amount_sats) "
-        f"SELECT 'charity:' || s.match_id, 'charity', s.match_id, $1, s.charity_sats "
-        f"FROM {SETTLEMENTS} s "
-        "WHERE s.charity_sats > 0 AND NOT EXISTS ("
-        f"  SELECT 1 FROM {PAYOUTS} p WHERE p.payout_id = 'charity:' || s.match_id) "
-        "RETURNING match_id, amount_sats",
+        "SELECT legs.payout_id, 'charity', legs.match_id, $1, legs.amount FROM ("
+        f"  SELECT 'charity:' || s.match_id AS payout_id, s.match_id, s.charity_sats AS amount "
+        f"  FROM {SETTLEMENTS} s WHERE s.charity_sats > 0 "
+        "  UNION ALL "
+        f"  SELECT 'prize:' || s.match_id, s.match_id, s.winner_sats "
+        f"  FROM {SETTLEMENTS} s WHERE s.winner_sats > 0 "
+        f"    AND s.prize_state IN ({', '.join(repr(x) for x in CHARITY_PRIZE_STATES)})"
+        ") legs "
+        "WHERE NOT EXISTS ("
+        f"  SELECT 1 FROM {PAYOUTS} p WHERE p.payout_id = legs.payout_id) "
+        "RETURNING payout_id, match_id, amount_sats",
         [destination],
     )
     return _rows(r)
 
 
 async def finish_charity_arrears(
-    match_ids: list[str], *, state: str, payment_hash: str = "", detail: str = ""
+    payout_ids: list[str], *, state: str, payment_hash: str = "", detail: str = ""
 ) -> int:
     """Record the outcome against exactly the legs this batch claimed.
 
     Scoped to the ids rather than to `kind='charity' AND state='sending'`,
     which would also stamp a concurrent batch's rows with this batch's result.
+
+    Payout ids, not match ids: a match can owe the charity on two legs now, and
+    deriving `charity:<match>` here would leave the prize leg of every match in
+    the batch marked `sending` for ever — owed by the books, already paid by the
+    node, and never reconcilable.
     """
-    if not match_ids:
+    if not payout_ids:
         return 0
-    holes = ", ".join(f"${i + 4}" for i in range(len(match_ids)))
+    holes = ", ".join(f"${i + 4}" for i in range(len(payout_ids)))
     r = await _exec(
         f"UPDATE {PAYOUTS} SET state = $1, payment_hash = $2, detail = $3, "
         f"finished_at = now() WHERE state = 'sending' AND payout_id IN ({holes})",
-        [state, payment_hash[:120], detail[:400], *[f"charity:{m}" for m in match_ids]],
+        [state, payment_hash[:120], detail[:400], *payout_ids],
     )
     return _count(r)
+
+
+async def forfeit_stale_prizes(days: int = PRIZE_CLAIM_DAYS) -> int:
+    """Give the charity a prize nobody came back for.
+
+    A share sits `unclaimed` until its winner says what to do with it, and most
+    of them never will: the simulated bees that fill a thin match hold throwaway
+    keys that stop existing when the swarm does, and a human can simply not
+    return. Left alone, that share is owed to nobody, paid to nobody, and
+    counted by nothing — sats the game raised for the charity that the charity
+    never sees.
+
+    Only ever moves a prize off `unclaimed`, so a winner who already decided is
+    never overruled by the clock.
+    """
+    r = await _exec(
+        f"UPDATE {SETTLEMENTS} SET prize_state = 'forfeited' "
+        "WHERE prize_state = 'unclaimed' AND winner_sats > 0 "
+        f"  AND created_at < now() - interval '{int(days)} days'"
+    )
+    return _count(r)
+
+
+async def abandoned_with_fares() -> list[str]:
+    """Matches that took fares and were never settled.
+
+    `retire_stale_boards` abandons a match whose board no longer exists, and
+    said its pot 'is owed to somebody whatever happened to the board' — but
+    nothing ever worked out to whom. `purge_old_details` then deleted the match
+    and its fares a week later, so the money was not merely unpaid, it stopped
+    being countable.
+    """
+    r = await _exec(
+        f"SELECT m.match_id FROM {MATCHES} m WHERE m.state = 'abandoned' "
+        f"  AND EXISTS (SELECT 1 FROM {FARES} f WHERE f.match_id = m.match_id) "
+        f"  AND NOT EXISTS (SELECT 1 FROM {SETTLEMENTS} s WHERE s.match_id = m.match_id)"
+    )
+    return [str(row["match_id"]) for row in _rows(r)]
 
 
 # ── Not hoarding old rounds ──────────────────────────────────────────────

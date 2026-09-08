@@ -38,6 +38,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The winner's 10% now reaches the charity whenever no person keeps it. It used
+  to sit `unclaimed` for ever in three cases that produce no claimant — a round
+  with no winner, a round won by a simulated bee whose key stops existing when
+  the swarm does, and a winner who never comes back — and a fourth that leaked
+  the other way: a winner who chose to *donate* moved the prize to `donated`,
+  which nothing counted anywhere, so the gift reached the charity's books as
+  zero. One rule now covers all four: the winner's share belongs to the charity
+  unless a person actually kept it (`charity_due`).
+- Matches abandoned when the board's geometry changed are now settled instead of
+  deleted. They kept their fares precisely because somebody paid them, but
+  nothing ever worked out to whom the pot was owed, and the retention sweep
+  removed the match and its fares a week later — so the money was not merely
+  unpaid, it stopped being countable.
+- A prize the charity receives is a payout leg of its own (`prize:<match>`)
+  rather than being folded into the charity leg. The two fall due days apart,
+  and an amount already claimed under `charity:<match>` could never be claimed
+  again.
+- Operator console: text left in dark-theme amber and emerald after the palette
+  moved to light lavender, sitting near 1.5:1 against the card.
 - **A challenge nobody answered no longer counts as a sign-in.** The npub was
   written to storage the moment the proof DM was *sent* — so the field would be
   prefilled next time — and the shell read "signed in" as "we know an npub".
