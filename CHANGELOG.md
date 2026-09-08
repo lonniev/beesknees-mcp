@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A cached DM proof is a proof, and the operator console now agrees.** It
+  gated its buttons on holding a session *key*, on the stated grounds that a
+  restricted call needs a signature from the operator's nsec. The runtime asks
+  no such thing: `require_proof` takes the cached `dpop_token` phrase first,
+  hashed against the proven-npub cache, and only then looks for an inline
+  kind-27235 event. So an operator who answered the DM challenge — exactly as
+  the sign-in screen instructs — was locked out of their own books, and the
+  banner told them so in a sentence that was not true. The gate secured nothing
+  either: whoever holds the token can call the tool directly.
 - **A match begins when a HIVE holds eight, which is what the About page has
   always said.** It was briefly counted across the match instead — a shortcut
   taken when round-robin seating arrived, on the reasoning that spreading seats

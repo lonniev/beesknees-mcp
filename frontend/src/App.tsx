@@ -37,7 +37,7 @@ export default function App() {
   const session = useSession();
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
-  const { isOperator } = useOperator(session.npub, session.canSign);
+  const { isOperator } = useOperator(session.npub, session.signedIn);
 
   return (
     <div className="flex h-full flex-col">
