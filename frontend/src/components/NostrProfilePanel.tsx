@@ -163,7 +163,7 @@ export default function NostrProfilePanel({ npub }: { npub: string }) {
             aria-label={showPicker ? "Done changing avatar" : "Change avatar"}
             aria-expanded={showPicker}
             title="Change avatar"
-            className="absolute -bottom-0.5 -right-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/26 bg-white text-ink/85 shadow-sm transition-colors hover:border-amber-400 hover:text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            className="absolute -bottom-0.5 -right-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/26 bg-white text-ink/85 shadow-sm transition-colors hover:border-amber-400 hover:text-[var(--color-wax-ink)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >
             <Camera className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -190,7 +190,7 @@ export default function NostrProfilePanel({ npub }: { npub: string }) {
             type="button"
             onClick={copyNpub}
             title="Copy full npub"
-            className="mt-0.5 font-mono text-xs text-ink/65 hover:text-amber-300 transition-colors"
+            className="mt-0.5 font-mono text-xs text-ink/65 hover:text-[var(--color-wax-ink)] transition-colors"
           >
             {npubCopied ? "Copied" : npubLine}
           </button>

@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { LINK } from "../lib/ink";
 import { ExternalLink } from "lucide-react";
 import { charity, type Charity } from "../lib/mcp";
 
@@ -43,7 +44,7 @@ export default function CharityNote({ className = "" }: { className?: string }) 
             href={who.website}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 text-amber-300/80 underline decoration-amber-300/30 underline-offset-2 hover:text-amber-200"
+            className={LINK}
           >
             {who.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
             <ExternalLink size={11} />

@@ -47,6 +47,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the sign-in screen instructs — was locked out of their own books, and the
   banner told them so in a sentence that was not true. The gate secured nothing
   either: whoever holds the token can call the tool directly.
+- **The pot now holds what was paid, not what it lists at.** The first match
+  played for real raised 8 sats and owed the charity 8 — one bee was a person
+  paying a sat, the other seven were simulated and playing on a 100%-off
+  coupon. `_charged` priced each call from the operator's own pricing model,
+  which is retail: the figure before any constraint runs. It did that to dodge
+  a genuine race on the runtime's single `_last_debit_cost` slot, and traded a
+  race for a certainty — the pot could only ever be too big, and 80% of too big
+  is a promise to a charity out of the operator's own pocket. The fare is now
+  read from the runtime synchronously at the top of the tool body, before the
+  first `await`, where the value provably belongs to this call.
+- A refused move refunds what was taken, not the list price.
+  `runtime.rollback_debit` credits `pricing.compute(...)` — the base price —
+  so a bee on a full-discount coupon paid nothing and was handed a sat back.
+  Refusals are ordinary in this game, so that was a slow mint, not a rounding
+  error.
+- Text left in dark-theme amber after the palette went light lavender.
+  `amber-300` measures **1.19:1** on the page ground; links, the session
+  notice, avatar initials and the charity glyph all carried it. One measured
+  token (`lib/ink.ts`), and a test that reads the hex out of `index.css`
+  rather than restating it.
 - **A match begins when a HIVE holds eight, which is what the About page has
   always said.** It was briefly counted across the match instead — a shortcut
   taken when round-robin seating arrived, on the reasoning that spreading seats

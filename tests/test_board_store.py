@@ -1568,3 +1568,73 @@ def test_the_prize_leg_is_paid_separately_and_only_once(vault) -> None:
         }
 
     asyncio.run(go())
+
+
+# ── The pot holds money, not list prices ────────────────────────────────
+#
+# The first match ever played for real raised eight sats and owed the charity
+# eight. One of the eight bees was a person paying a sat; the other seven were
+# simulated, playing on a 100%-off coupon, and paid nothing. The operator had
+# taken one sat and owed eight.
+#
+# `_charged` priced each call from the operator's own pricing model, which is
+# RETAIL — the figure before any constraint runs. It did that to dodge a real
+# race on the runtime's single `_last_debit_cost` slot, and traded a race for a
+# certainty: the pot could only ever be too big, and 80% of too big is a
+# promise to a charity out of the operator's own pocket.
+
+
+def test_the_pot_holds_what_was_paid_not_what_it_lists_at(vault) -> None:
+    """The shape of the match that exposed it: one payer, seven on a coupon."""
+    from beesknees_mcp import server
+
+    async def go():
+        mid = await store.open_match()
+        await server._charged("npub1human", mid, "join_match", 1)
+        for i in range(7):
+            # A coupon'd bee took part, and its zero is the honest account of
+            # what its taking part raised. Recorded, not skipped.
+            await server._charged(f"npub1sim{i}", mid, "join_match", 0)
+
+        assert await store.pot_of(mid) == 1, "the pot may only hold money that arrived"
+
+        vault.matches[mid].update(state="ended", winner_npub="")
+        out = await match_flow.settle(mid)
+        assert out["pot"] == 1
+        assert (await store.charity_owed())["accrued_sats"] == 1
+        assert (await store.charity_owed())["accrued_sats"] != 8, (
+            "eight sats owed on one sat collected is how this bankrupts an operator"
+        )
+
+    asyncio.run(go())
+
+
+def test_a_refund_gives_back_only_what_was_taken(vault, monkeypatch) -> None:
+    """`rollback_debit` credits the BASE price, so a coupon'd bee refused a move
+    was handed a sat it never spent. Refusals are ordinary — a rival in the
+    cell, the stagger — so that is a leak, not a rounding error."""
+    from beesknees_mcp import server
+
+    given: list[tuple[str, int]] = []
+
+    class FakeCache:
+        async def credit(self, npub: str, sats: int, key: str) -> None:
+            given.append((npub, sats))
+
+    async def fake_cache():
+        return FakeCache()
+
+    monkeypatch.setattr(server.runtime, "ledger_cache", fake_cache)
+
+    async def go():
+        await server._refund("fly", "npub1sim", 0)
+        assert given == [], "nothing was taken, so nothing goes back"
+
+        await server._refund("fly", "npub1human", 3)
+        assert given == [("npub1human", 3)]
+
+        # And a tool that never charges a motion fare is not refundable at all.
+        await server._refund("join_match", "npub1human", 3)
+        assert len(given) == 1
+
+    asyncio.run(go())
