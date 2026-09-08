@@ -235,12 +235,19 @@ async def settle(match_id: str) -> dict[str, Any]:
     )
     await store._exec(
         f"UPDATE {store.MATCHES} SET state = 'settled', settled_at = now(), seq = seq + 1 "
-        "WHERE match_id = $1 AND state = 'ended'",
+        "WHERE match_id = $1 AND state IN ('ended', 'abandoned')",
         [match_id],
     )
     state = "unclaimed"
-    if first and winner_npub and parts["winner"] > 0:
-        state = await resolve_prize(match_id, winner_npub, parts["winner"])
+    if winner_npub and parts["winner"] > 0:
+        if first:
+            state = await resolve_prize(match_id, winner_npub, parts["winner"])
+    else:
+        # Nobody won it, so nobody can claim it. The share is the charity's from
+        # the moment the books close rather than sitting `unclaimed` for a
+        # winner who does not exist.
+        await store.set_prize_state(match_id, "forfeited")
+        state = "forfeited"
 
     if first:
         # The pot is in the settlement now, so the rows that added up to it have
@@ -259,6 +266,26 @@ async def settle(match_id: str) -> dict[str, Any]:
         "beneficiary": beneficiary,
         "prize_state": state,
     }
+
+
+async def settle_abandoned() -> int:
+    """Close the books on matches that were abandoned mid-play.
+
+    A match is abandoned when the board it was played on stopped existing, and
+    it keeps its fares precisely because somebody paid them. Those fares are a
+    pot; a pot has a split; and with no winner the winner's share is the
+    charity's too. Without this the fares were simply deleted a week later.
+    """
+    done = 0
+    for mid in await store.abandoned_with_fares():
+        try:
+            await settle(mid)
+            done += 1
+        except Exception as exc:  # noqa: BLE001 — one bad match must not stop the rest
+            logger.error("could not settle abandoned match %s: %s", mid, exc)
+    if done:
+        logger.info("settled %d abandoned match(es)", done)
+    return done
 
 
 async def resolve_prize(match_id: str, npub: str, sats: int) -> str:

@@ -150,7 +150,7 @@ export default function Operator({ session }: { session: Session }) {
       </div>
 
       {!canAct && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-[var(--color-wax-ink)]">
           You are the operator, but this session signed in on a cached proof rather
           than a key. Sending money needs a signature — sign in with the operator's
           nsec to use the buttons here.
@@ -175,7 +175,7 @@ export default function Operator({ session }: { session: Session }) {
           </p>
         )}
         {t?.node_reachable && !t.covers_everything_owed && (
-          <p className="mt-3 text-xs text-amber-300/80">
+          <p className="mt-3 text-xs text-[var(--color-wax-ink)]">
             The wallet holds less than is owed. A payment for part of it will still
             go through; the rest stays on the books until there are sats for it.
           </p>
@@ -199,11 +199,12 @@ export default function Operator({ session }: { session: Session }) {
       {/* ── Who it goes to ─────────────────────────────────────────── */}
       <section className={card}>
         <div className="flex items-center gap-2">
-          <HeartHandshake size={15} className="text-amber-300/80" />
+          <HeartHandshake size={15} className="text-[var(--color-wax-ink)]" />
           <h2 className="text-sm font-semibold text-ink/90">The beneficiary</h2>
         </div>
         <p className="mt-1 text-xs text-ink/65">
-          Shown to every player, and where 80% of every pot is sent. Changing it
+          Shown to every player, and where 80% of every pot goes — plus any
+          winner’s share that is donated or never claimed. Changing it
           never rewrites history — each settlement records the charity it actually
           paid at the time.
         </p>
@@ -235,7 +236,7 @@ export default function Operator({ session }: { session: Session }) {
       </section>
 
       {msg && (
-        <p className={`text-xs ${msg.tone === "ok" ? "text-emerald-300" : "text-red-300/90"}`}>
+        <p className={`text-xs ${msg.tone === "ok" ? "text-[var(--color-you-ink)]" : "text-[var(--color-hot-ink)]"}`}>
           {msg.text}
         </p>
       )}
@@ -314,7 +315,11 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
  * has never said what they want, and the share is held rather than lost.
  */
 function Outcome({ state }: { state: string }) {
-  if (state === "donated") return <span className="text-amber-300/80">donated</span>;
-  if (state === "kept") return <span className="text-emerald-300/80">kept</span>;
+  const to = "text-[var(--color-wax-ink)]";
+  if (state === "donated") return <span className={to}>donated</span>;
+  // A share no person took. Named for where it went, not for what the
+  // winner failed to do — the money is the charity's either way.
+  if (state === "forfeited") return <span className={to}>unclaimed → charity</span>;
+  if (state === "kept") return <span className="text-[var(--color-you-ink)]">kept</span>;
   return <span className="text-ink/65">not yet chosen</span>;
 }

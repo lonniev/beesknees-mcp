@@ -114,6 +114,10 @@ async def _owed(kind: str, match_id: str) -> tuple[int, str, str]:
         raise store.BoardError("no settled match with that id")
 
     if kind == "charity":
+        # The charity's OWN share only. A winner's share that came to the
+        # charity — donated, or forfeited because nobody claimed it — is a
+        # separate leg, paid by `send_charity_arrears`, because it falls due
+        # long after this one does.
         charity = await store.get_charity()
         return int(row["charity_sats"]), charity["lightning_address"], charity["name"]
 
@@ -261,7 +265,10 @@ async def send_charity_arrears() -> dict[str, Any]:
         return {"success": True, "matches": 0, "amount_sats": 0,
                 "note": "nothing is owed to the charity"}
 
-    ids = [str(c["match_id"]) for c in claimed]
+    # Payout ids, because a match can owe the charity on two legs and only the
+    # payout id tells them apart.
+    ids = [str(c["payout_id"]) for c in claimed]
+    matches = len({str(c["match_id"]) for c in claimed})
     total = sum(int(c["amount_sats"]) for c in claimed)
     if total != owed:
         # The books moved between the quote and the claim — a match settled in
@@ -283,7 +290,7 @@ async def send_charity_arrears() -> dict[str, Any]:
     except BTCPayError as exc:
         await store.finish_charity_arrears(ids, state="failed", detail=str(exc)[:400])
         return {"success": False, "error_code": "payment_failed", "error": str(exc),
-                "matches": len(ids), "amount_sats": total}
+                "matches": matches, "amount_sats": total}
 
     status = str(result.get("status") or "").lower()
     state = "paid" if status == "complete" else "sending"
@@ -291,7 +298,7 @@ async def send_charity_arrears() -> dict[str, Any]:
         ids, state=state, payment_hash=str(result.get("paymentHash") or ""),
         detail=status or "no status returned",
     )
-    return {"success": True, "to": charity["name"], "matches": len(ids),
+    return {"success": True, "to": charity["name"], "matches": matches,
             "amount_sats": total, "state": state, "status": status,
             "payment_hash": str(result.get("paymentHash") or ""),
             "settled": state == "paid"}

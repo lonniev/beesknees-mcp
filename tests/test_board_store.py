@@ -28,6 +28,17 @@ from beesknees_mcp import geometry as geo
 from beesknees_mcp import match_flow
 
 
+def _due(row: dict) -> int:
+    """What one settlement owes the charity — restated, not imported.
+
+    The states are spelled out here on purpose. Importing the production tuple
+    would make the fake agree with the code by construction, and a fake that
+    cannot disagree is not checking anything.
+    """
+    prize = row["winner_sats"] if row["prize_state"] in ("donated", "forfeited") else 0
+    return row["charity_sats"] + prize
+
+
 def _limited(rows: list, sql: str) -> list:
     """Apply the statement's own LIMIT, the way Postgres would.
 
@@ -153,6 +164,21 @@ class FakeVault:
                     m["state"] = "abandoned"
                     n += 1
             return {"rows": [], "rowCount": n}
+
+        if s.startswith(f"UPDATE {store.MATCHES} SET state = 'settled'"):
+            m = self.matches.get(p[0])
+            if m and m["state"] in ("ended", "abandoned"):
+                m["state"] = "settled"
+                m["seq"] += 1
+                return {"rows": [], "rowCount": 1}
+            return {"rows": [], "rowCount": 0}
+
+        if s.startswith(f"SELECT m.match_id FROM {store.MATCHES} m WHERE m.state = 'abandoned'"):
+            rows = [{"match_id": m["match_id"]} for m in self.matches.values()
+                    if m["state"] == "abandoned"
+                    and any(f["match_id"] == m["match_id"] for f in self.fares)
+                    and m["match_id"] not in self.settlements]
+            return {"rows": rows, "rowCount": len(rows)}
 
         if s.startswith(f"UPDATE {store.MATCHES} SET seq = seq + 1"):
             m = self.matches[p[0]]
@@ -315,6 +341,18 @@ class FakeVault:
                                       "prize_state": "unclaimed"}
             return {"rows": [{"match_id": p[0]}], "rowCount": 1}
 
+        # Ahead of the generic prize_state update, which reads $1: this one
+        # carries no parameters at all, and a prefix match would index into an
+        # empty list. That ordering has bitten this fake three times.
+        if s.startswith(f"UPDATE {store.SETTLEMENTS} SET prize_state = 'forfeited'"):
+            n = 0
+            for row in self.settlements.values():
+                if (row["prize_state"] == "unclaimed" and row["winner_sats"] > 0
+                        and row.get("_aged_out")):
+                    row["prize_state"] = "forfeited"
+                    n += 1
+            return {"rows": [], "rowCount": n}
+
         if s.startswith(f"UPDATE {store.SETTLEMENTS} SET prize_state"):
             row = self.settlements.get(p[0])
             if row and row["prize_state"] == "unclaimed":
@@ -327,15 +365,19 @@ class FakeVault:
                 self.payouts = {}
             out = []
             for row in self.settlements.values():
-                pid = f"charity:{row['match_id']}"
-                if row["charity_sats"] > 0 and pid not in self.payouts:
+                legs = [(f"charity:{row['match_id']}", row["charity_sats"])]
+                if row["prize_state"] in ("donated", "forfeited"):
+                    legs.append((f"prize:{row['match_id']}", row["winner_sats"]))
+                for pid, amount in legs:
+                    if amount <= 0 or pid in self.payouts:
+                        continue
                     self.payouts[pid] = {"payout_id": pid, "kind": "charity",
                                          "match_id": row["match_id"], "destination": p[0],
-                                         "amount_sats": row["charity_sats"],
+                                         "amount_sats": amount,
                                          "state": "sending", "payment_hash": "",
                                          "detail": "", "started_at": "now"}
-                    out.append({"match_id": row["match_id"],
-                                "amount_sats": row["charity_sats"]})
+                    out.append({"payout_id": pid, "match_id": row["match_id"],
+                                "amount_sats": amount})
             return {"rows": out, "rowCount": len(out)}
 
         if s.startswith(f"INSERT INTO {store.PAYOUTS}"):
@@ -379,7 +421,7 @@ class FakeVault:
 
         if "AS prizes FROM" in s:
             return {"rows": [{
-                "charity": sum(x["charity_sats"] for x in self.settlements.values()),
+                "charity": sum(_due(x) for x in self.settlements.values()),
                 "prizes": sum(x["winner_sats"] for x in self.settlements.values()
                               if x["prize_state"] == "kept"),
             }], "rowCount": 1}
@@ -392,8 +434,8 @@ class FakeVault:
             rows = [{"kind": k, "sent": v} for k, v in by.items()]
             return {"rows": rows, "rowCount": len(rows)}
 
-        if "sum(charity_sats)" in s:
-            return {"rows": [{"owed": sum(x["charity_sats"] for x in self.settlements.values())}],
+        if "AS owed FROM" in s:
+            return {"rows": [{"owed": sum(_due(x) for x in self.settlements.values())}],
                     "rowCount": 1}
 
         if s.startswith(f"SELECT * FROM {store.SETTLEMENTS}"):
@@ -1180,7 +1222,7 @@ def test_a_failed_batch_gives_the_debt_back(vault) -> None:
         assert (await store.obligations())["charity_unpaid_sats"] == 0
 
         n = await store.finish_charity_arrears(
-            [str(c["match_id"]) for c in claimed], state="failed", detail="no route"
+            [str(c["payout_id"]) for c in claimed], state="failed", detail="no route"
         )
         assert n == 1
         assert (await store.obligations())["charity_unpaid_sats"] == 800, (
@@ -1353,5 +1395,171 @@ def test_a_client_ahead_of_the_match_is_not_told_nothing_changed(vault) -> None:
         out = await server.match_state.__wrapped__(since_seq=seq + 400, npub="npub1x")
         assert not out.get("unchanged"), "a stale client must be given the board, not a shrug"
         assert "bees" in out
+
+    asyncio.run(go())
+
+
+# ── The winner's share, when no person takes it ──────────────────────────
+#
+# The pot splits 80/10/10 and the charity's 80% has always been safe: it is
+# recorded at settlement and owed from that moment, whoever won. The winner's
+# 10% was not. It sat `prize_state = 'unclaimed'` until somebody claimed it,
+# and three kinds of round never produce anybody who can:
+#
+#   * a round that ends with no winner at all;
+#   * a round won by a simulated bee, whose key stops existing when the swarm
+#     does — which is most rounds at today's attendance;
+#   * a round whose human winner simply never comes back.
+#
+# A fourth case leaked in the opposite direction: a winner who chose to DONATE
+# their share moved the prize to `donated` and nothing counted it anywhere, so
+# the gift reached the charity's books as zero.
+#
+# One rule closes all four: the winner's share belongs to the charity unless a
+# person actually kept it.
+
+
+def test_a_round_with_no_winner_gives_the_whole_share_to_the_charity(vault) -> None:
+    """Nobody won it, so nobody can claim it — and the charity is owed it now,
+    not after a window that a nonexistent winner will never use up."""
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_fare(mid, "npub1p", "fly", 1000)
+        vault.matches[mid].update(state="ended", winner_npub="")
+
+        out = await match_flow.settle(mid)
+
+        # The split itself does not change; who the share belongs to does. The
+        # odd sat is the charity's because the charity takes the remainder —
+        # winner and operator are computed, and whatever rounding leaves over
+        # falls on the beneficiary rather than on the house.
+        assert (out["charity"], out["winner"], out["operator"]) == (801, 100, 99)
+        assert out["prize_state"] == "forfeited"
+        assert vault.matches[mid]["state"] == "settled"
+
+        # 901 of the 1000 raised: the charity's share plus the one no bee took.
+        assert (await store.charity_owed())["accrued_sats"] == 901
+        assert (await store.obligations())["prizes_unpaid_sats"] == 0, (
+            "a forfeited share is not owed to a winner as well"
+        )
+
+    asyncio.run(go())
+
+
+def test_a_donated_share_reaches_the_charity_books(vault) -> None:
+    """The donate button used to be a gesture.
+
+    It moved the prize to `donated` and stopped. `charity_owed` summed
+    `charity_sats`; `obligations` counted prizes only when `kept`. A winner who
+    gave their share away therefore gave it to nobody, and the operator was
+    never asked to send it.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Pollinator Partnership")
+        assert (await store.obligations())["charity_unpaid_sats"] == 800
+
+        await store.set_prize_state(mid, "donated")
+        assert (await store.obligations())["charity_unpaid_sats"] == 900
+        assert (await store.obligations())["prizes_unpaid_sats"] == 0
+
+    asyncio.run(go())
+
+
+def test_a_share_nobody_claims_goes_to_the_charity_in_the_end(vault) -> None:
+    """Held for the winner while the window is open, the charity's after it."""
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1sim",
+                                      beneficiary="Pollinator Partnership")
+
+        # Nothing has expired yet, so the share is still the winner's to decide.
+        assert await store.forfeit_stale_prizes() == 0
+        assert (await store.obligations())["charity_unpaid_sats"] == 800
+
+        vault.settlements[mid]["_aged_out"] = True
+        assert await store.forfeit_stale_prizes() == 1
+        assert (await store.obligations())["charity_unpaid_sats"] == 900
+
+        # And a winner who already decided is never overruled by the clock.
+        other = await store.open_match()
+        await store.record_settlement(other, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Pollinator Partnership")
+        await store.set_prize_state(other, "kept")
+        vault.settlements[other]["_aged_out"] = True
+        assert await store.forfeit_stale_prizes() == 0
+        assert vault.settlements[other]["prize_state"] == "kept"
+
+    asyncio.run(go())
+
+
+def test_an_abandoned_match_still_pays_the_charity(vault) -> None:
+    """`retire_stale_boards` said an abandoned match's pot 'is owed to somebody
+    whatever happened to the board it was played on'. Nothing ever worked out
+    to whom, and `purge_old_details` deleted the match and its fares a week
+    later — so the money was not merely unpaid, it stopped being countable."""
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_fare(mid, "npub1p", "dig", 600)
+        await store._exec(
+            f"UPDATE {store.MATCHES} SET state = 'abandoned' WHERE match_id = ANY($1)", [[mid]]
+        )
+
+        assert await store.abandoned_with_fares() == [mid]
+        assert await match_flow.settle_abandoned() == 1
+
+        # 541 of the 600 raised: the charity's 481 plus the 60 nobody won.
+        assert (await store.charity_owed())["accrued_sats"] == 541
+        assert vault.matches[mid]["state"] == "settled"
+
+        # And it is done once. A second sweep finds nothing left to settle.
+        assert await store.abandoned_with_fares() == []
+        assert await match_flow.settle_abandoned() == 0
+        assert (await store.charity_owed())["accrued_sats"] == 541
+
+    asyncio.run(go())
+
+
+def test_the_prize_leg_is_paid_separately_and_only_once(vault) -> None:
+    """A prize falls due long after the match settled.
+
+    The charity's own share is claimed the moment the books close; the winner's
+    is donated or forfeited days later. Folding the second into an amount
+    already claimed under `charity:<id>` would mean it could never be claimed at
+    all, so it gets its own leg.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.record_settlement(mid, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Pollinator Partnership")
+
+        first = await store.claim_charity_arrears("p@wallet.com")
+        assert [c["payout_id"] for c in first] == [f"charity:{mid}"]
+        assert sum(int(c["amount_sats"]) for c in first) == 800
+
+        # The winner gives it away only now, with the first payment already out.
+        await store.set_prize_state(mid, "donated")
+        assert (await store.obligations())["charity_unpaid_sats"] == 100
+
+        second = await store.claim_charity_arrears("p@wallet.com")
+        assert [c["payout_id"] for c in second] == [f"prize:{mid}"]
+        assert sum(int(c["amount_sats"]) for c in second) == 100
+        assert (await store.obligations())["charity_unpaid_sats"] == 0
+
+        # Neither leg can be claimed twice, and they are told apart by id.
+        assert await store.claim_charity_arrears("p@wallet.com") == []
+        assert {p["payout_id"] for p in await store.payouts(10)} == {
+            f"charity:{mid}", f"prize:{mid}"
+        }
 
     asyncio.run(go())
