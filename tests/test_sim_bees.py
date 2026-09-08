@@ -243,3 +243,72 @@ def test_a_shift_refuses_a_match_it_cannot_finish() -> None:
     assert not (200 + ROUND_CEILING_S <= hard_cap)
     # And the ceiling really is the server's, not a smaller guess.
     assert ROUND_CEILING_S >= 10 * 60, "a round can reach ten minutes"
+
+
+def test_no_lobby_is_ever_left_uncovered() -> None:
+    """A shift stops seating long before it stops running, so the SCHEDULE has
+    to close the gap.
+
+    A shift only takes a lobby it could still see a whole round out —
+    `elapsed + ROUND_CEILING_S <= hard_cap` — which is the first 180 seconds of
+    a fourteen-minute life. That is correct and it is not the bug. The bug was
+    starting shifts every 360 seconds, which left a 180-second hole in every
+    360 where NO shift would seat a bee at all: a patron arriving in one of
+    those holes waited out the entire gap in front of an empty lobby, and the
+    log filled with "leaving this lobby to the next shift".
+
+    Every number here is READ from what ships. Restating them is how this
+    arithmetic came to be wrong in the first place.
+    """
+    import ast
+    import inspect
+    import pathlib
+
+    from beesknees_mcp import sim_swarm
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "modal_app.py"
+    tree = ast.parse(src.read_text())
+
+    # The shift's own clocks, found by the keyword rather than by the callee's
+    # name — `asyncio.run(run(...))` puts two `run`s on that line and the outer
+    # one carries no arguments at all.
+    call = next(
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and any(k.arg == "hard_cap" for k in n.keywords)
+    )
+    kw = {k.arg: k.value for k in call.keywords}
+    hard_cap = float(ast.literal_eval(kw["hard_cap"]))
+
+    # The schedule, from the decorator.
+    period = next(
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "Period"
+    )
+    every_s = float(ast.literal_eval(period.keywords[0].value)) * 60
+
+    window = hard_cap - sim_swarm.ROUND_CEILING_S
+    assert window > 0, "a shift that can never seat is not a shift"
+    assert every_s <= window, (
+        f"shifts start every {every_s:.0f}s but each only seats for its first "
+        f"{window:.0f}s — {every_s - window:.0f}s of every {every_s:.0f} has nobody willing to seat"
+    )
+
+    # And the handover must not have two shifts seating into one lobby: an
+    # arriving shift waits `PATIENCE_S` before its first top-up, by which time
+    # the outgoing one must be out of its window.
+    assert sim_swarm.PATIENCE_S > 0
+    assert every_s + sim_swarm.PATIENCE_S > window, (
+        "an arriving shift starts seating before the outgoing one stops"
+    )
+
+    # A sanity check on the source of the whole gate: the sim's estimate of a
+    # round must actually cover the server's ceiling, or a shift takes a lobby
+    # it cannot see out.
+    from beesknees_mcp import board_store
+
+    assert sim_swarm.ROUND_CEILING_S >= board_store.ROUND_CEILING_S, (
+        "the shift budgets less for a round than the server allows one to take"
+    )
+    assert inspect.iscoroutinefunction(sim_swarm.Swarm.forget_finished), (
+        "retiring a cohort closes its connections, so it has to be awaited"
+    )
