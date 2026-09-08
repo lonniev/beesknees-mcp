@@ -582,14 +582,47 @@ async def test_a_full_hive_turns_a_patron_away(vault):
         await store.take_seat(mid, "onemore", "late", 0)
 
 
-async def test_joining_fills_the_fullest_hive_so_quorum_is_reachable(vault):
-    """Spreading evenly would leave no hive with eight and nothing would start."""
+async def test_seats_are_dealt_round_robin_so_every_hive_gets_underway(vault):
+    """The whole board plays, and it plays balanced.
+
+    Seats used to fill the FULLEST hive first, because quorum meant "some hive
+    reached eight" and spreading would have left no hive with eight and nothing
+    would ever have started. Quorum is now counted across the match, so the two
+    rules changed together — round-robin with a per-hive quorum is a lobby that
+    never opens.
+
+    Balance is what makes thin attendance fair rather than merely thin: twelve
+    bees dealt round-robin gives everyone a rival, while twelve dealt
+    fullest-first gives one crowded hive and four empty boards where a lone
+    arrival would win by walking.
+    """
     for i in range(store.QUORUM):
         await match_flow.join(f"npub{i}", f"P{i}")
     m = await store.forming_match()
     counts = await store.seat_counts(str(m["match_id"]))
-    assert max(counts.values()) == store.QUORUM
+
+    assert sum(counts.values()) == store.QUORUM
+    assert len(counts) == store.HIVES, "every hive should have taken a bee"
+    assert max(counts.values()) - min(counts.values()) <= 1, (
+        "round-robin must never leave one hive a seat richer than by one"
+    )
     assert m["quorum_at"] is not None, "reaching quorum must start the grace clock"
+
+
+async def test_quorum_counts_the_match_not_the_fullest_hive(vault):
+    """One short of quorum must not start, however the bees are spread.
+
+    With seats dealt round-robin no hive fills first, so a quorum that watched
+    the fullest hive would sit one short for ever.
+    """
+    for i in range(store.QUORUM - 1):
+        await match_flow.join(f"npub{i}", f"P{i}")
+    m = await store.forming_match()
+    assert m["quorum_at"] is None, "seven bees is not a quorum"
+
+    await match_flow.join("npubLast", "the eighth")
+    m = await store.forming_match()
+    assert m["quorum_at"] is not None
 
 
 def test_a_match_on_a_board_that_no_longer_exists_is_cleared_away(vault) -> None:

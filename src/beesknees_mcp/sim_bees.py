@@ -214,14 +214,21 @@ def human_pause(rng: random.Random) -> float:
     cannot — so an opponent that acts the instant it is allowed to is not playing
     the same game, however identical the rules are.
 
-    Between four tenths of a second and one and four fifths — on top of a
-    one-second cooldown, so a move lands every 1.4s to 2.8s. An attentive person
-    who has already decided taps in something like 1.2s, so a sim bee is still
-    the slower of the two, and a dawdling one is much slower.
+    Between a fifth of a second and one and a quarter — on top of a one-second
+    cooldown, so a move lands every 1.2s to 2.25s. An attentive person who has
+    already decided taps in something like 1.2s, which now sits at the FAST end
+    of a sim bee's range rather than beyond it: a sharp human still edges the
+    field, and a dawdling one is genuinely overtaken.
 
-    It was half a second to three, and that read as sleepy rather than unhurried:
-    a mean of 2.75s a move against a human's 1.2s is not an opponent, it is
-    scenery. The point is a bee that could plausibly be somebody, not one that is
-    politely losing.
+    Loosened twice, in the same direction, for the same reason. It began at half
+    a second to three, which read as sleepy — a mean of 2.75s a move against a
+    human's 1.2s is not an opponent, it is scenery. Then 0.4–1.8, which was
+    unhurried but still conceded every race to anyone paying attention. The
+    point is a bee that could plausibly be somebody, and somebody is not a
+    creature that always loses.
+
+    This is the floor of the range, not the mean, that matters: at 0.2s the
+    quickest sim bee is still slower than the cooldown it is waiting on, so it
+    can never act more often than the rules allow anybody.
     """
-    return rng.uniform(0.4, 1.8)
+    return rng.uniform(0.2, 1.25)

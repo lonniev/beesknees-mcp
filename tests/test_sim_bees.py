@@ -140,19 +140,26 @@ def test_a_blind_step_is_still_a_legal_step() -> None:
             assert geo.may_move(g, cell, m.cell, True), "it offered a move the stagger bars"
 
 
-def test_sim_bees_never_hurry() -> None:
-    """The pause is the feature.
+def test_a_sim_bee_can_never_outpace_the_rules() -> None:
+    """The pause is the feature, and the FLOOR is the pause.
 
     A bot reads the board and decides in microseconds; a person cannot. The
-    cooldown stops money buying speed and this stops silicon buying it — so a sim
-    bee always waits a human beat on top of its rest, and never less.
+    cooldown stops money buying speed and this stops silicon buying it.
+
+    Loosened to make sim bees more of a contest — an opponent that always loses
+    to anyone paying attention is scenery, not a rival. What must not move is
+    the guarantee underneath: even the quickest sim bee waits longer than zero
+    on top of a cooldown it cannot skip, so it never acts more often than the
+    rules allow a person to.
     """
     rng = random.Random(0)
     pauses = [sim_bees.human_pause(rng) for _ in range(500)]
-    # The floor is what matters: a move lands one cooldown plus this, so 0.4
-    # keeps the quickest sim bee at 1.4s against an attentive person's ~1.2s.
-    assert min(pauses) >= 0.4, "a sim bee moved quicker than a person could tap"
-    assert max(pauses) <= 1.8
+    assert min(pauses) > 0, "a sim bee that waits nothing is acting at bot speed"
+    # A human who has already decided taps in about 1.2s. The fast end of the
+    # range now sits below that, so a sharp person edges the field rather than
+    # walking it — but the cooldown, not this, is what caps anybody's rate.
+    assert min(pauses) >= 0.2
+    assert max(pauses) <= 1.25
     assert len({round(p, 3) for p in pauses}) > 100, "jittered, or eight bees move in lockstep"
 
 
