@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A cached DM proof is a proof, and the operator console now agrees.** It
+  gated its buttons on holding a session *key*, on the stated grounds that a
+  restricted call needs a signature from the operator's nsec. The runtime asks
+  no such thing: `require_proof` takes the cached `dpop_token` phrase first,
+  hashed against the proven-npub cache, and only then looks for an inline
+  kind-27235 event. So an operator who answered the DM challenge — exactly as
+  the sign-in screen instructs — was locked out of their own books, and the
+  banner told them so in a sentence that was not true. The gate secured nothing
+  either: whoever holds the token can call the tool directly.
 - **The pot now holds what was paid, not what it lists at.** The first match
   played for real raised 8 sats and owed the charity 8 — one bee was a person
   paying a sat, the other seven were simulated and playing on a 100%-off

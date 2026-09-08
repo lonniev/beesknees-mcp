@@ -8,6 +8,9 @@
  * The route is only linked for the operator, but the gate is cosmetic: every
  * tool here is `restricted` and the runtime proves the caller before it runs.
  * A patron who types the URL gets a page whose buttons the service refuses.
+ * Cosmetic cuts both ways, which this page learned the hard way: it also
+ * insisted on a session key, the service never did, and the operator was shut
+ * out of their own books for answering the DM challenge as instructed.
  *
  * Nothing is estimated. A figure the service has not returned shows as a dash,
  * because this is the page somebody screenshots when asked where the money
@@ -41,7 +44,7 @@ function shortNpub(npub: string): string {
 }
 
 export default function Operator({ session }: { session: Session }) {
-  const { isOperator, canAct, known } = useOperator(session.npub, session.canSign);
+  const { isOperator, canAct, known } = useOperator(session.npub, session.signedIn);
 
   const [t, setT] = useState<Treasury | null>(null);
   const [history, setHistory] = useState<SettlementHistory | null>(null);
@@ -148,14 +151,6 @@ export default function Operator({ session }: { session: Session }) {
           <RefreshCw size={15} />
         </button>
       </div>
-
-      {!canAct && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-[var(--color-wax-ink)]">
-          You are the operator, but this session signed in on a cached proof rather
-          than a key. Sending money needs a signature — sign in with the operator's
-          nsec to use the buttons here.
-        </p>
-      )}
 
       {/* ── The wallet ─────────────────────────────────────────────── */}
       <section className={card}>
