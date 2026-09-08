@@ -109,8 +109,7 @@ async def _owed(kind: str, match_id: str) -> tuple[int, str, str]:
     beneficiary for the charity leg, so a match settled under a previous
     charity pays the charity it actually recorded.
     """
-    rows = await store.settlements(200)
-    row = next((r for r in rows if str(r["match_id"]) == match_id), None)
+    row = await store.settlement_of(match_id)
     if row is None:
         raise store.BoardError("no settled match with that id")
 
@@ -171,10 +170,7 @@ async def send(kind: str, match_id: str) -> dict[str, Any]:
                 "error": f"{address} did not return an invoice: {exc}"}
 
     if not await store.claim_payout(kind, match_id, address, amount):
-        existing = next(
-            (p for p in await store.payouts(200)
-             if str(p["payout_id"]) == f"{kind}:{match_id}"), None
-        )
+        existing = await store.payout_of(kind, match_id)
         return {"success": True, "already": str(existing["state"]) if existing else "claimed",
                 "match_id": match_id, "kind": kind,
                 "note": "this payment was already made or is in flight"}

@@ -28,6 +28,19 @@ from beesknees_mcp import geometry as geo
 from beesknees_mcp import match_flow
 
 
+def _limited(rows: list, sql: str) -> list:
+    """Apply the statement's own LIMIT, the way Postgres would.
+
+    A fake that returns every row no matter what the query said cannot show a
+    caller falling off the end of a page — which is exactly the failure the
+    payout path had.
+    """
+    import re
+
+    m = re.search(r"LIMIT\s+(\d+)", sql)
+    return rows[: int(m.group(1))] if m else rows
+
+
 class FakeVault:
     """Enough Postgres to hold the store honest, and no more.
 
@@ -296,8 +309,16 @@ class FakeVault:
                 return {"rows": [], "rowCount": 1}
             return {"rows": [], "rowCount": 0}
 
+        if s.startswith(f"SELECT * FROM {store.SETTLEMENTS} WHERE match_id"):
+            row = self.settlements.get(p[0])
+            return {"rows": [row] if row else [], "rowCount": 1 if row else 0}
+
+        if s.startswith(f"SELECT * FROM {store.PAYOUTS} WHERE payout_id"):
+            row = getattr(self, "payouts", {}).get(p[0])
+            return {"rows": [row] if row else [], "rowCount": 1 if row else 0}
+
         if s.startswith(f"SELECT * FROM {store.PAYOUTS}"):
-            rows = list(getattr(self, "payouts", {}).values())
+            rows = _limited(list(getattr(self, "payouts", {}).values()), s)
             return {"rows": rows, "rowCount": len(rows)}
 
         if "AS prizes FROM" in s:
@@ -320,7 +341,11 @@ class FakeVault:
                     "rowCount": 1}
 
         if s.startswith(f"SELECT * FROM {store.SETTLEMENTS}"):
-            return {"rows": list(self.settlements.values()), "rowCount": len(self.settlements)}
+            # The LIMIT is honoured, because it is the whole point: a page that
+            # silently returns everything hides the bug where a row falls off
+            # the end of it.
+            rows = _limited(list(self.settlements.values()), s)
+            return {"rows": rows, "rowCount": len(rows)}
 
         if "winner_npub AS npub" in s:
             return {"rows": [], "rowCount": 0}
@@ -969,5 +994,53 @@ def test_only_a_kept_prize_is_owed_to_a_winner(vault) -> None:
 
         await store.set_prize_state(mid, "kept")
         assert (await store.obligations())["prizes_unpaid_sats"] == 100
+
+    asyncio.run(go())
+
+
+def test_a_settlement_is_found_by_id_not_by_scanning_a_capped_page(vault) -> None:
+    """The payout path used to read the newest 200 settlements and filter in
+    Python. That is not merely wasteful: a match older than the last 200 became
+    invisible, and `pay_out` answered "no settled match with that id" about a
+    settlement sitting right there in the table.
+    """
+
+    async def go():
+        old = await store.open_match()
+        await store.record_settlement(old, pot=1000, charity=800, winner=100,
+                                      operator=100, winner_npub="npub1w",
+                                      beneficiary="Pollinator Partnership")
+        # Bury it under more settlements than any page would return.
+        for _ in range(205):
+            mid = await store.open_match()
+            await store.record_settlement(mid, pot=10, charity=8, winner=1,
+                                          operator=1, winner_npub="npub1x",
+                                          beneficiary="Somebody")
+
+        assert len(await store.settlements(200)) == 200, "the page is capped"
+        found = await store.settlement_of(old)
+        assert found is not None, "a buried settlement must still be payable"
+        assert found["charity_sats"] == 800
+
+    asyncio.run(go())
+
+
+def test_an_older_payment_is_still_found_when_deciding_if_sats_already_went(vault) -> None:
+    """The worst place to be wrong. Reading this from a capped page meant an
+    older payment looked like NO payment, on the exact path that decides
+    whether money has already left.
+    """
+
+    async def go():
+        mid = await store.open_match()
+        await store.claim_payout("charity", mid, "p@wallet.com", 800)
+        await store.finish_payout("charity", mid, state="paid", payment_hash="abc")
+        for _ in range(205):
+            other = await store.open_match()
+            await store.claim_payout("charity", other, "p@wallet.com", 8)
+
+        found = await store.payout_of("charity", mid)
+        assert found is not None and found["state"] == "paid"
+        assert await store.payout_of("winner", mid) is None, "the other leg is its own payment"
 
     asyncio.run(go())
