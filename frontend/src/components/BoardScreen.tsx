@@ -13,7 +13,7 @@
  * written. Neither engine can change this layout without changing it for both.
  */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Hourglass, Maximize2, Minimize2, Repeat, RotateCcw } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import Brood from "./Brood.tsx";
@@ -159,16 +159,19 @@ function RivalColumn({
   youId,
   frame,
   onPick,
+  footer,
 }: {
   hives: ScreenHive[];
   yourHive: number | null;
   youId: number | null;
   frame: number;
   onPick: (id: number) => void;
+  /** Dropped into the empty gutter BELOW the tiles. See the hint. */
+  footer?: ReactNode;
 }) {
   if (!hives.length) return null;
   return (
-    <div className="flex w-24 shrink-0 flex-col justify-center gap-2 lg:w-32 xl:w-40">
+    <div className="relative flex w-24 shrink-0 flex-col justify-center gap-2 lg:w-32 xl:w-40">
       {hives.map((h) => (
         <div key={h.id} className="h-24 lg:h-32 xl:h-40">
           <RivalTile
@@ -180,6 +183,10 @@ function RivalColumn({
           />
         </div>
       ))}
+      {/* Absolute, so the tiles stay exactly centred in the gutter and the
+        * footer takes the empty space under them rather than pushing them
+        * up to make room for itself. */}
+      {footer && <div className="absolute inset-x-0 bottom-0">{footer}</div>}
     </div>
   );
 }
@@ -198,6 +205,54 @@ export default function BoardScreen(p: BoardScreenProps) {
    * hives to enlarge a fifth would lose the thing the layout was built for.
    */
   const [zoomed, setZoomed] = useState(false);
+
+  /**
+   * The width of the hive as it is actually DRAWN, so the controls can line up
+   * with it.
+   *
+   * The row spanned the whole window, which on a tablet put the action button
+   * out at the far right with a third of the screen between it and the board it
+   * acts on — the eye had to leave the game to find the verb. Aligning it to the
+   * board is not decoration: the controls belong to the thing above them and
+   * should look like they do.
+   *
+   * Measured rather than derived. `HiveView` is a square viewBox in a `h-full
+   * w-full` svg, so the drawn hive is `min(width, height)` of its box and
+   * letterboxed centre — a number no CSS on the row can know, because it
+   * depends on the height the board happened to get.
+   */
+  /**
+   * The hint, drawn once and placed in one of two homes — never both.
+   *
+   * Wide: the gutter under the last rival tile, which was empty space beside a
+   * board that had none to spare. Narrow: below the controls, because a short
+   * screen has to cut something and the order down the page should be the order
+   * of what can be spared — the board, then the thing you press, then a sentence
+   * you can play without.
+   *
+   * It shared the control row until the row was narrowed to the board's width,
+   * and then wrapped to four lines in a column beside the tactic buttons. A
+   * sentence needs the width of a sentence.
+   */
+  const hintLine = (
+    <span className="block px-2 text-center text-[13px] italic leading-snug text-ink/78">
+      <span className="not-italic text-ink/65">Hint: </span>
+      {p.prompt}
+    </span>
+  );
+
+  const boardBox = useRef<HTMLDivElement | null>(null);
+  const [drawn, setDrawn] = useState(0);
+  useEffect(() => {
+    const el = boardBox.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const r = entry.contentRect;
+      setDrawn(Math.round(Math.min(r.width, r.height)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * Whether the reward tableau has been dismissed.
@@ -306,6 +361,7 @@ export default function BoardScreen(p: BoardScreenProps) {
               youId={p.youId}
               frame={p.frame}
               onPick={p.onFocus}
+              footer={hintLine}
             />
           )}
 
@@ -313,7 +369,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             * it — a square viewBox letterboxed in a wide box — which is what
             * `drawnHive` corrects for so a bee homes to the hive rather than
             * to the empty band beside it. */}
-          <div className="relative min-h-0 flex-1" data-hive="focus">
+          <div ref={boardBox} className="relative min-h-0 flex-1" data-hive="focus">
             {shown && (
               <HiveView
                 board={shown.board}
@@ -450,37 +506,21 @@ export default function BoardScreen(p: BoardScreenProps) {
 
       {/* Controls. The prompt sits on the LEFT, where reading starts — after
        * the button it was an answer arriving behind its question. */}
-      {/* On a phone the hint gets its own line. Sharing the row with two button
-        * groups gave it about a hundred pixels, and it wrapped to seven lines —
-        * stealing the height from the board it was meant to be helping with. */}
-      {!wide && (
-        <span className="shrink-0 px-2 text-center text-[13px] italic leading-snug text-ink/78">
-          <span className="not-italic text-ink/65">Hint: </span>
-          {p.prompt}
-        </span>
-      )}
-
-      <div className="flex shrink-0 items-center gap-4 px-1 pb-[env(safe-area-inset-bottom)]">
-        {/* The hint, centred in its own half so it reads level with the verb on
-          * the button rather than trailing off at the window's edge — and named
-          * as a hint, in italics, so it is plainly the game talking to you and
-          * not a label on something. Wide screens only; see above. */}
-        {wide && (
-        <span className="flex min-w-0 flex-1 items-center justify-center text-center text-[13px] italic leading-none text-ink/78">
-          <span className="min-w-0">
-            <span className="not-italic text-ink/65">Hint: </span>
-            {p.prompt}
-          </span>
-        </span>
-        )}
-
+      {/* Exactly as wide as the hive above it, and centred on the same axis:
+        * "Tactic?" starts where the meadow starts and the action button ends
+        * where it ends. `maxWidth` only, so a screen too narrow for the board's
+        * width simply keeps the full width it has. */}
+      <div
+        style={drawn ? { maxWidth: drawn } : undefined}
+        className="mx-auto flex w-full shrink-0 items-center gap-2 pb-[env(safe-area-inset-bottom)] sm:gap-4"
+      >
         {/* TACTIC — a standing choice, and a different question from the one
           * the button asks. It wore the action's lime, so the two read as one
           * control in two halves and the toggle looked like a smaller Crawl
           * button. Purple, and labelled, and no longer shoulder to shoulder
           * with the thing it modifies. */}
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[11px] font-medium tracking-wide text-ink/60">Tactic?</span>
+          <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Tactic?</span>
           <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
             {p.verbs.map(({ id, hint, Icon }) => (
               <button
@@ -488,7 +528,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                 onClick={() => p.onVerb(id)}
                 title={hint}
                 aria-pressed={p.verb === id}
-                className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
+                className={`flex h-11 w-11 items-center justify-center rounded-lg transition sm:h-12 sm:w-12 ${
                   p.verb === id
                     ? "bg-[var(--color-tactic)] text-[var(--color-ink)]"
                     : "text-ink/70 hover:bg-ink/7"
@@ -500,14 +540,16 @@ export default function BoardScreen(p: BoardScreenProps) {
           </div>
         </div>
 
-        {/* The gap between the standing choice and the thing you do now. */}
-        <span className="min-w-6 flex-1" />
+        {/* The gap between the standing choice and the thing you do now. It is
+          * the first thing to close on a narrow screen — the two groups have to
+          * fit before the air between them does. */}
+        <span className="min-w-2 flex-1 sm:min-w-6" />
 
-        <span className="shrink-0 text-[11px] font-medium tracking-wide text-ink/60">Now?</span>
+        <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Now?</span>
         <button
           onClick={p.onAct}
           disabled={!p.actionEnabled}
-          className={`relative min-w-40 shrink-0 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
+          className={`relative min-w-28 shrink-0 overflow-hidden rounded-xl px-4 py-3 font-semibold transition sm:min-w-40 sm:px-6 ${
             p.actionEnabled ? "bg-[var(--color-you)] text-black" : "bg-ink/7 text-ink/70"
           }`}
         >
@@ -524,6 +566,13 @@ export default function BoardScreen(p: BoardScreenProps) {
         </button>
 
       </div>
+
+      {/* On a phone the hint goes BELOW the controls, deliberately last.
+        * A short screen has to cut something, and the order down the page is
+        * the order of what can be spared: the board, then the thing you press,
+        * then a sentence you can play without. Above the controls it would have
+        * pushed the button off instead. */}
+      {!wide && <div className="shrink-0 pt-1">{hintLine}</div>}
     </div>
   );
 }

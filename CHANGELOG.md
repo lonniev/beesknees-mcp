@@ -30,6 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The controls are exactly as wide as the hive above them, and centred on the
+  same axis: "Tactic?" begins where the meadow begins and the action button
+  ends where it ends. The row spanned the whole window, which on a tablet put
+  the button out at the far right with a third of the screen between it and the
+  board it acts on — the eye had to leave the game to find the verb. Measured
+  rather than derived, because the drawn hive is `min(width, height)` of a box
+  whose height nothing in CSS can tell the row about.
+- The hint has two homes and is never in both. Wide: the empty gutter under the
+  last rival tile. Narrow: **below** the controls, because a short screen has to
+  cut something and the order down the page should be the order of what can be
+  spared — the board, then the thing you press, then a sentence you can play
+  without.
+
 - The tactic toggle is no longer the action button's colour. Both were
   `--color-you` lime, so a standing choice and a thing-you-do-now read as one
   control in two halves. The tactic is purple (`--color-tactic`), the two groups
