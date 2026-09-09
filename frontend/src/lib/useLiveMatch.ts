@@ -75,6 +75,15 @@ export interface LiveApi {
   error: string;
   /** Ask for a refresh now — after your own move, so the board catches up. */
   refresh: () => void;
+  /**
+   * Done with this round; ask for the lobby instead.
+   *
+   * Not the same as `refresh`. A finished round stays answerable to its own
+   * players for three minutes so the result can be read and the prize claimed,
+   * which means a plain refresh fetches the round you are trying to leave —
+   * and "Queue for the next round" looked frozen. This says you have read it.
+   */
+  leave: (matchId: string) => void;
 }
 
 /**
@@ -101,6 +110,14 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
    * matches happen to sit at the same seq.
    */
   const matchId = useRef("");
+  /**
+   * The finished round the player has said they are done with.
+   *
+   * Held until a DIFFERENT match comes back, because one poll is not enough:
+   * the lobby the server hands over may still be forming, and every poll in
+   * between would otherwise ask for — and get — the round just left.
+   */
+  const leaving = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
   /** When the board last actually came back. The watchdog reads this. */
@@ -119,7 +136,10 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
       // Abandoning a slow answer costs nothing: the very next poll asks the same
       // question, and `since_seq` means a board that has not moved answers small.
       const res = (await Promise.race([
-        call("match_state", { since_seq: seq.current }),
+        call("match_state", {
+          since_seq: seq.current,
+          ...(leaving.current ? { next_round: true } : {}),
+        }),
         new Promise((resolve) => setTimeout(() => resolve(STALLED), POLL_TIMEOUT_MS)),
       ])) as
         | (Partial<LiveState> & { unchanged?: boolean; success?: boolean })
@@ -144,6 +164,13 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
       if (res.match_id && res.match_id !== matchId.current && res.unchanged) {
         seq.current = -1;
         return 200;
+      }
+
+      // The round we asked to leave is behind us the moment a different one
+      // answers. Cleared here rather than on the click, so the flag keeps
+      // being sent until the handover actually happens.
+      if (leaving.current && res.match_id && res.match_id !== leaving.current) {
+        leaving.current = "";
       }
 
       if (!res.unchanged && res.bees) {
@@ -176,6 +203,17 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
   const refresh = useCallback(() => {
     schedule(0);
   }, [schedule]);
+
+  const leave = useCallback(
+    (id: string) => {
+      leaving.current = id;
+      // The next board is a different match, so the sequence number this one
+      // was counting against means nothing to it.
+      seq.current = -1;
+      schedule(0);
+    },
+    [schedule],
+  );
 
   useEffect(() => {
     alive.current = true;
@@ -215,7 +253,7 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
     };
   }, [enabled, schedule]);
 
-  return { board, error, refresh };
+  return { board, error, refresh, leave };
 }
 
 /**

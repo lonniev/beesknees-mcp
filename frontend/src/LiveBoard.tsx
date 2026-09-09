@@ -61,7 +61,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       callTool(tool, args, { bestEffort: true }) as Promise<unknown>,
     [],
   );
-  const { board: live, error, refresh } = useLiveMatch(call);
+  const { board: live, error, refresh, leave } = useLiveMatch(call);
 
   const [target, setTarget] = useState<number | null>(null);
   const [verb, setVerb] = useState<"move" | "seal">("move");
@@ -340,7 +340,11 @@ export default function LiveBoard({ session }: { session: Session }) {
         ended
           ? () => {
               setWatching(null);
-              refresh();
+              // `leave`, not `refresh`. A finished round answers its own
+              // players for three minutes so the result can be read — so a
+              // refresh fetches the round this button exists to escape, and
+              // the button reads as frozen.
+              leave(live.match_id);
             }
           : undefined
       }

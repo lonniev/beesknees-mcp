@@ -81,3 +81,40 @@ def test_a_junk_timestamp_does_not_take_the_tool_down():
     # Neon hands timestamps back as strings over HTTP, and this runs inside the
     # one tool every client polls on a loop.
     assert still_yours(match("settled", ended_at="not a date"), NOW) is False
+
+
+# ── And a way back out of the result ─────────────────────────────────────
+
+
+def test_match_state_offers_a_way_out_of_a_finished_round():
+    """The other half of the linger, and the trap it opened.
+
+    Holding a finished round for three minutes is right until the player presses
+    "Queue for the next round" — at which point the refresh behind that button
+    fetches the very round it exists to escape, and the button reads as frozen.
+    `next_round` is how a client says it has read the result.
+    """
+    import inspect
+
+    from beesknees_mcp import server
+
+    fn = getattr(server.match_state, "fn", server.match_state)
+    params = inspect.signature(fn).parameters
+    assert "next_round" in params, "no way for a client to say it is done reading"
+    assert params["next_round"].default is False, (
+        "asking for the next round must be opt-in — defaulting it on would "
+        "throw away the linger for every client that never asked"
+    )
+
+
+def test_the_gate_reads_both_conditions():
+    """`still_yours` decides WHETHER a round is yours; `next_round` decides
+    whether you still want it. Losing either half restores one of the two
+    bugs, so the source is checked for both rather than for the fix of the day."""
+    import inspect
+
+    from beesknees_mcp import server
+
+    src = inspect.getsource(getattr(server.match_state, "fn", server.match_state))
+    assert "not next_round" in src
+    assert "still_yours(" in src

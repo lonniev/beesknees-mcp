@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- "Queue for the next round" works. It called `refresh`, and a finished round
+  answers its own players for three minutes so the result can be read — so the
+  refresh fetched the very round the button exists to escape, and the button
+  read as frozen. `match_state` takes `next_round`, which is how a client says
+  it has read the result; `useLiveMatch.leave` keeps sending it until a
+  DIFFERENT match answers, because one poll is not enough when the lobby handed
+  over is still forming.
+
+### Fixed
+
 - The greeter gives up its seat when a person arrives. A stand-in seated into an
   empty room is bait — it exists so the next visitor is not asked to be the one
   who starts something — and it cannot race: a bee is played by whichever worker
