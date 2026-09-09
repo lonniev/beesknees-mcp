@@ -7,6 +7,15 @@ quorum, so a lone patron who has paid for a bee would otherwise sit in a lobby
 waiting for seven strangers who are not coming. Sim bees make up the shortfall
 and no more: they are there so a real player can play, not to fill the room.
 
+**Except one.** An EMPTY lobby gets a single bee straight away, before anybody
+arrives — because the first visitor to a room of eight empty combs is being
+asked to be the one who starts something, and almost nobody wants to lead. They
+will happily be the second. That bee is the only one seated for nobody, and the
+rule that follows from it is the important half: a room holding sims and no
+people is NOT topped up. Without that, a greeter would read as "a bee is
+waiting", the swarm would fill the board around it, and a match of forty bots
+and no players would run itself.
+
 **Never move faster than a person could.** A bot decides in microseconds; the
 cooldown exists so money cannot buy speed, and it is undone entirely by an
 opponent that answers the instant it is allowed to. Each bee waits a human beat
@@ -57,6 +66,22 @@ PATIENCE_S = 12.0
 #: thundering herd aimed at the one service the patron is waiting on.
 SEAT_BATCH = 8
 
+#: How a sim bee is recognised in a board the server hands back.
+#:
+#: A shift knows its OWN bees by npub, and that is not the question here: the
+#: greeter this shift must not mistake for a person was very likely seated by
+#: the shift before it. The label is what travels. Patrons do not choose theirs
+#: — the app sends eight characters of their npub — so a human labelled `sim-`
+#: takes a deliberate direct call to `join_match`, and the only consequence is
+#: that the swarm declines to fill the room around them.
+SIM_LABEL = "sim-"
+
+#: Bees seated into a room that is completely empty.
+#:
+#: One. The point is that nobody has to be first, and a second bot would start
+#: making up numbers — which is the thing this module says it does not do.
+GREETERS = 1
+
 #: The most bees one shift will ever seat.
 #:
 #: It was `QUORUM - 1` — seven, exactly enough to complete a match-wide quorum
@@ -64,6 +89,53 @@ SEAT_BATCH = 8
 #: dealt round-robin, so a hive reaches eight only when the whole board is
 #: nearly full. One short of a full board is the honest ceiling now.
 MAX_BEES = HIVES * QUORUM - 1
+
+
+def is_sim(bee: dict[str, Any]) -> bool:
+    """Was this bee seated by a swarm rather than by a person?"""
+    return str((bee or {}).get("label") or "").startswith(SIM_LABEL)
+
+
+def seats_wanted(state: dict[str, Any], mine: int) -> int:
+    """How many bees to seat right now, given a board and what this shift holds.
+
+    Pulled out of `top_up` because it is the whole policy and it used to be
+    unreachable by a test: everything around it mints keys, redeems coupons and
+    joins a live match.
+
+    Three answers, in order:
+
+    * a room that is not forming, or one where a hive has already reached
+      quorum, needs nothing;
+    * an EMPTY room gets one bee, so the next person through the door is not
+      asked to be the first;
+    * a room with people in it gets the seats that bring EVERY hive to quorum,
+      because seats are dealt to the emptiest hive and that is how many the
+      deal will absorb before any one hive gets there. A hive already over
+      quorum contributes nothing, so a lopsided board is not charged for its
+      full hives.
+
+    And the one that is a refusal rather than an answer: a room holding only
+    sims is left alone. It is what stops the greeter reading as somebody
+    waiting and the swarm filling a board that no person is sitting at.
+    """
+    if str(state.get("state")) != "forming":
+        return 0
+    room = max(0, MAX_BEES - mine)
+    seated = state.get("bees") or []
+
+    if not seated:
+        return min(GREETERS, room)
+    if not any(not is_sim(b) for b in seated):
+        return 0
+
+    per: dict[int, int] = {}
+    for b in seated:
+        per[int(b["hive"])] = per.get(int(b["hive"]), 0) + 1
+    if max(per.values()) >= QUORUM:
+        return 0
+    short = sum(max(0, QUORUM - per.get(h, 0)) for h in range(HIVES))
+    return max(0, min(short, room))
 
 
 @dataclass
@@ -110,34 +182,13 @@ class Swarm:
         return bee
 
     async def top_up(self, state: dict[str, Any]) -> int:
-        """Seat enough bees to bring a hive to quorum. Returns how many.
+        """Seat the bees `seats_wanted` asks for. Returns how many are out.
 
-        `QUORUM - fullest` was the old sum, and it was right for a quorum
-        counted across the match: one bee waiting, seven seated, eight, go.
-        Quorum belongs to a HIVE again and the server deals seats to the
-        emptiest hive, so bees added here do not pile onto the fullest one —
-        they spread. Seating `QUORUM - fullest` of them raises the fullest hive
-        by about a fifth of that, and the lobby never opens.
-
-        What is actually needed is the seats that bring EVERY hive to quorum,
-        because that is how many the deal will absorb before any one hive gets
-        there. A hive already over quorum contributes nothing, so a lopsided
-        board is not charged for its full hives.
+        The policy is in `seats_wanted`, which is a pure function of the board
+        and can be read and tested without minting a key or joining a match.
+        Everything below here is the doing of it.
         """
-        if str(state.get("state")) != "forming":
-            return 0
-        seated = state.get("bees") or []
-        if not seated:
-            return 0  # nobody is waiting, so nobody needs company
-
-        per: dict[int, int] = {}
-        for b in seated:
-            per[int(b["hive"])] = per.get(int(b["hive"]), 0) + 1
-        if max(per.values()) >= QUORUM:
-            return 0
-        short = sum(max(0, QUORUM - per.get(h, 0)) for h in range(HIVES))
-
-        want = max(0, min(short, MAX_BEES - len(self.bees)))
+        want = seats_wanted(state, len(self.bees))
         if not want:
             return len(self.bees)
 
@@ -310,21 +361,33 @@ async def run(
             running = str(state.get("state")) == "running"
             committed = bool(swarm.bees) and running
 
-            if str(state.get("state")) == "forming" and (state.get("bees") or []):
-                first_seen = first_seen or time.monotonic()
-                # How long the ROOM has waited, which is not how long this shift
-                # has watched it. The server reports the age of the longest
-                # seated bee; falling back to our own observation keeps this
-                # working against a service that has not shipped the field yet.
-                waited = max(
-                    float(state.get("waiting_s") or 0.0),
-                    time.monotonic() - first_seen,
+            if str(state.get("state")) == "forming":
+                seated = state.get("bees") or []
+                crowd = [b for b in seated if not is_sim(b)]
+                empty = not seated
+
+                # How long a PERSON has been waiting, which is neither how long
+                # this shift has watched nor how old the oldest bee is. The
+                # server's `waiting_s` measures the longest-seated bee, and
+                # after a greeter that is the greeter — a figure with nothing to
+                # do with anybody's patience. It is still the better number when
+                # every bee in the room is a person, which is what it was added
+                # for: a shift starting beside a room already waiting should not
+                # restart the clock on somebody else's patience.
+                first_seen = (first_seen or time.monotonic()) if crowd else None
+                server_wait = (
+                    float(state.get("waiting_s") or 0.0) if len(crowd) == len(seated) else 0.0
                 )
-                # Two conditions, and the second is the one that stops bees being
-                # stranded: give the room a moment to fill itself, AND only take
-                # a match there is time left to see through.
+                waited = max(server_wait, time.monotonic() - first_seen) if first_seen else 0.0
+
+                # Only take a match there is time left to see through.
                 room_to_finish = elapsed + ROUND_CEILING_S <= hard_cap
-                if waited >= PATIENCE_S and room_to_finish:
+                # A greeter waits for nothing. The patience exists to give a
+                # room a chance to fill itself, and an empty room has nobody in
+                # it to do that — twelve seconds of an empty meadow is the
+                # thing the greeter is for. `seats_wanted` decides WHAT to seat
+                # and refuses a room of sims; this only decides WHEN to ask.
+                if room_to_finish and (empty or waited >= PATIENCE_S):
                     tally["joined"] = await swarm.top_up(state)
                 elif not room_to_finish and not swarm.bees:
                     logger.info("leaving this lobby to the next shift — not enough of mine left")
