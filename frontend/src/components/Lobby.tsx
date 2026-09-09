@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Check, Share2, Users, Zap } from "lucide-react";
 import CharityNote, { useCharity } from "./CharityNote";
 import {
@@ -23,6 +24,7 @@ import Skep from "./Skep";
 import Meadowscape from "./Meadowscape.tsx";
 import { PageBees } from "./Meadow.tsx";
 import { HIVE_NAMES } from "../game/match.ts";
+import FirstTime from "./FirstTime.tsx";
 import QuoteScroller from "./QuoteScroller.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
@@ -48,6 +50,8 @@ export default function Lobby({
   const [error, setError] = useState("");
   const [waited, setWaited] = useState(0);
   const [shared, setShared] = useState(false);
+  const [explaining, setExplaining] = useState(false);
+  const nav = useNavigate();
   // Named here as well as shown, so the invitation a friend receives says who
   // the money is for rather than gesturing at "the pollinators".
   const who = useCharity();
@@ -119,6 +123,22 @@ export default function Lobby({
     } catch {
       // A cancelled share sheet is not a failure and must not look like one.
     }
+  }
+
+  /**
+   * Fund a bee, or explain what funding one needs.
+   *
+   * A visitor with no key pressed this and was sent to a form asking for an
+   * npub — a word the page had not used, in a box, with nothing said about
+   * what it is or where to get the money either. That is where a curious
+   * stranger stops.
+   */
+  function fund() {
+    if (!session.signedIn) {
+      setExplaining(true);
+      return;
+    }
+    void join();
   }
 
   async function join() {
@@ -266,12 +286,20 @@ export default function Lobby({
         </div>
       ) : (
         <button
-          onClick={join}
+          onClick={fund}
           disabled={busy}
           className="mx-auto flex items-center gap-2 rounded-xl bg-[var(--color-you)] px-6 py-3 font-semibold text-black disabled:opacity-40"
         >
           <Zap size={16} /> {busy ? "Funding your bee…" : "Fund a Bee"}
         </button>
+      )}
+
+      {explaining && (
+        <FirstTime
+          onGenerate={() => nav("/signin", { state: { from: "/play", generate: true } })}
+          onExisting={() => nav("/signin", { state: { from: "/play" } })}
+          onClose={() => setExplaining(false)}
+        />
       )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}

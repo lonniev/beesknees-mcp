@@ -20,13 +20,15 @@ import type { Session } from "../lib/session.ts";
 export default function SignIn({ session }: { session: Session }) {
   const nav = useNavigate();
   const loc = useLocation();
-  const back = (loc.state as { from?: string } | null)?.from ?? "/profile";
+  const nav_state = loc.state as { from?: string; generate?: boolean } | null;
+  const back = nav_state?.from ?? "/profile";
 
   return (
     <>
       <Meadowscape />
       <NpubGate
         notice={session.notice}
+        startFresh={Boolean(nav_state?.generate)}
         onLogin={() => {
           session.refresh();
           nav(back, { replace: true });
