@@ -64,6 +64,11 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 export default function App() {
   const session = useSession();
   const path = useLocation().pathname;
+  // `/play` is a CHOICE before it is a board — two cards and a lot of empty
+  // meadow — and excluding the whole route left the one screen that most looks
+  // like it wants scenery without any. The page mounts its own while it is a
+  // chooser, which is the component that actually knows; here the route stays
+  // out of it so the two cannot both mount and double the bees.
   const onBoard = path.startsWith("/play");
   /// The long reads. They get ground at the FOOT rather than pinned to the
   /// viewport — see `Meadowscape`'s note on the difference, and on why a hill
