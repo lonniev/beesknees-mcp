@@ -10,71 +10,31 @@
  * worse than an empty one — it is the figure a screenshot would quote back.
  */
 
-import { useEffect, useState } from "react";
 import { LINK } from "../lib/ink";
-import { HeartHandshake, Trophy, Coins, ExternalLink } from "lucide-react";
-import { settlementHistory, type SettlementHistory } from "../lib/mcp";
-
-function sats(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
-function shortNpub(npub: string): string {
-  return npub.length > 16 ? `${npub.slice(0, 10)}…${npub.slice(-4)}` : npub;
-}
+import { ExternalLink } from "lucide-react";
+import { sats } from "../lib/figures";
+import {
+  Money, Standings, StandingsHeading, useSettlements,
+} from "../components/Standings";
 
 export default function Ledger() {
-  const [data, setData] = useState<SettlementHistory | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    settlementHistory(50)
-      .then((d) => alive && setData(d))
-      .catch(() => alive && setFailed(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const raised = (data?.settlements ?? []).reduce((a, s) => a + s.pot_sats, 0);
-  const charity = data?.accrued_sats ?? 0;
+  const { data, failed } = useSettlements(50);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Where the money went</h1>
       <Beneficiary name={data?.beneficiary ?? ""} website={data?.charity?.website ?? ""} />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Stat icon={<Coins size={16} />} label="Raised across all matches" value={`${sats(raised)} sats`} />
-        <Stat
-          icon={<HeartHandshake size={16} />}
-          label="Owed to the charity"
-          value={`${sats(charity)} sats`}
-        />
+      <div className="mt-6">
+        <Money data={data} />
       </div>
 
-      <h2 className="mt-9 flex items-center gap-2 text-sm font-semibold text-ink/90">
-        <Trophy size={15} /> Most won
-      </h2>
-      {data?.leaderboard?.length ? (
-        <ul className="mt-3 divide-y divide-ink/10 rounded-xl bg-ink/4">
-          {data.leaderboard.map((row, i) => (
-            <li key={row.npub} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="w-5 tabular-nums text-ink/65">{i + 1}</span>
-              <span className="flex-1 truncate font-mono text-[12px] text-ink/80">
-                {shortNpub(row.npub)}
-              </span>
-              <span className="text-ink/65">{row.wins}×</span>
-              <span className="tabular-nums font-medium">{sats(row.sats)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm text-ink/65">
-          {failed ? "The hive did not answer." : "No match has been settled yet."}
-        </p>
-      )}
+      <div className="mt-9">
+        <StandingsHeading>Most won</StandingsHeading>
+      </div>
+      <div className="mt-3">
+        <Standings data={data} failed={failed} />
+      </div>
 
       <h2 className="mt-9 text-sm font-semibold text-ink/90">Every settled match</h2>
       {data?.settlements?.length ? (
@@ -119,19 +79,6 @@ export default function Ledger() {
     </div>
   );
 }
-
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-ink/4 px-4 py-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-ink/70">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
-    </div>
-  );
-}
-
 
 /**
  * Who the charity share goes to, and somewhere to go and check them.

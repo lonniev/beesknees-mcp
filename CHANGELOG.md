@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The lobby says what the wait is FOR: the standings, the charity by name, what
+  every pot has raised, and what is still owed to the charity and waiting to be
+  paid. All of it lived on the ledger, one navigation away, and the lobby is the
+  one screen somebody is certain to read all of because they cannot do anything
+  else. `components/Standings.tsx` now holds the pieces and both screens render
+  them.
+
+- Your own bee wears its halo in the hive stack — the same breathing disc and
+  ring the board draws around it, so the lobby is not teaching a mark the race
+  will not use. The seat is exact: `seat` is the index within the hive and the
+  column fills bottom-up. The hive LABEL was tinted before, which told you which
+  column to look at and left you counting bees in it.
+
+- Once a bee is seated: "You can leave this page while waiting but make sure to
+  get back before the game begins." Said only when there is something to come
+  back to.
+
+### Changed
+
+- "Buy a bee and take a seat" is **"Fund a Bee"**.
+
 - The lobby has ground under it and bees over it. It is the longest wait in the
   app — you sit there until forty bees have a seat — and it was the one screen
   with no life on it, while the sign-in card, a five-second stop, had the drawn
