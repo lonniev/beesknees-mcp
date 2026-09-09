@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A new preview card: a round in progress rather than an empty board — tunnels
+  cut, a drone at a door, all five hives, and the action button. The alt text
+  on both the `og:` and `twitter:` tags describes what is actually in it now.
+
 - The ledger is titled "Funds Raised and Charity Payouts", which says what it
   is rather than gesturing at it.
 - **`settlement_history` is paged and sorted by the server** — `page`,
