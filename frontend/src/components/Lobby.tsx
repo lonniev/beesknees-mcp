@@ -15,6 +15,9 @@
 import { useEffect, useState } from "react";
 import { Check, Share2, Users, Zap } from "lucide-react";
 import CharityNote, { useCharity } from "./CharityNote";
+import {
+  Money, Standings, StandingsHeading, useSettlements,
+} from "./Standings";
 import Elsewhere from "./Elsewhere";
 import Skep from "./Skep";
 import Meadowscape from "./Meadowscape.tsx";
@@ -48,6 +51,9 @@ export default function Lobby({
   // Named here as well as shown, so the invitation a friend receives says who
   // the money is for rather than gesturing at "the pollinators".
   const who = useCharity();
+  // Free, and the same read the ledger page makes. A player stuck in a
+  // lobby should not have to leave it to find out what the wait is for.
+  const { data: money, failed: moneyFailed } = useSettlements(50);
 
   useEffect(() => {
     const t = setInterval(() => setWaited((s) => s + 1), 1000);
@@ -82,6 +88,10 @@ export default function Lobby({
   // goes to the emptiest hive, so the fullest one only grows once every hive
   // has caught up with it.
   const needed = perHive.reduce((n, seats) => n + Math.max(0, QUORUM - seats), 0);
+
+  /** Is this the cell the player's own bee is sitting in? */
+  const isMine = (hive: number, index: number) =>
+    !!mine && mine.hive === hive && mine.seat === index;
 
   /**
    * Hand the round to somebody else.
@@ -192,12 +202,31 @@ export default function Lobby({
                 i < n ? (
                   <span
                     key={i}
-                    className="bk-thrum flex-1 text-[13px] leading-none"
+                    className={`bk-thrum relative flex-1 text-[13px] leading-none ${
+                      // YOUR seat, not just your hive. `seat` is the index
+                      // within the hive — the primary key is (match, hive,
+                      // seat) and it is dealt from that hive's own count — and
+                      // the column renders bottom-up, so seat 0 IS the bottom
+                      // cell. The hive label was tinted before, which told you
+                      // which column to look at and left you counting bees in
+                      // it.
+                      isMine(h, i) ? "rounded-full ring-1 ring-[var(--color-you)]" : ""
+                    }`}
                     // Its own rhythm. Shared, they read as one machine.
                     style={{ animationDelay: `${((i * 137 + h * 61) % 900) / 1000}s` }}
-                    title={mine?.hive === h ? "your hive" : undefined}
+                    title={isMine(h, i) ? "your bee" : mine?.hive === h ? "your hive" : undefined}
                   >
-                    🐝
+                    {/* The same halo the board draws around your bee: a soft
+                        disc of `--color-you` breathing underneath it, and a
+                        ring. One vocabulary for "this one is yours", so the
+                        lobby is not teaching a mark the race will not use. */}
+                    {isMine(h, i) && (
+                      <span
+                        aria-hidden="true"
+                        className="bk-pulse absolute left-1/2 top-1/2 h-[14px] w-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-you)]"
+                      />
+                    )}
+                    <span className="relative">🐝</span>
                   </span>
                 ) : (
                   // An empty seat is an absence, but it is still a comb cell somebody
@@ -220,10 +249,20 @@ export default function Lobby({
       </div>
 
       {mine ? (
-        <div className="text-sm text-ink/70">
-          <Users size={14} className="mr-1 inline" />
-          Your bee has a seat. Waiting {Math.floor(waited / 60)}:
-          {String(waited % 60).padStart(2, "0")}
+        <div className="flex flex-col gap-2">
+          <div className="text-sm text-ink/70">
+            <Users size={14} className="mr-1 inline" />
+            Your bee has a seat. Waiting {Math.floor(waited / 60)}:
+            {String(waited % 60).padStart(2, "0")}
+          </div>
+          {/* Said once they are actually seated, because until then there is
+              nothing to come back to. The wait is minutes and nobody should
+              feel held here — but the race starts without them, so the leaving
+              and the returning have to be said in the same breath. */}
+          <p className="mx-auto max-w-md text-xs leading-relaxed text-ink/65">
+            You can leave this page while waiting but make sure to get back
+            before the game begins.
+          </p>
         </div>
       ) : (
         <button
@@ -231,7 +270,7 @@ export default function Lobby({
           disabled={busy}
           className="mx-auto flex items-center gap-2 rounded-xl bg-[var(--color-you)] px-6 py-3 font-semibold text-black disabled:opacity-40"
         >
-          <Zap size={16} /> {busy ? "Buying a bee…" : "Buy a bee and take a seat"}
+          <Zap size={16} /> {busy ? "Funding your bee…" : "Fund a Bee"}
         </button>
       )}
 
@@ -247,6 +286,25 @@ export default function Lobby({
         {shared ? "Link copied — send it to a friend" : "Share it — bring a friend to the race"}
       </button>
 
+      {/* What the wait is FOR.
+        *
+        * This lived on the ledger, one navigation away — and the lobby is the
+        * one screen somebody is certain to read all of, because they cannot do
+        * anything else. Naming the charity beside the sats already owed to it,
+        * and the standings beside both, is the whole argument for spending the
+        * fare, made where the spending is being considered. */}
+      {/* Opaque, because the meadow is FIXED and negatively stacked and these
+        * cards are a 4% wash — a hill ran straight through the standings when
+        * this block first landed in the lower third of the page. The backdrop
+        * belongs here rather than in `Standings`, which the ledger also
+        * renders on a page that has no meadow behind it. */}
+      <div className="flex flex-col gap-3 rounded-2xl bg-[var(--color-sky)]/92 p-4 text-left">
+        <Money data={money} />
+        <CharityNote className="text-center" />
+        <StandingsHeading>Most won</StandingsHeading>
+        <Standings data={money} failed={moneyFailed} limit={5} you={session.npub} />
+      </div>
+
       {/* Bee poetry while the hive fills. A lobby is a wait somebody else
         * controls, and a bare number counting to eight is a frozen "Loading…"
         * wearing a different hat. This game also asks people to spend money on
@@ -257,7 +315,6 @@ export default function Lobby({
         * and is certain to read something. */}
       <Elsewhere />
 
-      <CharityNote />
 
       <p className="text-xs leading-relaxed text-ink/65">
         Nothing is spent while you wait — a seat costs a fare, and the motions cost
