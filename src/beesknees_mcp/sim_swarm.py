@@ -32,8 +32,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from beesknees_mcp import board_store, sim_bees
 from beesknees_mcp import geometry as geo
-from beesknees_mcp import sim_bees
 from beesknees_mcp.sim_client import Hive, new_key
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ SEAT_BATCH = 8
 #: — the app sends eight characters of their npub — so a human labelled `sim-`
 #: takes a deliberate direct call to `join_match`, and the only consequence is
 #: that the swarm declines to fill the room around them.
-SIM_LABEL = "sim-"
+SIM_LABEL = board_store.SIM_LABEL
 
 #: Bees seated into a room that is completely empty.
 #:

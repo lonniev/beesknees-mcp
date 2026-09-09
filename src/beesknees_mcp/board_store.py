@@ -524,6 +524,56 @@ def _start_cell(starts: tuple[int, ...], seat: int) -> int:
     return starts[seat] if seat < len(starts) else starts[-1]
 
 
+#: How a stand-in bee is known, in the one place that decides it.
+#:
+#: The swarm labels its bees `sim-<strategy>-<n>` and the patron never chooses
+#: a label — the app sends eight characters of their npub — so this is the only
+#: signal that travels with a seated bee. `sim_swarm.is_sim` reads the same
+#: constant from here, and a test holds the two together.
+SIM_LABEL = "sim-"
+
+
+def all_stand_ins(seated: list[dict[str, Any]]) -> bool:
+    """Is every bee in this room a stand-in, with no person among them?
+
+    The question the greeter creates. A sim seated to TOP UP a room is wanted:
+    a person is waiting and it is there so they can play. A sim seated into an
+    EMPTY room is bait — it exists so the next visitor is not asked to be the
+    one who starts something — and its job is finished the moment that visitor
+    arrives.
+
+    A room of nothing but stand-ins can only have come from baiting, because
+    topping up requires somebody to top up FOR. That is what makes this safe to
+    act on: it cannot mistake a wanted bee for a spent one.
+    """
+    return bool(seated) and all(
+        str(b.get("label") or "").startswith(SIM_LABEL) for b in seated
+    )
+
+
+async def release_bait(match_id: str) -> int:
+    """Give a room's stand-ins their seats back. Returns how many left.
+
+    Only when there is no person among them — see `all_stand_ins`.
+
+    It has to be the SERVER that does this. A bee is played by whichever worker
+    minted its key, that key is held in memory and written down nowhere, and a
+    worker lives fifteen minutes at the outside. Bait waits for a human, which
+    can take hours, so by the time somebody arrives the bee that drew them in
+    is an orphan: a seat with no one able to sign for it. Left alone it takes a
+    place in the race and never moves.
+    """
+    seated = await bees_in(match_id)
+    if not all_stand_ins(seated):
+        return 0
+    await _exec(
+        f"DELETE FROM {BEES} WHERE match_id = $1 AND label LIKE $2",
+        [match_id, f"{SIM_LABEL}%"],
+    )
+    logger.info("released %d stand-in(s) from %s — a person arrived", len(seated), match_id)
+    return len(seated)
+
+
 async def take_seat(match_id: str, npub: str, label: str, hive: int) -> dict[str, Any]:
     """Claim one seat in a hive, atomically.
 

@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The greeter gives up its seat when a person arrives. A stand-in seated into an
+  empty room is bait — it exists so the next visitor is not asked to be the one
+  who starts something — and it cannot race: a bee is played by whichever worker
+  minted its key, that key is held in memory and written down nowhere, and a
+  worker lives fifteen minutes at the outside. Bait waits for a human, which can
+  take hours, so by the time somebody arrives the bee that drew them in is an
+  orphan. Every race formed after a quiet spell carried one bee that never moved.
+
+  The server releases it, because only the server can: nothing else can act for
+  a bee whose key is gone. Only when there is no person in the room — a
+  stand-in seated to TOP UP is wanted, and a room of nothing but stand-ins can
+  only have come from baiting.
+
 - The sim bees move at the pace they were tuned to. Every move in a pass was
   awaited one after another, so a pass cost the SUM of its round trips —
   measured at **44 seconds** over thirty-nine bees against the live service —
