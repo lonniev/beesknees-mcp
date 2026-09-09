@@ -95,6 +95,12 @@ async def join(npub: str, label: str) -> dict[str, Any]:
     if existing:
         return {"match_id": mid, "already_seated": True, **existing}
 
+    # The bait has done its job. A stand-in seated into an empty room is there
+    # so the next visitor is not asked to be the first — and this is that
+    # visitor. It gives the seat back rather than racing, because nobody can
+    # race it: its key was minted in a worker that is long gone.
+    await store.release_bait(mid)
+
     counts = await store.seat_counts(mid)
     open_hives = [h for h in range(store.HIVES) if counts.get(h, 0) < store.SEATS]
     if not open_hives:

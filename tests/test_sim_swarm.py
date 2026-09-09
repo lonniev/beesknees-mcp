@@ -224,3 +224,48 @@ async def test_nothing_moves_in_a_match_that_is_not_running():
     state, bees = _running_board(4)
     state["state"] = "forming"
     assert await Swarm(url="", bees=bees).play_once(state) == 0
+
+
+# ── The bait gives up its seat ───────────────────────────────────────────
+
+
+def test_the_two_halves_read_the_same_label():
+    """The swarm decides what to LABEL a bee; the server decides what to
+    RELEASE. Two copies of `sim-` would drift, and the failure would be a
+    stand-in nobody can play sitting in every race."""
+    from beesknees_mcp import board_store as bs
+    from beesknees_mcp.sim_swarm import SIM_LABEL
+
+    assert SIM_LABEL is bs.SIM_LABEL
+
+
+def test_a_room_of_only_stand_ins_is_bait():
+    from beesknees_mcp.board_store import all_stand_ins
+
+    assert all_stand_ins([bee(0, "sim-digger-0")]) is True
+    assert all_stand_ins([bee(0, "sim-digger-0"), bee(1, "sim-rider-1")]) is True
+
+
+def test_a_room_with_a_person_in_it_is_not():
+    """The safety. A stand-in seated to TOP UP is wanted — somebody is waiting
+    and it is there so they can play. Releasing those would empty the board
+    around the person it was filled for."""
+    from beesknees_mcp.board_store import all_stand_ins
+
+    assert all_stand_ins([bee(0, "sim-digger-0"), bee(1, "ab12cd34")]) is False
+    assert all_stand_ins([bee(0, "ab12cd34")]) is False
+
+
+def test_an_empty_room_has_no_bait_to_release():
+    from beesknees_mcp.board_store import all_stand_ins
+
+    assert all_stand_ins([]) is False
+
+
+def test_a_bee_with_no_label_counts_as_a_person():
+    """Same safe direction as `is_sim`: read as a stand-in, a real player's
+    seat would be deleted out from under them."""
+    from beesknees_mcp.board_store import all_stand_ins
+
+    assert all_stand_ins([{"hive": 0, "seat": 0, "npub": "npub1x"}]) is False
+    assert all_stand_ins([{"label": None}]) is False
