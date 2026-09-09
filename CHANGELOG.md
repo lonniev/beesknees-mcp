@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `robots.txt` and `sitemap.xml`. Both existed only as a 200 of the app's own
+  index.html — the SPA fallback in `_redirects` answers every unknown path with
+  the page — so a crawler asking for robots.txt was handed HTML and a success
+  code, which is worse than a 404 because a 404 is a plain answer.
+
+- Structured data (schema.org `WebApplication`), so a reader that parses rather
+  than reads knows what this is. It deliberately carries **no beneficiary name
+  and no fare**: both are the operator's to change at runtime, and a figure
+  baked into a static file goes on being served long after it stops being true.
+  `beesknees_charity` and `beesknees_get_pricing_model` are the live answers.
+
+### Fixed
+
+- The X card is stated rather than inferred. `summary_large_image` was declared
+  with no `twitter:image`, `twitter:title` or `twitter:description`, relying on
+  X falling back to the `og:` namespace — which works until it does not, and a
+  card that degrades to a bare link is invisible in the one place this game is
+  meant to spread. Also `og:image:type` and the iOS status-bar style, both of
+  which the sibling site had and this one did not.
+
 ### Changed
 
 - The tactic toggle is no longer the action button's colour. Both were

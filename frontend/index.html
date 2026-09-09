@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#ede7f6" />
 
     <!-- What this is, for anything that reads the page rather than plays the
@@ -47,8 +48,50 @@
     <meta property="og:image" content="https://beesknees.tollbooth-dpyc.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:alt" content="Five hives racing: a polar comb with a queen at the centre, bees tunnelling inward across a lavender meadow." />
+    <!-- X reads its own namespace first and only falls back to og: for what it
+         cannot find. `summary_large_image` with no `twitter:image` was relying
+         on that fallback, which works until it does not — and a card that
+         silently degrades to a bare link is invisible in the one place this
+         game is meant to spread. Stated outright, the way the sibling states
+         it, so nothing depends on a fallback nobody controls. -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Bee&#39;s Knees" />
+    <meta
+      name="twitter:description"
+      content="An online game about bees. Race your drone home to the queen for fractions of a penny a move — 80% of everything raised goes to a pollinator charity."
+    />
+    <meta name="twitter:image" content="https://beesknees.tollbooth-dpyc.com/og-image.jpg" />
+    <meta name="twitter:image:alt" content="Five hives racing: a polar comb with a queen at the centre, bees tunnelling inward across a lavender meadow." />
+
+    <!-- What this IS, for a reader that parses rather than reads.
+         Deliberately says nothing about the charity or the prices. Both are the
+         operator's to change at runtime — `set_charity` names the beneficiary
+         and the pricing model sets every fare — and a figure baked into this
+         file would go on being served long after it stopped being true. The
+         live answers are `beesknees_charity` and `beesknees_get_pricing_model`;
+         llms.txt points an agent at both. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "The Bee's Knees",
+        "url": "https://beesknees.tollbooth-dpyc.com",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "image": "https://beesknees.tollbooth-dpyc.com/og-image.jpg",
+        "description": "A multiplayer race to the queen, played for satoshis over Bitcoin Lightning, where most of every pot goes to a pollinator charity. Identity is a Nostr keypair — no account, no email, no KYC. The same game is playable by AI agents through an MCP server; the buttons and the tools are the same thing.",
+        "sameAs": ["https://github.com/lonniev/beesknees-mcp"],
+        "subjectOf": {
+          "@type": "CreativeWork",
+          "name": "Guide for AI agents",
+          "url": "https://beesknees.tollbooth-dpyc.com/llms.txt",
+          "encodingFormat": "text/plain"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

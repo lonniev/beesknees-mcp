@@ -1,0 +1,24 @@
+# Everything here is public. The game, the rules, and the receipt for every
+# satoshi are all meant to be read without asking anybody's permission — that
+# is the whole pitch — so nothing is disallowed.
+#
+# This file existed only as a 200 of the app's own index.html: the SPA
+# fallback in `_redirects` answers every unknown path with the page, so a
+# crawler asking for robots.txt was handed HTML and a success code. That is
+# worse than a 404, because a 404 is a plain answer and a page of markup is
+# something a parser has to guess about.
+
+User-agent: *
+Allow: /
+
+# The two routes that are a patron's own business rather than the public's.
+# Not a secret — the server gates them, and this only saves a crawler the trip.
+Disallow: /profile
+Disallow: /operator
+
+Sitemap: https://beesknees.tollbooth-dpyc.com/sitemap.xml
+
+# For anything that reads rather than crawls. `llms.txt` is the fleet's
+# convention: what the game is, which MCP tools play it, and where the money
+# goes, in prose rather than in markup.
+# https://beesknees.tollbooth-dpyc.com/llms.txt
