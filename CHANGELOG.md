@@ -55,6 +55,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **"How it is played" shows the board's own marks in the sentences that name
+  them** (`components/Marks.tsx`): fly, crawl and mound; a flower with pollen
+  and one already plucked; a bee, the queen on her chamber, and your own bee in
+  its halo; and a doorway drawn as what it actually is — a break in the wall
+  with the mouth filling it. Every mark is the mark the board draws, in the
+  colours it draws it, because a picture in the instructions that is merely
+  LIKE the thing on screen teaches somebody to look for something that is not
+  there.
+- The same section now says how to move at all: you tap where the bee should
+  end up, the board plans the best route it can and draws it as a dotted line,
+  and each press takes one step along it — with the caution that the route is
+  the best one through what is there at that moment rather than a promise.
+- In-game hints are bold, and the two that name something on the board carry
+  it: the flower with pollen, and the doorway.
+
 - A new preview card: a round in progress rather than an empty board — tunnels
   cut, a drone at a door, all five hives, and the action button. The alt text
   on both the `og:` and `twitter:` tags describes what is actually in it now.

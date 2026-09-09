@@ -8,7 +8,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
+import { DoorMark, PollenFlower } from "./components/Marks.tsx";
 import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
@@ -108,11 +110,24 @@ function NEXT_STEP(
   target: number | null,
   why: string,
   word: string,
-): string {
+): ReactNode {
   if (phase === "done") return "At the queen.";
   if (target === null) {
-    if (phase === "forage") return "Tap a flower that still has pollen.";
-    if (phase === "return") return "Choose a door now — tap a gap in the hive wall.";
+    // The two hints that name a thing on the board SHOW it. A first-timer
+    // reading "tap a flower that still has pollen" has to work out which of the
+    // two flowers that is; the mark answers it without a sentence.
+    if (phase === "forage")
+      return (
+        <>
+          Tap a flower that still has pollen <PollenFlower />
+        </>
+      );
+    if (phase === "return")
+      return (
+        <>
+          Choose a door now — tap a gap in the hive wall <DoorMark />
+        </>
+      );
     return "Tap where you want to end up — the queen, or anywhere on the way.";
   }
   if (why) return why;
