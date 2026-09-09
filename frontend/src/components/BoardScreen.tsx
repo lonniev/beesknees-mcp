@@ -523,6 +523,9 @@ export default function BoardScreen(p: BoardScreenProps) {
           <span className="relative">{p.actionLabel}</span>
         </button>
 
+        {/* Balances the hint's flexible half, so the pair sits centred under
+          * the board rather than wherever the hint's length leaves it. */}
+        {wide && <span className="min-w-0 flex-1" />}
       </div>
     </div>
   );
