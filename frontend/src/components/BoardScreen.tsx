@@ -235,8 +235,8 @@ export default function BoardScreen(p: BoardScreenProps) {
    * sentence needs the width of a sentence.
    */
   const hintLine = (
-    <span className="block px-2 text-center text-[13px] italic leading-snug text-ink/78">
-      <span className="not-italic text-ink/65">Hint: </span>
+    <span className="block px-2 text-center text-[13px] font-semibold leading-snug text-ink/90">
+      <span className="font-normal text-ink/65">Hint: </span>
       {p.prompt}
     </span>
   );

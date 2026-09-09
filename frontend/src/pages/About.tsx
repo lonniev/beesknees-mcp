@@ -12,39 +12,15 @@
 
 import { useEffect, useState } from "react";
 import { annotate } from "../lib/glossary.tsx";
+import {
+  BeeMark, Crawl, DoorMark, Fly, Mound, PluckedFlower, PollenFlower, QueenMark, YouMark,
+} from "../components/Marks.tsx";
 import { serviceStatus } from "../lib/mcp";
 
 /** One paragraph, with the jargon in it explained. */
 function P({ text, seen, className = "" }: { text: string; seen: Set<string>; className?: string }) {
   return <p className={`text-[15px] text-ink/90 ${className}`}>{annotate(text, seen)}</p>;
 }
-
-const PLAY = [
-  "Your bee begins in the meadow outside the wall and has three things to do, in order: reach a " +
-    "flower and take its pollen, carry that pollen home through one of the few doors in the hive " +
-    "wall, and then cut its way inward through the comb until it reaches the queen. The first bee " +
-    "to her takes the round.",
-  "The meadow is open air and nearly free of decisions, which is deliberate: it spreads everyone " +
-    "out before the part that matters. The wall is the first real constraint. It cannot be cut — " +
-    "only the handful of doors get you in — so every bee in a hive converges on a few cells at " +
-    "roughly the same moment, and a door that somebody is standing in is a door you are not " +
-    "coming through. Once you are in with your pollen you are committed, and cannot step back out " +
-    "into the meadow to try a different one.",
-  "Inside, the comb is solid and the rings narrow as they approach her: the wall holds about " +
-    "fifty cells and the last ring before the chamber holds six. The board therefore funnels. " +
-    "Everyone starts spread around the outside and ends in the same scrum, which is where the " +
-    "game actually happens.",
-  "That is where the only real choice lives. Cutting fresh comb is slow and it opens the way for " +
-    "everyone behind you — you pay for a shaft and your rivals ride it for nothing. Riding one " +
-    "somebody else cut is fast and cheap, and they can bring it down on top of you: a sealed cell " +
-    "sets you back several moves, and a bee has a body, so the one stuck behind it is a wall for " +
-    "everybody behind them. Neither answer is right. Which one is right depends on where the " +
-    "other bees are, and that is the judgement the round is asking you for.",
-  "Two rules stop the obvious exploits. A bee may not move inward twice in a row, so nobody " +
-    "simply drills a straight line to the middle; you make ground, then you make room. And a bee " +
-    "acts once per cooldown, measured on the clock rather than on your balance, so no amount of " +
-    "spending buys a faster bee. What spending buys is interference.",
-];
 
 const PROOF = [
   [
@@ -195,9 +171,96 @@ export default function About() {
       </p>
 
       <h2 className="mt-9 text-lg font-semibold tracking-tight">How it is played</h2>
-      {PLAY.map((para, i) => (
-        <P key={i} seen={seen} className="mt-3" text={para} />
-      ))}
+      <p className="mt-3 text-[15px] text-ink/90">
+        Your bee <BeeMark /> begins in the meadow outside the wall, and has three things to do in
+        order: reach a flower that still has its pollen <PollenFlower /> and take it, carry it home
+        through one of the few doorways in the hive wall <DoorMark />, and then work inward through
+        the comb until it reaches the queen <QueenMark />. The first bee to her takes the round.
+      </p>
+
+      <p className="mt-3 text-[15px] text-ink/90">
+        {annotate(
+          "A flower you have taken turns purple and is no use to anybody after that — so the " +
+            "meadow empties as the round goes on, and the bee that dithers walks further for its " +
+            "pollen than the bee that did not.",
+          seen,
+        )}{" "}
+        <span className="whitespace-nowrap">
+          <PollenFlower /> still has pollen · <PluckedFlower /> already plucked
+        </span>
+      </p>
+
+      <p className="mt-3 text-[15px] text-ink/90">
+        Yours is the one wearing a halo <YouMark />. Everybody else's looks like <BeeMark />, and
+        on a screen with sixty of them that ring is the only thing you need to find.
+      </p>
+
+      <h3 className="mt-6 text-sm font-semibold text-ink/90">Choosing where to go</h3>
+      <p className="mt-2 text-[15px] text-ink/90">
+        You do not steer a bee one cell at a time. <b>Tap where you want it to end up</b> — a
+        flower, a doorway, the queen, or any cell on the way — and the board works out the best
+        route it can and draws it as a dotted line from your bee to that spot. Then you press the
+        button, once per move, and your bee takes the next step along it. Tap somewhere else at
+        any time and the line is redrawn; nothing is committed until you press.
+      </p>
+      <p className="mt-3 text-[15px] text-ink/90">
+        {annotate(
+          "The route is the best one through what is there at that moment, not a promise. Somebody " +
+            "else's bee can take the cell in front of you, or bring a tunnel down behind them, " +
+            "and the line will change on the next look. That is the game rather than a fault " +
+            "in it.",
+          seen,
+        )}
+      </p>
+
+      <h3 className="mt-6 text-sm font-semibold text-ink/90">The three things you can do</h3>
+      <dl className="mt-2 space-y-2 text-[15px]">
+        <div>
+          <dt className="inline font-semibold text-ink/90">
+            <Fly /> Fly
+          </dt>
+          <dd className="inline text-ink/85">
+            {" "}
+            — move through open air outside the wall, or along a tunnel somebody has already cut.
+            Fast, and it costs the least.
+          </dd>
+        </div>
+        <div>
+          <dt className="inline font-semibold text-ink/90">
+            <Crawl /> Crawl
+          </dt>
+          <dd className="inline text-ink/85">
+            {" "}
+            — cut fresh comb where there is no tunnel yet. Slower and dearer, and the cell you cut
+            is open to everybody behind you from then on.
+          </dd>
+        </div>
+        <div>
+          <dt className="inline font-semibold text-ink/90">
+            <Mound /> Mound
+          </dt>
+          <dd className="inline text-ink/85">
+            {" "}
+            — fill an open tunnel back in. It sets back whoever was going to use it, and a bee has
+            a body, so the one stuck behind it is a wall for everybody behind them.
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-[13px] text-ink/70">
+        The button says which of them the next press will do, and the two-way switch beside it is
+        where you change your mind.
+      </p>
+
+      <p className="mt-4 text-[15px] text-ink/90">
+        {annotate(
+          "Two rules stop the obvious exploits. A bee may not move inward twice in a row, so " +
+            "nobody simply drills a straight line to the middle; you make ground, then you make " +
+            "room. And a bee acts once per cooldown, measured on the clock rather than on your " +
+            "balance, so no amount of spending buys a faster bee. What spending buys is " +
+            "interference.",
+          seen,
+        )}
+      </p>
 
       <h2 className="mt-9 text-lg font-semibold tracking-tight">How we know it is a game</h2>
       <p className="mt-3 text-[15px] text-ink/90">
