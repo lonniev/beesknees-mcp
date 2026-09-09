@@ -40,16 +40,34 @@ def _due(row: dict) -> int:
 
 
 def _limited(rows: list, sql: str) -> list:
-    """Apply the statement's own LIMIT, the way Postgres would.
+    """Apply the statement's own LIMIT and OFFSET, the way Postgres would.
 
     A fake that returns every row no matter what the query said cannot show a
     caller falling off the end of a page — which is exactly the failure the
-    payout path had.
+    payout path had, and exactly what a pager would hide if this shrugged.
     """
     import re
 
+    off = re.search(r"OFFSET\s+(\d+)", sql)
+    if off:
+        rows = rows[int(off.group(1)):]
     m = re.search(r"LIMIT\s+(\d+)", sql)
     return rows[: int(m.group(1))] if m else rows
+
+
+def _ordered(rows: list, sql: str) -> list:
+    """Apply the statement's own ORDER BY, for the columns the ledger allows.
+
+    Restating the sort would let the fake agree with a page the server never
+    sends. It reads the column out of the SQL instead.
+    """
+    import re
+
+    m = re.search(r"ORDER BY (\w+) (ASC|DESC)", sql)
+    if not m:
+        return rows
+    col, direction = m.group(1), m.group(2)
+    return sorted(rows, key=lambda r: r.get(col) or 0, reverse=direction == "DESC")
 
 
 class FakeVault:
@@ -338,7 +356,11 @@ class FakeVault:
             self.settlements[p[0]] = {"match_id": p[0], "pot_sats": p[1], "charity_sats": p[2],
                                       "winner_sats": p[3], "operator_sats": p[4],
                                       "winner_npub": p[5], "beneficiary": p[6],
-                                      "prize_state": "unclaimed"}
+                                      "prize_state": "unclaimed",
+                                      # Monotonic, so a sort by settled time has
+                                      # something to sort by and ties are the
+                                      # exception rather than every row.
+                                      "created_at": len(self.settlements)}
             return {"rows": [{"match_id": p[0]}], "rowCount": 1}
 
         # Ahead of the generic prize_state update, which reads $1: this one
@@ -434,15 +456,24 @@ class FakeVault:
             rows = [{"kind": k, "sent": v} for k, v in by.items()]
             return {"rows": rows, "rowCount": len(rows)}
 
-        if "AS owed FROM" in s:
-            return {"rows": [{"owed": sum(_due(x) for x in self.settlements.values())}],
-                    "rowCount": 1}
+        # `AS owed`, not `AS owed FROM` — a second column was added between
+        # them and this branch stopped matching, so `charity_owed` fell through
+        # to the empty default and every accrual test read zero.
+        if "AS owed" in s:
+            return {"rows": [{
+                "owed": sum(_due(x) for x in self.settlements.values()),
+                "raised": sum(x["pot_sats"] for x in self.settlements.values()),
+            }], "rowCount": 1}
+
+        if s.startswith(f"SELECT count(*)::int AS n FROM {store.SETTLEMENTS}"):
+            return {"rows": [{"n": len(self.settlements)}], "rowCount": 1}
 
         if s.startswith(f"SELECT * FROM {store.SETTLEMENTS}"):
-            # The LIMIT is honoured, because it is the whole point: a page that
-            # silently returns everything hides the bug where a row falls off
-            # the end of it.
-            rows = _limited(list(self.settlements.values()), s)
+            # ORDER BY, LIMIT and OFFSET are all honoured, because that is the
+            # whole point: a page that silently returns everything in insertion
+            # order hides both the row that falls off the end and the sort that
+            # never happened.
+            rows = _limited(_ordered(list(self.settlements.values()), s), s)
             return {"rows": rows, "rowCount": len(rows)}
 
         if "winner_npub AS npub" in s:
@@ -947,7 +978,7 @@ def test_the_operator_names_the_charity_and_history_keeps_the_old_one(vault) -> 
         )
         # ...and renaming the current one does not touch it.
         await store.set_charity("Somebody Else", "https://example.org", "other@wallet.com")
-        rows = await store.settlements(10)
+        rows = (await store.settlements(0, 10))["settlements"]
         assert rows[0]["beneficiary"] == "Pollinator Partnership", (
             "changing the charity rewrote where past money went"
         )
@@ -1040,7 +1071,7 @@ def test_a_resolved_prize_cannot_be_resolved_a_second_way(vault, monkeypatch) ->
                                       winner_npub="npub1giver", beneficiary="Somebody")
         await match_flow.resolve_prize(mid, "npub1giver", 100)
         await store.set_prize_state(mid, "kept")  # a replay trying to take it back
-        rows = await store.settlements(10)
+        rows = (await store.settlements(0, 10))["settlements"]
         assert rows[0]["prize_state"] == "donated"
 
     asyncio.run(go())
@@ -1064,7 +1095,7 @@ def test_the_public_charity_answer_carries_no_wallet(vault) -> None:
         assert out["website"] == "https://pollinator.org"
         assert "lightning_address" not in out, "the free answer must not carry the wallet"
 
-        hist = await server.settlement_history.__wrapped__(limit=5, npub="npub1x")
+        hist = await server.settlement_history.__wrapped__(page_size=5, npub="npub1x")
         assert "lightning_address" not in hist["charity"]
 
     asyncio.run(go())
@@ -1153,7 +1184,7 @@ def test_a_settlement_is_found_by_id_not_by_scanning_a_capped_page(vault) -> Non
                                           operator=1, winner_npub="npub1x",
                                           beneficiary="Somebody")
 
-        assert len(await store.settlements(200)) == 200, "the page is capped"
+        assert len((await store.settlements(0, 200))["settlements"]) == 200, "the page is capped"
         found = await store.settlement_of(old)
         assert found is not None, "a buried settlement must still be payable"
         assert found["charity_sats"] == 800
@@ -1294,7 +1325,7 @@ def test_settling_collapses_the_fares_into_the_pot(vault) -> None:
         assert await store.pot_of(mid) == 0, "the fare rows are gone"
 
         # And the money survives them, which is the whole point.
-        rows = await store.settlements(10)
+        rows = (await store.settlements(0, 10))["settlements"]
         assert rows[0]["pot_sats"] == 15
         # 13, not 12: the winner and the operator take floor(10%) — one sat
         # each — and the charity takes what is left. Rounding falls to the
@@ -1363,7 +1394,7 @@ def test_old_rounds_forget_how_they_were_played_but_not_what_they_paid(vault) ->
         assert out["matches"] == 1 and out["bees"] == 1
 
         assert await store.get_match(old) is None, "the board is forgotten"
-        rows = await store.settlements(10)
+        rows = (await store.settlements(0, 10))["settlements"]
         assert len(rows) == 1 and rows[0]["charity_sats"] == 80, (
             "the ledger outlives the round it recorded"
         )
@@ -1636,5 +1667,45 @@ def test_a_refund_gives_back_only_what_was_taken(vault, monkeypatch) -> None:
         # And a tool that never charges a motion fare is not refundable at all.
         await server._refund("join_match", "npub1human", 3)
         assert len(given) == 1
+
+    asyncio.run(go())
+
+
+def test_the_ledger_is_paged_and_sorted_by_the_server(vault) -> None:
+    """The one table that grows without bound is not sent whole.
+
+    A settlement row outlives everything else about its match — the bees, the
+    cells and the fares are all purged — so this table only ever gets longer.
+    The browser used to take the lot and cut it up itself, which works until it
+    does not, and there is no version of "later" where that gets easier.
+    """
+
+    async def go():
+        for i in range(7):
+            mid = await store.open_match()
+            await store.record_settlement(mid, pot=100 + i, charity=80 + i, winner=10,
+                                          operator=10, winner_npub=f"npub{i}",
+                                          beneficiary="Somebody")
+
+        first = await store.settlements(0, 3, "raised", "desc")
+        assert first["total"] == 7, "the total counts everything, not the page"
+        assert first["page_size"] == 3
+        assert [r["pot_sats"] for r in first["settlements"]] == [106, 105, 104]
+
+        second = await store.settlements(1, 3, "raised", "desc")
+        assert [r["pot_sats"] for r in second["settlements"]] == [103, 102, 101]
+
+        # No row appears on two pages, and none is skipped between them.
+        seen = [r["match_id"] for r in first["settlements"] + second["settlements"]]
+        assert len(seen) == len(set(seen))
+
+        # The other direction is the other direction, not the same page again.
+        up = await store.settlements(0, 3, "raised", "asc")
+        assert [r["pot_sats"] for r in up["settlements"]] == [100, 101, 102]
+
+        # A column nobody offered falls back rather than reaching the SQL.
+        odd = await store.settlements(0, 3, "; DROP TABLE bk_settlements --", "desc")
+        assert odd["sort_col"] == "settled"
+        assert len(odd["settlements"]) == 3
 
     asyncio.run(go())

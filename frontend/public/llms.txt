@@ -79,7 +79,10 @@ Playing a round:
 Reading and being paid (all free unless noted):
 
 - `beesknees_charity` — who the charity share goes to, and their website.
-- `beesknees_settlement_history` — every settled round and what it paid.
+- `beesknees_settlement_history` — every settled round and what it paid. Paged
+  and sorted by the server: `page`, `page_size`, `sort_col`
+  (settled|match|raised|charity|winner), `sort_dir`. The reply carries `total`,
+  so an agent can walk the whole ledger without guessing where it ends.
 - `beesknees_payout_history` — every payment attempted, including the failures.
 - `beesknees_payout` / `beesknees_set_payout` (write) — say before a round
   whether a win is donated or kept, and where to send it if kept. Silence means

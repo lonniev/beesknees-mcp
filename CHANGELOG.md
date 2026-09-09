@@ -30,6 +30,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The ledger is titled "Funds Raised and Charity Payouts", which says what it
+  is rather than gesturing at it.
+- **`settlement_history` is paged and sorted by the server** — `page`,
+  `page_size`, `sort_col`, `sort_dir`, and a `total` in the reply, on the same
+  convention the rest of the fleet uses. This is the one table that grows
+  without bound: a row per settled match, kept when everything else about the
+  match is purged. The browser used to be sent the lot and cut it up itself.
+- Every settled match shows the time of day, in the reader's own timezone. A
+  date alone puts a match on a day and no closer, which is no use on a page
+  whose job is to be checkable against somebody else's records.
+- Sats now carry their dollars, to the penny and no finer, with the rate they
+  were figured at stated on the page. The quote is fetched by the BROWSER from
+  Coinbase's public spot endpoint — a new external dependency, and deliberately
+  not on the service, because a third-party price feed must never sit in front
+  of a Lightning node. No quote means no dollars rather than an invented rate.
+
+### Fixed
+
+- "Raised across all matches" is a server-side sum over the whole table. It was
+  totalled in the browser from the rows it happened to have — correct while
+  that was all of them, false the moment the ledger was paged, and already
+  wrong for anybody past the fiftieth settled match.
+- `claim_prize` reads its settlement by id instead of scanning a 200-row page
+  for it. That is the same fault `settlement_of` was written to fix on the
+  payout path: a match older than the page is one the page cannot see, and its
+  winner was told the prize was not theirs.
+
 - The controls are exactly as wide as the hive above them, and centred on the
   same axis: "Tactic?" begins where the meadow begins and the action button
   ends where it ends. The row spanned the whole window, which on a tablet put
