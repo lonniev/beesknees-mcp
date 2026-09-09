@@ -12,6 +12,7 @@ import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import Avatar from "./components/Avatar.tsx";
 import { avatarFor } from "./lib/avatar";
 import { PageBees } from "./components/Meadow.tsx";
+import Meadowscape from "./components/Meadowscape.tsx";
 import { useSession } from "./lib/session.ts";
 import { useOperator } from "./lib/useOperator";
 import About from "./pages/About.tsx";
@@ -36,7 +37,12 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function App() {
   const session = useSession();
-  const onBoard = useLocation().pathname.startsWith("/play");
+  const path = useLocation().pathname;
+  const onBoard = path.startsWith("/play");
+  /// The long reads. They get ground at the FOOT rather than pinned to the
+  /// viewport — see `Meadowscape`'s note on the difference, and on why a hill
+  /// under three screens of prose about colony loss argues with the argument.
+  const reading = ["/", "/about", "/ledger"].includes(path);
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
   const { isOperator } = useOperator(session.npub, session.signedIn);
@@ -108,6 +114,14 @@ export default function App() {
           <Route path="/operator" element={<Operator session={session} />} />
           <Route path="*" element={<Welcome />} />
         </Routes>
+
+        {/* Inside the scroller, after the page. Mounted here rather than by
+          * each page because these pages are a narrow reading column and the
+          * ground is not: dropped into the column it drew as a picture inset
+          * in the text, and reaching full width from in there wants `100vw`,
+          * which overshoots this scroller by the width of its own scrollbar.
+          * A block child of the scroller is exactly as wide as the scroller. */}
+        {reading && <Meadowscape anchor="foot" />}
       </div>
     </div>
   );
