@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Play chooser gets the meadow and the wandering bees. `/play` was excluded
+  from the app-wide scenery to keep loose bees away from a board — but the route
+  is a CHOICE before it is a board, two cards and a lot of empty meadow, so the
+  exclusion left the one screen that most looks like it wants scenery without
+  any. The page mounts its own while it is a chooser, which is the component
+  that actually knows; the route stays excluded so the two cannot double up, and
+  a board still gets nothing but the foragers inside its own playfield.
+
 - The X card is stated rather than inferred. `summary_large_image` was declared
   with no `twitter:image`, `twitter:title` or `twitter:description`, relying on
   X falling back to the `og:` namespace — which works until it does not, and a

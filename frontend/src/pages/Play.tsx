@@ -23,6 +23,8 @@ import { Link } from "react-router-dom";
 import { Bot, Zap } from "lucide-react";
 import LiveBoard from "../LiveBoard.tsx";
 import SoloBoard from "../SoloBoard.tsx";
+import { PageBees } from "../components/Meadow.tsx";
+import Meadowscape from "../components/Meadowscape.tsx";
 import { checkBalance } from "../lib/mcp";
 import { useSession } from "../lib/session.ts";
 
@@ -51,6 +53,10 @@ export default function Play() {
 
   useEffect(load, [load]);
 
+  // Boards first, and they get no scenery of their own: each runs the same
+  // foragers INSIDE its playfield, where the hives paint over them so a loose
+  // bee can never be taken for a racer. A layer behind the board would put one
+  // beside it with no such guarantee.
   if (mode === "solo") return <SoloBoard />;
   if (mode === "live") return <LiveBoard session={session} />;
 
@@ -62,58 +68,65 @@ export default function Play() {
       : "";
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Play</h1>
-        <p className="mt-1 text-sm text-ink/70">
-          The same board either way. The difference is whether the other eleven bees
-          belong to people, and whether the pot is real.
-        </p>
+    <>
+      {/* Only while this is a choice. `App` leaves the whole `/play` route
+        * alone, so this is the one mount and the bees cannot double up. */}
+      <Meadowscape />
+      <PageBees />
+
+      <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Play</h1>
+          <p className="mt-1 text-sm text-ink/70">
+            The same board either way. The difference is whether the other eleven bees
+            belong to people, and whether the pot is real.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setMode("solo")}
+          className="flex items-start gap-3 rounded-xl border border-ink/14 p-4 text-left hover:bg-ink/4"
+        >
+          <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
+          <span>
+            <span className="font-semibold">Practice</span>
+            <span className="block text-sm text-ink/70">
+              Eleven bots, no sats, nothing at stake. Free, and always available.
+            </span>
+          </span>
+        </button>
+
+        <button
+          onClick={() => canPlayLive && setMode("live")}
+          disabled={!canPlayLive}
+          className={`flex items-start gap-3 rounded-xl border p-4 text-left ${
+            canPlayLive
+              ? "border-[var(--color-you)]/40 hover:bg-ink/4"
+              : "border-ink/14 opacity-55"
+          }`}
+        >
+          <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you-ink)]" />
+          <span>
+            <span className="font-semibold">The real game</span>
+            <span className="block text-sm text-ink/70">
+              Real bees, a real pot, and 80% of it to the pollinators.
+            </span>
+            {!canPlayLive && known && (
+              <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">{why}</span>
+            )}
+          </span>
+        </button>
+
+        {!session.signedIn ? (
+          <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">
+            Sign in
+          </Link>
+        ) : balance === 0 ? (
+          <Link to="/profile" className="text-center text-sm underline text-ink/78">
+            Add sats
+          </Link>
+        ) : null}
       </div>
-
-      <button
-        onClick={() => setMode("solo")}
-        className="flex items-start gap-3 rounded-xl border border-ink/14 p-4 text-left hover:bg-ink/4"
-      >
-        <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
-        <span>
-          <span className="font-semibold">Practice</span>
-          <span className="block text-sm text-ink/70">
-            Eleven bots, no sats, nothing at stake. Free, and always available.
-          </span>
-        </span>
-      </button>
-
-      <button
-        onClick={() => canPlayLive && setMode("live")}
-        disabled={!canPlayLive}
-        className={`flex items-start gap-3 rounded-xl border p-4 text-left ${
-          canPlayLive
-            ? "border-[var(--color-you)]/40 hover:bg-ink/4"
-            : "border-ink/14 opacity-55"
-        }`}
-      >
-        <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you-ink)]" />
-        <span>
-          <span className="font-semibold">The real game</span>
-          <span className="block text-sm text-ink/70">
-            Real bees, a real pot, and 80% of it to the pollinators.
-          </span>
-          {!canPlayLive && known && (
-            <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">{why}</span>
-          )}
-        </span>
-      </button>
-
-      {!session.signedIn ? (
-        <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">
-          Sign in
-        </Link>
-      ) : balance === 0 ? (
-        <Link to="/profile" className="text-center text-sm underline text-ink/78">
-          Add sats
-        </Link>
-      ) : null}
-    </div>
+    </>
   );
 }
