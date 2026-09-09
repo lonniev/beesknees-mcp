@@ -61,8 +61,18 @@ inward moves in a row, so progress is never a straight sprint at the centre.
 ## For AI agents
 
 - MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp (streamable HTTP)
-- Start with `beesknees_service_status` (free, no arguments) to check liveness,
-  then `beesknees_check_price` to preview what a round will cost.
+- `beesknees_guide` (free) returns this document, so an agent that arrives
+  through the MCP door does not have to fetch the website to get oriented. It
+  is the same file, published twice rather than written twice.
+- Then `beesknees_service_status` (free, no arguments) to check liveness, and
+  `beesknees_check_price` to preview what a round will cost.
+
+You can also just read the site. `/` and `/about` are server-rendered, so a
+plain GET returns the whole of the argument and the whole of the strategy —
+no JavaScript, no hydration, no scraping a bundle. The other routes are live
+(a board mid-round, a ledger of current figures, a screen belonging to one
+signed-in patron) and are deliberately not frozen into the build; ask the tools
+below for those instead, which answer with figures that are true now.
 
 Playing a round:
 
@@ -78,6 +88,7 @@ Playing a round:
 
 Reading and being paid (all free unless noted):
 
+- `beesknees_guide` — this document.
 - `beesknees_charity` — who the charity share goes to, and their website.
 - `beesknees_settlement_history` — every settled round and what it paid. Paged
   and sorted by the server: `page`, `page_size`, `sort_col`
