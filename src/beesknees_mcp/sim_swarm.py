@@ -82,6 +82,28 @@ SIM_LABEL = "sim-"
 #: making up numbers — which is the thing this module says it does not do.
 GREETERS = 1
 
+#: How many bees move at once in one pass.
+#:
+#: Moves used to be awaited one after another, in a plain `for` loop over every
+#: bee. `top_up` learned this lesson for SEATING and fixed it; playing kept the
+#: defect. The arithmetic is the same and so is the reason it has no order to
+#: it: each bee acts on its own hive, on its own cooldown, and none of them is
+#: waiting on the answer another one gets.
+#:
+#: Measured against the live service on 2026-09-08: one MCP round trip is about
+#: 1.1s, so a serial pass over thirty-nine bees took **44 seconds** — and a bee
+#: can only move once per pass. `human_pause` is tuned to put a move every
+#: 1.2–2.25s and had been tuned twice, in the same direction, for feeling
+#: sleepy. It was never the thing setting the pace. The loop was, at twenty
+#: times the interval, and the patron watching saw a board where only their own
+#: bee moved.
+#:
+#: Twenty rather than all forty: a pass then costs about two round trips, which
+#: keeps `human_pause` the binding constraint again without aiming the whole
+#: board's writes at a serverless host in one instant. Raising it shortens the
+#: pass further; the ceiling that matters is the pause, not this.
+MOVE_BATCH = 20
+
 #: The most bees one shift will ever seat.
 #:
 #: It was `QUORUM - 1` — seven, exactly enough to complete a match-wide quorum
@@ -263,6 +285,14 @@ class Swarm:
         now = time.monotonic()
         moves = 0
 
+        # DECIDING is local and stays serial: it is arithmetic on a board
+        # already in hand, and every bee reads the SAME snapshot whether the
+        # calls that follow go one at a time or together. That matters for
+        # correctness — batching does not make two bees likelier to choose one
+        # cell than the old loop did, because the old loop never refetched
+        # between moves either. The server fences the cell and refuses the
+        # loser, exactly as before.
+        plan: list[tuple[SimBee, Any]] = []
         for bee in self.bees:
             row = by_npub.get(bee.npub)
             if not row or str(row["phase"]) == "done" or now < bee.next_at:
@@ -281,20 +311,38 @@ class Swarm:
             if move.kind == "wait":
                 bee.next_at = now + sim_bees.human_pause(self.rng)
                 continue
+            plan.append((bee, move))
 
+        async def act(bee: SimBee, move: Any) -> int:
             if move.kind == "seal":
                 r = await bee.hive.call("seal", at_cell=move.cell)
             else:
                 r = await bee.hive.call(move.kind, to_cell=move.cell)
 
             # However it went, the bee waits a human beat before trying again —
-            # including after a refusal, or a bot that is being turned away would
-            # hammer the board at machine speed for as long as it stayed blocked.
+            # including after a refusal, or a bot that is being turned away
+            # would hammer the board at machine speed for as long as it stayed
+            # blocked.
             bee.next_at = time.monotonic() + sim_bees.human_pause(self.rng)
             if r.get("moved"):
-                moves += 1
-            elif r.get("refused") or r.get("reason"):
+                return 1
+            if r.get("refused") or r.get("reason"):
                 logger.debug("%s: %s", bee.label, r.get("refused") or r.get("reason"))
+            return 0
+
+        # ACTING goes together. Forty bees each waiting on the previous one's
+        # round trip is a pass that takes as long as the sum of them, and a bee
+        # moves at most once per pass.
+        for i in range(0, len(plan), MOVE_BATCH):
+            done = await asyncio.gather(
+                *(act(bee, move) for bee, move in plan[i : i + MOVE_BATCH]),
+                return_exceptions=True,
+            )
+            for got in done:
+                if isinstance(got, int):
+                    moves += got
+                elif isinstance(got, BaseException):
+                    logger.warning("a bee could not move: %s", got)
         return moves
 
     async def forget_finished(self, state: dict[str, Any]) -> int:

@@ -114,3 +114,113 @@ def test_a_bee_with_no_label_is_treated_as_a_person():
     assert not is_sim({})
     assert not is_sim({"label": None})
     assert seats_wanted(forming({"hive": 0, "seat": 0, "npub": "npub1x"}), 0) > 0
+
+
+# ── A pass is not a queue ────────────────────────────────────────────────
+
+
+class FakeHive:
+    """A hive whose calls take real (tiny) time, so serial and concurrent differ."""
+
+    LATENCY_S = 0.05
+
+    def __init__(self, clock: list[float]) -> None:
+        self.clock = clock
+        self.calls: list[dict] = []
+
+    async def call(self, tool: str, **kw):
+        import asyncio
+        import time as _t
+
+        start = _t.monotonic()
+        await asyncio.sleep(self.LATENCY_S)
+        self.calls.append({"tool": tool, "started": start, **kw})
+        return {"moved": True}
+
+    async def aclose(self) -> None:
+        return None
+
+
+def _running_board(n: int) -> tuple[dict, list]:
+    """`n` sim bees, all due, all on a board that is under way."""
+    from beesknees_mcp.sim_swarm import SimBee
+
+    bees, rows = [], []
+    for i in range(n):
+        npub = f"npub1sim{i}"
+        bees.append(SimBee(nsec="", npub=npub, strategy="digger",
+                           hive=FakeHive([]), hive_id=0, seat=i,
+                           next_at=0.0, label=f"sim-digger-{i}"))
+        rows.append({"hive": 0, "seat": i, "npub": npub, "label": f"sim-digger-{i}",
+                     "cell": 200 + i, "phase": "forage"})
+    state = {"state": "running", "seed": 7, "bees": rows,
+             "open_cells": [], "taken_pollen": []}
+    return state, bees
+
+
+@pytest.mark.asyncio
+async def test_a_pass_does_not_cost_the_sum_of_its_round_trips():
+    """THE BUG the patron saw: a board of forty where only their own bee moved.
+
+    Moves were awaited one after another, so a pass took the SUM of the round
+    trips — measured at 44s against the live service — and a bee moves at most
+    once per pass. `human_pause` puts a move every 1.2-2.25s and was tuned twice
+    for feeling sleepy; it was never what set the pace.
+    """
+    import time as _t
+
+    from beesknees_mcp.sim_swarm import MOVE_BATCH, Swarm
+
+    n = 20
+    state, bees = _running_board(n)
+    swarm = Swarm(url="", bees=bees)
+
+    start = _t.monotonic()
+    moved = await swarm.play_once(state)
+    elapsed = _t.monotonic() - start
+
+    assert moved == n, f"only {moved} of {n} bees moved"
+    serial = n * FakeHive.LATENCY_S
+    assert elapsed < serial / 2, (
+        f"a pass over {n} bees took {elapsed:.2f}s; serial would be {serial:.2f}s. "
+        "The moves are still queued behind one another."
+    )
+    assert MOVE_BATCH >= n, "this test is meant to fit in one batch"
+
+
+@pytest.mark.asyncio
+async def test_every_bee_still_gets_its_own_human_beat():
+    """Concurrency must not hand the pacing back to the machine.
+
+    The cooldown stops money buying speed and `human_pause` stops silicon
+    buying it. A batched pass that forgot to re-arm each bee would let the
+    whole board act again on the next tick.
+    """
+    state, bees = _running_board(6)
+    from beesknees_mcp.sim_swarm import Swarm
+
+    swarm = Swarm(url="", bees=bees)
+    await swarm.play_once(state)
+    for b in bees:
+        assert b.next_at > 0, f"{b.label} was left free to act immediately"
+
+
+@pytest.mark.asyncio
+async def test_a_bee_that_is_not_due_is_left_alone():
+    import time as _t
+
+    from beesknees_mcp.sim_swarm import Swarm
+
+    state, bees = _running_board(4)
+    for b in bees[:2]:
+        b.next_at = _t.monotonic() + 999
+    assert await Swarm(url="", bees=bees).play_once(state) == 2
+
+
+@pytest.mark.asyncio
+async def test_nothing_moves_in_a_match_that_is_not_running():
+    from beesknees_mcp.sim_swarm import Swarm
+
+    state, bees = _running_board(4)
+    state["state"] = "forming"
+    assert await Swarm(url="", bees=bees).play_once(state) == 0

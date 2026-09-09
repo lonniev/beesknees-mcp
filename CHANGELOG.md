@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The sim bees move at the pace they were tuned to. Every move in a pass was
+  awaited one after another, so a pass cost the SUM of its round trips —
+  measured at **44 seconds** over thirty-nine bees against the live service —
+  and a bee moves at most once per pass. `human_pause` puts a move every
+  1.2–2.25s and had been loosened twice for reading as sleepy; it was never what
+  set the pace. The loop was, at twenty times the interval, and a patron in a
+  forty-bee match watched a board where only their own bee moved.
+
+  `top_up` learned this for SEATING — "eighty round trips of work that has no
+  order to it" — and fixed it with a bounded `gather`. Playing kept the defect.
+  Deciding stays serial and reads one snapshot, exactly as before, so two bees
+  are no likelier to choose one cell than they already were; only the calls go
+  together.
+
 ### Added
 
 - `deploy-modal.yml` — merging a change to the swarm now ships it. Nothing did.
