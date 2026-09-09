@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import {
   forgetRecentLogin,
@@ -39,10 +39,19 @@ const warnBox =
 
 export default function NpubGate({
   onLogin,
+  startFresh = false,
   operatorHash,
   notice,
 }: {
   onLogin: () => void;
+  /**
+   * Arrive with a key already made.
+   *
+   * A first-timer who pressed "Make me a key" has been promised one, and
+   * landing on an empty form with a Generate button further down the page is
+   * that promise not kept.
+   */
+  startFresh?: boolean;
   operatorHash?: string;
   // A routine re-auth prompt (e.g. the cached proof lapsed while the user was
   // working). Rendered as a calm amber note, not a red error — nothing broke.
@@ -59,6 +68,16 @@ export default function NpubGate({
   const [note, setNote] = useState("");
   const [recents, setRecents] = useState<RecentLogin[]>(() => getValidRecentLogins());
   const [generatedHint, setGeneratedHint] = useState(false);
+
+  // Once, on arrival, and only into an empty field — a key generated over
+  // something somebody had already typed would be a key that ate their nsec.
+  const made = useRef(false);
+  useEffect(() => {
+    if (!startFresh || made.current || value.trim()) return;
+    made.current = true;
+    generateKey();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startFresh]);
 
   const trimmed = value.trim();
   const isNsec = trimmed.startsWith("nsec1") && trimmed.length > 8;

@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A first-timer is shown the way instead of being turned away.** Pressing the
+  real game with no key opens a plain explanation: what a Lightning wallet is
+  and why an ordinary bitcoin payment cannot carry a fraction of a penny, three
+  wallets people commonly start with, what a Nostr key is and why you only make
+  it once — then two buttons, "Make me a key" and "I already have one".
+  `NpubGate` accepts `startFresh`, so somebody promised a key arrives with one
+  rather than at an empty form.
+
+### Fixed
+
+- The real-game card no longer refuses a stranger with "Sign in with an npub to
+  buy a bee" — a word the visitor has not met, refusing them something they have
+  not been told the shape of. It is also the FIRST wall: the lobby's Fund a Bee
+  button, where this explanation was asked for, sits behind it and a signed-out
+  visitor never reaches it at all. An empty balance keeps its plain refusal;
+  that person already knows what a bee costs.
+
 - `robots.txt` and `sitemap.xml`. Both existed only as a 200 of the app's own
   index.html — the SPA fallback in `_redirects` answers every unknown path with
   the page — so a crawler asking for robots.txt was handed HTML and a success

@@ -19,10 +19,11 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bot, Zap } from "lucide-react";
 import LiveBoard from "../LiveBoard.tsx";
 import SoloBoard from "../SoloBoard.tsx";
+import FirstTime from "../components/FirstTime.tsx";
 import { PageBees } from "../components/Meadow.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
 import { checkBalance } from "../lib/mcp";
@@ -35,6 +36,8 @@ export default function Play() {
   const [balance, setBalance] = useState<number | null>(null);
   const [known, setKnown] = useState(false);
   const [mode, setMode] = useState<Mode>("choosing");
+  const [explaining, setExplaining] = useState(false);
+  const nav = useNavigate();
 
   const load = useCallback(() => {
     if (!session.signedIn) {
@@ -61,11 +64,22 @@ export default function Play() {
   if (mode === "live") return <LiveBoard session={session} />;
 
   const canPlayLive = session.signedIn && (balance === null || balance > 0);
-  const why = !session.signedIn
-    ? "Sign in with an npub to buy a bee."
-    : balance === 0
-      ? "Your balance is empty — every motion is a fare."
-      : "";
+  /**
+   * A stranger is not turned away at this door; they are told what is behind it.
+   *
+   * The card was simply disabled, with "Sign in with an npub to buy a bee" — a
+   * word the visitor has not met, refusing them something they have not been
+   * told the shape of. It is also the FIRST wall: the lobby's Fund a Bee
+   * button, where the same explanation belongs, sits behind this one, and a
+   * signed-out visitor never reaches it.
+   *
+   * An empty balance is a different case and keeps its plain refusal. That
+   * person already knows what a bee costs and what a wallet is.
+   */
+  const needsOnboarding = !session.signedIn;
+  const why = session.signedIn && balance === 0
+    ? "Your balance is empty — every motion is a fare."
+    : "";
 
   return (
     <>
@@ -73,6 +87,14 @@ export default function Play() {
         * alone, so this is the one mount and the bees cannot double up. */}
       <Meadowscape />
       <PageBees />
+
+      {explaining && (
+        <FirstTime
+          onGenerate={() => nav("/signin", { state: { from: "/play", generate: true } })}
+          onExisting={() => nav("/signin", { state: { from: "/play" } })}
+          onClose={() => setExplaining(false)}
+        />
+      )}
 
       <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
         <div>
@@ -97,10 +119,13 @@ export default function Play() {
         </button>
 
         <button
-          onClick={() => canPlayLive && setMode("live")}
-          disabled={!canPlayLive}
+          onClick={() => {
+            if (needsOnboarding) setExplaining(true);
+            else if (canPlayLive) setMode("live");
+          }}
+          disabled={!canPlayLive && !needsOnboarding}
           className={`flex items-start gap-3 rounded-xl border p-4 text-left ${
-            canPlayLive
+            canPlayLive || needsOnboarding
               ? "border-[var(--color-you)]/40 hover:bg-ink/4"
               : "border-ink/14 opacity-55"
           }`}
@@ -111,7 +136,12 @@ export default function Play() {
             <span className="block text-sm text-ink/70">
               Real bees, a real pot, and 80% of it to the pollinators.
             </span>
-            {!canPlayLive && known && (
+            {needsOnboarding && (
+              <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">
+                New to this? Press here and I will explain what you need.
+              </span>
+            )}
+            {why && known && (
               <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">{why}</span>
             )}
           </span>
@@ -119,7 +149,7 @@ export default function Play() {
 
         {!session.signedIn ? (
           <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">
-            Sign in
+            I already have an npub — sign in
           </Link>
         ) : balance === 0 ? (
           <Link to="/profile" className="text-center text-sm underline text-ink/78">
