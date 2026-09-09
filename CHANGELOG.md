@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Wallet of Satoshi leads the wallet list in the first-timer explainer, on the
+  operator's own experience of it: it is the one with the least to understand
+  before it works. Cash App comes off — it filled the same "easiest" slot, and
+  three of a kind is not a list. Phoenix and Blue Wallet stay for the reader who
+  decides they would rather hold their own keys. The note now says the list is
+  easiest-first and that availability differs by country.
 - **"How it is played" shows the board's own marks in the sentences that name
   them** (`components/Marks.tsx`): fly, crawl and mound; a flower with pollen
   and one already plucked; a bee, the queen on her chamber, and your own bee in
