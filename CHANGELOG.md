@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `deploy-modal.yml` — merging a change to the swarm now ships it. Nothing did.
+  `modal_app.py` was pushed by hand four times on 2026-09-07, each from an
+  uncommitted tree, and then main moved fifty commits; six of them touched the
+  swarm, including the greeter. The lobby sat at 0/8 with the fix merged, green
+  and inert, and the obvious reading was that the sim bees still wait for a
+  human. They did — in the code that was RUNNING.
+
+  Carries the scars of both siblings that already had this workflow: the runner's
+  Python must match `debian_slim(python_version=)` or the resolve builds from
+  sdist and dies; the PyPI wait polls the SIMPLE index, because the JSON API
+  publishes ahead of what pip resolves from; and every command goes through
+  `uv run`, because a bare `modal` is the runner's system interpreter — which is
+  how optionality shipped eight days of "deployed" that never left the runner.
+  It verifies the live version carries the commit, and treats Modal's "no changes
+  detected" as the invariant holding rather than failing.
+
 - The lobby says what the wait is FOR: the standings, the charity by name, what
   every pot has raised, and what is still owed to the charity and waiting to be
   paid. All of it lived on the ledger, one navigation away, and the lobby is the
