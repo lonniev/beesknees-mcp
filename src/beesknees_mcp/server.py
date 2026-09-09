@@ -370,16 +370,8 @@ async def match_state(
             # cared did not. A recently ended match stays answerable for a couple
             # of minutes so the result can be seen and the prize claimed.
             mine = await board_store.latest_match_for(npub)
-            if mine and str(mine.get("state")) in ("running", "ended"):
-                ended = mine.get("ended_at")
-                fresh = True
-                if str(mine.get("state")) == "ended" and ended:
-                    with contextlib.suppress(Exception):
-                        fresh = (
-                            datetime.now(UTC) - _as_dt(ended)
-                        ).total_seconds() < RESULT_LINGER_S
-                if fresh:
-                    m = mine
+            if still_yours(mine, datetime.now(UTC)):
+                m = mine
         if not m:
             live = await board_store.live_matches()
             m = live[0] if live else await match_flow.ensure_forming()
@@ -573,6 +565,44 @@ _MOTION_UUIDS = {"fly": FLY_UUID, "dig": DIG_UUID, "seal": SEAL_UUID}
 #: How long a finished round keeps answering its own players, so the result can
 #: be read and the prize claimed before the next lobby takes over the screen.
 RESULT_LINGER_S = 180
+
+
+def still_yours(match: dict[str, Any] | None, now: datetime) -> bool:
+    """Should this player still be shown their own round rather than the next lobby?
+
+    THE STATE A ROUND ACTUALLY RESTS IN IS `settled`, and this used to accept
+    only `running` and `ended`. `advance` sets `ended` and calls `settle` in the
+    same breath — one statement apart — so no client ever polls fast enough to
+    see `ended`. A match is `running`, and then for the rest of its life it is
+    `settled`.
+
+    Which meant the winner, of all people, was handed the next lobby the instant
+    they won: `latest_match_for` returned a settled round, the whitelist threw
+    it away, the fall-through picked the freshly opened forming match, and
+    `LiveBoard` renders a lobby for anything `forming`. The coronation, the tap
+    to finish looking, the tableau and the button back to the queue were all
+    built and all unreachable. `RESULT_LINGER_S` was written to hold the result
+    for three minutes and could never fire, because it guarded a state that
+    lasts for one statement.
+
+    The linger is measured from `ended_at`, which the ended transition sets and
+    settlement does not clear, falling back to `settled_at` for a round that was
+    abandoned rather than won. A finished round with neither stamp is NOT held:
+    an unbounded linger would pin a player to a result they had already read.
+    """
+    if not match:
+        return False
+    state = str(match.get("state") or "")
+    if state == "running":
+        return True
+    if state not in ("ended", "settled"):
+        return False
+    stamp = match.get("ended_at") or match.get("settled_at")
+    if not stamp:
+        return False
+    with contextlib.suppress(Exception):
+        return (now - _as_dt(stamp)).total_seconds() < RESULT_LINGER_S
+    return False
 
 
 def _as_dt(v: Any) -> datetime:

@@ -22,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are no likelier to choose one cell than they already were; only the calls go
   together.
 
+- The winner sees they won. `match_state` kept a finished round answerable to
+  its own players for three minutes so the result could be read and the prize
+  claimed — and accepted only the states `running` and `ended`. `advance` sets
+  `ended` and calls `settle` one statement later, so no client ever polls fast
+  enough to see `ended`: a match is running, and then for the rest of its life
+  it is `settled`. The winner's own round was thrown away, the fall-through
+  picked the freshly opened forming match, and `LiveBoard` renders a lobby for
+  anything forming. The coronation, the tap to finish looking, the tableau and
+  "Queue for the next round" were all built and all unreachable, and
+  `RESULT_LINGER_S` guarded a state that lasts for one statement.
+
 ### Added
 
 - `deploy-modal.yml` — merging a change to the swarm now ships it. Nothing did.
