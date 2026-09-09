@@ -346,6 +346,15 @@ def _upstream(exc: Exception, what: str) -> dict[str, Any]:
 async def match_state(
     match_id: Annotated[str, Field(description="The match to read. Omit for the live one.")] = "",
     since_seq: Annotated[int, Field(description="Only answer if the board has moved past this.")] = -1,
+    next_round: Annotated[
+        bool,
+        Field(
+            description=(
+                "You have finished reading your last result — answer with the "
+                "lobby that is forming rather than the round you just played."
+            ),
+        ),
+    ] = False,
     npub: NPUB_FIELD = "",
     dpop_token: str = "",
 ) -> dict[str, Any]:
@@ -361,7 +370,14 @@ async def match_state(
     """
     try:
         m = await board_store.get_match(match_id) if match_id else None
-        if not m and npub:
+        # A player who has read their result and asked for the next round must
+        # not be handed the last one again. `still_yours` keeps a finished round
+        # on screen for three minutes so the coronation can be watched and the
+        # prize claimed — right until the moment they press "Queue for the next
+        # round", when holding it becomes the same trap in the other direction:
+        # the button appeared to do nothing, because the refresh behind it
+        # fetched the very round it was trying to leave.
+        if not m and npub and not next_round:
             # YOUR match first, even once it has ended.
             #
             # A finished round leaves `live_matches` immediately, so the winner
