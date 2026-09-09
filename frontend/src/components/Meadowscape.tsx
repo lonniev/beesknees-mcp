@@ -33,13 +33,32 @@
  * again in the browser, and randomness makes those two disagree.
  */
 
-export default function Meadowscape() {
+/**
+ * Where the ground sits.
+ *
+ * `viewport` pins it to the bottom of the screen, which is right for a page
+ * that is one card in a lot of sky — sign-in, and the lobby.
+ *
+ * `foot` puts it in normal flow at the END of the content, which is what a
+ * long read needs. Pinned to the viewport, a band 46vh tall would sit under
+ * the last third of every screenful of prose for the whole scroll — and the
+ * note that split the bees out of this file was right about why that is bad:
+ * "a hill under three screens of prose about colony loss would be scenery
+ * arguing with the argument". In flow it is not under the argument at all. It
+ * is the ground the page ends on, and you arrive at it.
+ */
+export default function Meadowscape({ anchor = "viewport" }: {
+  anchor?: "viewport" | "foot";
+}) {
+  const foot = anchor === "foot";
   return (
     <>
       {/* The ground. Three bands, each a little darker and a little nearer,
           which is the whole of the depth this needs. */}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 overflow-hidden"
+        className={`pointer-events-none overflow-hidden ${
+          foot ? "relative mt-10 w-full" : "fixed inset-x-0 bottom-0 -z-10"
+        }`}
         aria-hidden="true"
       >
         <svg

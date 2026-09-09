@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   get back before the game begins." Said only when there is something to come
   back to.
 
+- The reading pages end on the meadow. `Meadowscape` gains an `anchor`: pinned
+  to the viewport for a page that is one card in a lot of sky (sign-in, the
+  lobby), and in FLOW at the foot for a long read. The note that split the bees
+  out of this file was right that "a hill under three screens of prose about
+  colony loss would be scenery arguing with the argument" — pinned to the
+  viewport it sits under the last third of every screenful for the whole
+  scroll. At the foot it is not under the argument; it is where the argument
+  stops, and you arrive at it.
+
+  Mounted from `App` inside the scroller rather than by each page: these pages
+  are a narrow reading column and the ground is not, and reaching full width
+  from inside the column wants `100vw`, which overshoots the scroller by the
+  width of its own scrollbar.
+
 ### Changed
 
 - "Buy a bee and take a seat" is **"Fund a Bee"**.
