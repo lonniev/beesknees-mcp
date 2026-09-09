@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
@@ -31,6 +32,20 @@ from beesknees_mcp import payouts as payouts_mod
 logger = logging.getLogger(__name__)
 
 SITE = "https://beesknees.tollbooth-dpyc.com"
+
+#: The agent guide, read once at import.
+#:
+#: The canonical copy lives here, in the package, because it has to ship inside
+#: the wheel for `beesknees_guide` to serve it. The website publishes the SAME
+#: file at `/llms.txt` — `frontend/scripts/prerender.mjs` copies it into the
+#: build output rather than keeping a second copy in `frontend/public/`. Two
+#: copies of a document about what a service does drift, and the first anybody
+#: notices is an agent being told something the site stopped saying.
+#:
+#: Read at import, not per call: it is one small file that never changes
+#: between deploys, and a tool that touches the filesystem on every call is a
+#: tool that fails differently under load than it does in a test.
+_GUIDE = (Path(__file__).parent / "llms.txt").read_text(encoding="utf-8")
 
 mcp = FastMCP(
     "beesknees-mcp",
@@ -98,6 +113,7 @@ PAY_OUT_UUID = "324c5ea2-6215-5a8c-b2cd-f433b40f0c20"
 PAYOUT_HISTORY_UUID = "a60cc83e-8fe8-561b-ae4c-15747876c318"
 PAY_CHARITY_UUID = "530a2e01-5fc6-5e7f-a744-5499c5eaed7b"
 CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
+GUIDE_UUID = "39b4d680-001d-5989-97e5-f47fce0d8fb5"
 
 _DOMAIN_TOOLS = [
     ToolIdentity(
@@ -163,6 +179,16 @@ _DOMAIN_TOOLS = [
         category="free",
         capability="settlement_history",
         intent="What every settled round paid, and to whom",
+    ),
+    ToolIdentity(
+        tool_id=GUIDE_UUID,
+        # Free, and it has to be. This is the document an agent reads to find
+        # out what everything else costs, so a price on it is a toll on the
+        # price list. It also carries no per-call work: one file, read once at
+        # import and held in memory.
+        category="free",
+        capability="guide",
+        intent="What this service is and how to play it, in prose — the same text the site serves at /llms.txt",
     ),
     ToolIdentity(
         tool_id=CHECK_NOW_UUID,
@@ -547,6 +573,27 @@ async def settlement_history(
                 "leaderboard": await board_store.leaderboard(10)}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "settlement_history")
+
+
+@tool
+@runtime.paid_tool(GUIDE_UUID)
+async def guide(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+    """What this service is and how to play it, in prose.
+
+    The same text the website serves at ``/llms.txt`` — one file, published on
+    both surfaces, because an agent that arrives through the MCP door should
+    not have to go and scrape the front door to find out where it is.
+
+    It is the front-door answer to a problem the web app cannot solve on its
+    own: a single-page app hands a fetcher an empty mount div, so everything a
+    program could learn about this site came from the ``<head>``. The prose
+    pages are now server-rendered, and this is the same orientation delivered
+    with provenance instead of by scraping.
+
+    Returns the text verbatim. Nothing here is per-patron and nothing is
+    computed, so two callers get the same bytes.
+    """
+    return {"success": True, "format": "text/markdown", "guide": _GUIDE, "url": f"{SITE}/llms.txt"}
 
 
 @tool

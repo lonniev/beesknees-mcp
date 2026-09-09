@@ -4,4 +4,19 @@
 # proxied to the operator rather than being swallowed by the fallback. That
 # precedence is worth re-checking after any deploy that touches routing, because
 # the failure is silent: the page would load and every tool call would get HTML.
+#
+# The target must be `/index.html` and nothing else. Pages special-cases exactly
+# that path as the single-page-app fallback — applied only when no asset
+# matches. Point it at any OTHER .html and the rule stops being a fallback and
+# starts being a rule: measured against `wrangler pages dev`, `/* /app.html 200`
+# answered `/`, `/about`, `/robots.txt` and `/llms.txt` alike with a 308 to
+# `/app`, and `/* /app 200` served every one of them the same shell. Both would
+# have handed a crawler HTML where it asked for robots.txt, which is the exact
+# bug the current robots.txt was written to fix.
+#
+# So `index.html` carries the Why page's prose, prerendered, and is also what an
+# unknown path answers with. A fetcher asking about `/ledger` gets the front
+# page rather than the ledger — ordinary SPA behaviour, and more use than the
+# empty div it used to get. The routes that are real are listed in sitemap.xml
+# and named in llms.txt.
 /*  /index.html  200

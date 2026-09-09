@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test && tsc -b && npm run smoke && npm run routes && vite build",
+    "build": "npm run test && tsc -b && npm run smoke && npm run routes && vite build && npm run prerender",
     "preview": "vite preview",
     "test": "node --test src/game/*.test.ts src/lib/*.test.ts",
     "smoke": "node scripts/smoke.mjs",
     "routes": "node scripts/routes.mjs",
+    "prerender": "node scripts/prerender.mjs",
     "live-bots": "npx tsx scripts/live-bots.ts",
     "botdump": "npx tsx scripts/botdump.ts"
   },

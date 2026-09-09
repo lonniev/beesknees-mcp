@@ -34,6 +34,12 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# `llms.txt` is served by the `beesknees_guide` tool, so it must be INSIDE the
+# wheel — not merely in the repository. Without this the tool imports fine in a
+# checkout and raises FileNotFoundError the first time it runs on Horizon.
+[tool.setuptools.package-data]
+beesknees_mcp = ["llms.txt"]
+
 [tool.ruff]
 line-length = 120
 
