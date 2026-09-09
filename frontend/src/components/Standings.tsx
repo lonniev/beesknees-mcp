@@ -14,32 +14,39 @@
  */
 
 import { useEffect, useState } from "react";
+import { usd } from "../lib/btcUsd";
 import type { ReactNode } from "react";
 import { Coins, HeartHandshake, Trophy } from "lucide-react";
 import { sats, shortNpub } from "../lib/figures";
-import { settlementHistory, type SettlementHistory } from "../lib/mcp";
+import { settlementHistory, type LedgerSort, type SettlementHistory } from "../lib/mcp";
 
 /** The public receipt, read once by whoever needs it. */
-export function useSettlements(limit = 50): {
-  data: SettlementHistory | null;
-  failed: boolean;
-} {
+export function useSettlements(
+  page = 0,
+  pageSize = 25,
+  sortCol: LedgerSort = "settled",
+  sortDir: "asc" | "desc" = "desc",
+): { data: SettlementHistory | null; failed: boolean } {
   const [data, setData] = useState<SettlementHistory | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let alive = true;
-    settlementHistory(limit)
+    settlementHistory(page, pageSize, sortCol, sortDir)
+      // Kept until the next page ARRIVES rather than blanked on the way out —
+      // a table that empties itself between pages reads as one that broke.
       .then((d) => alive && setData(d))
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [limit]);
+  }, [page, pageSize, sortCol, sortDir]);
   return { data, failed };
 }
 
-export function Stat({ icon, label, value }: {
+export function Stat({ icon, label, value, aside = null }: {
   icon: ReactNode; label: string; value: string;
+  /** A second, quieter figure — the same money in another unit. */
+  aside?: string | null;
 }) {
   return (
     <div className="rounded-xl bg-ink/4 px-4 py-3">
@@ -48,6 +55,10 @@ export function Stat({ icon, label, value }: {
         {label}
       </div>
       <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+      {/* Quieter, and second: sats are what actually moved and the dollars are
+        * a conversion made a moment ago. Absent rather than guessed when the
+        * rate is unknown. */}
+      {aside && <div className="text-[13px] tabular-nums text-ink/65">{aside}</div>}
     </div>
   );
 }
@@ -59,19 +70,30 @@ export function Stat({ icon, label, value }: {
  * accrued and not yet been sent — it is batched, because a single round's share
  * can be smaller than the network fee to move it.
  */
-export function Money({ data }: { data: SettlementHistory | null }) {
-  const raised = (data?.settlements ?? []).reduce((a, s) => a + s.pot_sats, 0);
+export function Money({ data, btcUsd = null }: {
+  data: SettlementHistory | null;
+  /** Dollars per bitcoin, or null while unknown — see `lib/btcUsd`. */
+  btcUsd?: number | null;
+}) {
+  // `raised_sats` comes from the server, over the WHOLE table. This used to sum
+  // `data.settlements`, which was right while the browser was sent every row
+  // and became a false headline the moment the ledger was paged — and had
+  // already been wrong for anybody past the fiftieth settled match.
+  const raised = data?.raised_sats ?? 0;
+  const owed = data?.accrued_sats ?? 0;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Stat
         icon={<Coins size={16} />}
         label="Raised across all matches"
         value={`${sats(raised)} sats`}
+        aside={usd(raised, btcUsd)}
       />
       <Stat
         icon={<HeartHandshake size={16} />}
         label="Waiting to be paid to the charity"
-        value={`${sats(data?.accrued_sats ?? 0)} sats`}
+        value={`${sats(owed)} sats`}
+        aside={usd(owed, btcUsd)}
       />
     </div>
   );

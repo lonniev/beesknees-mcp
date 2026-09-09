@@ -939,13 +939,37 @@ export interface SettlementHistory {
   /** The configured charity, so the ledger can link out to them. */
   charity?: { name: string; website: string };
   accrued_sats: number;
+  /** Everything ever raised, summed by the server over the whole table. */
+  raised_sats: number;
   settlements: Settlement[];
+  /** Every settled match there is, not the length of this page. */
+  total: number;
+  page: number;
+  page_size: number;
+  sort_col: string;
+  sort_dir: string;
   leaderboard: { npub: string; sats: number; wins: number }[];
 }
 
-/** The public receipt — free, because a claim that costs money to check is not one. */
-export async function settlementHistory(limit = 25): Promise<SettlementHistory> {
-  return callTool<SettlementHistory>("settlement_history", { limit }, { bestEffort: true });
+/** How the ledger may be ordered. Mirrors `SETTLEMENT_SORTS` on the server. */
+export type LedgerSort = "settled" | "match" | "raised" | "charity" | "winner";
+
+/**
+ * The public receipt — free, because a claim that costs money to check is not
+ * one — and paged by the server, because a row per settled match is a table
+ * that only ever gets longer.
+ */
+export async function settlementHistory(
+  page = 0,
+  pageSize = 25,
+  sortCol: LedgerSort = "settled",
+  sortDir: "asc" | "desc" = "desc",
+): Promise<SettlementHistory> {
+  return callTool<SettlementHistory>(
+    "settlement_history",
+    { page, page_size: pageSize, sort_col: sortCol, sort_dir: sortDir },
+    { bestEffort: true },
+  );
 }
 
 export async function checkNow(): Promise<Record<string, unknown>> {

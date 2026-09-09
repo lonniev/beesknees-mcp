@@ -53,7 +53,7 @@ export default function Lobby({
   const who = useCharity();
   // Free, and the same read the ledger page makes. A player stuck in a
   // lobby should not have to leave it to find out what the wait is for.
-  const { data: money, failed: moneyFailed } = useSettlements(50);
+  const { data: money, failed: moneyFailed } = useSettlements(0, 10);
 
   useEffect(() => {
     const t = setInterval(() => setWaited((s) => s + 1), 1000);

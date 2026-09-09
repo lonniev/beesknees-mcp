@@ -1077,17 +1077,74 @@ def charity_due(alias: str = "") -> str:
 
 
 async def charity_owed() -> dict[str, int]:
-    """Everything accrued to the charity, and what has been settled against it."""
-    r = await _exec(f"SELECT coalesce(sum({charity_due()}), 0) AS owed FROM {SETTLEMENTS}")
-    rows = _rows(r)
-    return {"accrued_sats": int(rows[0]["owed"]) if rows else 0}
+    """Everything accrued to the charity, and everything ever raised.
 
-
-async def settlements(limit: int = 50) -> list[dict[str, Any]]:
+    Both are sums over the WHOLE table rather than over a page. "Raised across
+    all matches" was totalled in the browser from whatever rows it had been
+    sent, which was right while it was sent all of them and became a false
+    figure the moment the ledger was paged — and it had already been wrong for
+    anybody past the fiftieth settled match.
+    """
     r = await _exec(
-        f"SELECT * FROM {SETTLEMENTS} ORDER BY created_at DESC LIMIT {max(1, min(limit, 200))}"
+        f"SELECT coalesce(sum({charity_due()}), 0)::int AS owed, "
+        f"coalesce(sum(pot_sats), 0)::int AS raised FROM {SETTLEMENTS}"
     )
-    return _rows(r)
+    rows = _rows(r)
+    return {
+        "accrued_sats": int(rows[0]["owed"]) if rows else 0,
+        "raised_sats": int(rows[0]["raised"]) if rows else 0,
+    }
+
+
+#: Columns a reader may sort the ledger by, mapped to what they are in the row.
+#:
+#: A whitelist, not an escape: this is interpolated into SQL because a column
+#: name cannot be a bound parameter, and the only safe way to interpolate one is
+#: to refuse anything that is not on a list written here.
+SETTLEMENT_SORTS = {
+    "settled": "created_at",
+    "match": "match_id",
+    "raised": "pot_sats",
+    "charity": "charity_sats",
+    "winner": "winner_sats",
+}
+
+
+async def settlements(
+    page: int = 0,
+    page_size: int = 25,
+    sort_col: str = "settled",
+    sort_dir: str = "desc",
+) -> dict[str, Any]:
+    """One page of the ledger, sorted, with the total so a pager can be drawn.
+
+    Sorted and paged HERE rather than in the browser. The client had the whole
+    history and cut it up itself, which works until the history is longer than
+    anybody wants to send — and this is the table that grows for ever, one row
+    per settled match, kept when everything else about the match is purged.
+    """
+    col = SETTLEMENT_SORTS.get(sort_col, "created_at")
+    direction = "ASC" if str(sort_dir).lower() == "asc" else "DESC"
+    size = max(1, min(int(page_size), 200))
+    offset = max(0, int(page)) * size
+
+    total = _rows(await _exec(f"SELECT count(*)::int AS n FROM {SETTLEMENTS}"))
+    rows = _rows(
+        await _exec(
+            # `match_id` breaks ties so a page boundary cannot show the same row
+            # twice, or skip one, when several matches settle in the same second.
+            f"SELECT * FROM {SETTLEMENTS} ORDER BY {col} {direction}, match_id {direction} "
+            f"LIMIT {size} OFFSET {offset}"
+        )
+    )
+    return {
+        "settlements": rows,
+        "total": int(total[0]["n"]) if total else 0,
+        "page": max(0, int(page)),
+        "page_size": size,
+        "sort_col": sort_col if sort_col in SETTLEMENT_SORTS else "settled",
+        "sort_dir": direction.lower(),
+    }
 
 
 async def record_settlement(

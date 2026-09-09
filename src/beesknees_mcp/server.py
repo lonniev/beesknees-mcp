@@ -508,7 +508,13 @@ async def match_list(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, A
 @tool
 @runtime.paid_tool(SETTLEMENT_HISTORY_UUID)
 async def settlement_history(
-    limit: Annotated[int, Field(description="How many settled matches to return.")] = 25,
+    page: Annotated[int, Field(description="Which page of settled matches, from 0.")] = 0,
+    page_size: Annotated[int, Field(description="How many settled matches per page.")] = 25,
+    sort_col: Annotated[
+        str,
+        Field(description="settled | match | raised | charity | winner."),
+    ] = "settled",
+    sort_dir: Annotated[str, Field(description="asc or desc.")] = "desc",
     npub: NPUB_FIELD = "",
     dpop_token: str = "",
 ) -> dict[str, Any]:
@@ -517,11 +523,19 @@ async def settlement_history(
     Free on purpose. A claim about where the money went that costs money to
     check is not a claim anybody should believe.
 
+    Sorted and paged by the SERVER. This is the one table that grows without
+    bound — a row per settled match, kept when everything else about the match
+    is purged — so sending all of it and cutting it up in the browser has an end
+    date. `total` comes back with the page so a reader knows how much there is.
+
     Args:
-        limit: How many settled matches to return.
+        page: Which page of settled matches, from 0.
+        page_size: How many settled matches per page.
+        sort_col: settled | match | raised | charity | winner.
+        sort_dir: asc or desc.
     """
     try:
-        rows = await board_store.settlements(limit)
+        page_of = await board_store.settlements(page, page_size, sort_col, sort_dir)
         owed = await board_store.charity_owed()
         # The named beneficiary, with somewhere a player can go and check them.
         # A ledger that says where the money went should say who that is.
@@ -529,7 +543,7 @@ async def settlement_history(
         return {"success": True,
                 "beneficiary": charity["name"] or match_flow.BENEFICIARY,
                 "charity": {"name": charity["name"], "website": charity["website"]},
-                "settlements": rows, **owed,
+                **page_of, **owed,
                 "leaderboard": await board_store.leaderboard(10)}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "settlement_history")
@@ -767,11 +781,13 @@ async def claim_prize(
         match_id: The match you won.
         choice: 'donate' to pass your share to the charity, or 'keep'.
     """
-    rows = await board_store.settlements(200)
-    mine = [r for r in rows if str(r["match_id"]) == match_id and str(r.get("winner_npub")) == npub]
-    if not mine:
+    # Read by id, not scanned out of a page. This used to take the first 200
+    # settlements and look through them, which is the same fault `settlement_of`
+    # was written to fix on the payout path: a match older than the page is a
+    # match the page cannot see, and the winner is told it is not theirs.
+    row = await board_store.settlement_of(match_id)
+    if row is None or str(row.get("winner_npub")) != npub:
         raise ValueError("that match is not yours to claim")
-    row = mine[0]
     state = str(row.get("prize_state"))
     if state == "forfeited":
         # Said plainly rather than as a bare state name: the window closed and
