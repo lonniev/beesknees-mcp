@@ -65,6 +65,14 @@
   /* Your hive's WALL — a different hue from your bee, which shared it and made
      the boundary and the halo read as the same thing. */
   --color-hive-mine: #7dd3fc;
+  /* The TACTIC's colour, which must not be the action's.
+     A chosen tactic and the button that fires it were both `--color-you` lime,
+     so the pair read as one control in two halves and the toggle looked like a
+     smaller Crawl button. A tactic is a standing choice; an action is a thing
+     you do now. Different questions want different colours. Purple is the
+     meadow's own hue, and #d8b4fe carries the page's ink at about 9:1. */
+  --color-tactic: #c9a0f7;
+
   /* The spent flower's hue, for anything that wants it in text.
      The board draws flowers as GLYPHS — yellow while they hold pollen, purple
      once emptied — so this token colours no flower on the board. Shape and hue

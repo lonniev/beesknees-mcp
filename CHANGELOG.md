@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The tactic toggle is no longer the action button's colour. Both were
+  `--color-you` lime, so a standing choice and a thing-you-do-now read as one
+  control in two halves. The tactic is purple (`--color-tactic`), the two groups
+  are prefixed **Tactic?** and **Now?**, and a flexible gap separates them
+  instead of leaving them shoulder to shoulder.
+
+- The nav reads **Why? · About? · Ledger · Play!** left to right, each with a
+  Material Design glyph, spread evenly across the bar rather than huddled at the
+  right-hand end. Three of them ask something; `Play!` is the only imperative.
+  Below `sm` the words drop and the icons carry the bar — five labelled
+  destinations plus a wordmark do not fit 390px, and the bar is the one thing on
+  the board screen that must not steal height from the board. Every tab keeps
+  its `title` and `aria-label`, because a help circle and an info circle are a
+  poor pair to tell apart at 18px.
+
 ### Fixed
 
 - The greeter gives up its seat when a person arrives. A stand-in seated into an

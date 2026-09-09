@@ -474,26 +474,40 @@ export default function BoardScreen(p: BoardScreenProps) {
         </span>
         )}
 
-        <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
-          {p.verbs.map(({ id, hint, Icon }) => (
-            <button
-              key={id}
-              onClick={() => p.onVerb(id)}
-              title={hint}
-              aria-pressed={p.verb === id}
-              className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
-                p.verb === id ? "bg-[var(--color-you)] text-black" : "text-ink/70 hover:bg-ink/7"
-              }`}
-            >
-              <Icon size={19} />
-            </button>
-          ))}
+        {/* TACTIC — a standing choice, and a different question from the one
+          * the button asks. It wore the action's lime, so the two read as one
+          * control in two halves and the toggle looked like a smaller Crawl
+          * button. Purple, and labelled, and no longer shoulder to shoulder
+          * with the thing it modifies. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-[11px] font-medium tracking-wide text-ink/60">Tactic?</span>
+          <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
+            {p.verbs.map(({ id, hint, Icon }) => (
+              <button
+                key={id}
+                onClick={() => p.onVerb(id)}
+                title={hint}
+                aria-pressed={p.verb === id}
+                className={`flex h-12 w-12 items-center justify-center rounded-lg transition ${
+                  p.verb === id
+                    ? "bg-[var(--color-tactic)] text-[var(--color-ink)]"
+                    : "text-ink/70 hover:bg-ink/7"
+                }`}
+              >
+                <Icon size={19} />
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* The gap between the standing choice and the thing you do now. */}
+        <span className="min-w-6 flex-1" />
+
+        <span className="shrink-0 text-[11px] font-medium tracking-wide text-ink/60">Now?</span>
         <button
           onClick={p.onAct}
           disabled={!p.actionEnabled}
-          className={`relative min-w-40 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
+          className={`relative min-w-40 shrink-0 overflow-hidden rounded-xl px-6 py-3 font-semibold transition ${
             p.actionEnabled ? "bg-[var(--color-you)] text-black" : "bg-ink/7 text-ink/70"
           }`}
         >
@@ -509,7 +523,6 @@ export default function BoardScreen(p: BoardScreenProps) {
           <span className="relative">{p.actionLabel}</span>
         </button>
 
-        {wide && <span className="flex-1" />}
       </div>
     </div>
   );
