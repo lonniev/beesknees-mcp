@@ -22,12 +22,20 @@ import { useEffect, useRef } from "react";
 import { ExternalLink, KeyRound, X, Zap } from "lucide-react";
 import { LINK } from "../lib/ink";
 
-/** Three starting points, different in kind on purpose. */
+/**
+ * Three starting points, different in kind on purpose, easiest first.
+ *
+ * Wallet of Satoshi leads on the operator's own experience of it: it is the
+ * one with the least to understand before it works — no channels, no backup
+ * ceremony, no decisions. That is the right first rung for somebody who has
+ * never held bitcoin, and the other two are there for the person who reads the
+ * first note and decides they would rather hold their own keys.
+ */
 const WALLETS: { name: string; url: string; note: string }[] = [
   {
-    name: "Cash App",
-    url: "https://cash.app/",
-    note: "The shortest road if you are in the US and already have it.",
+    name: "Wallet of Satoshi",
+    url: "https://www.walletofsatoshi.com/",
+    note: "The simplest one to start with — install it, top it up, done.",
   },
   {
     name: "Phoenix",
@@ -120,8 +128,8 @@ export default function FirstTime({
           ))}
         </ul>
         <p className="mt-2 text-[12px] text-ink/60">
-          Three that people commonly start with, not a recommendation. This service takes nothing
-          from any of them and any Lightning wallet will do.
+          Easiest first. This service takes nothing from any of them, any Lightning wallet will do,
+          and which ones are available where you live is worth a look before you install one.
         </p>
 
         {/* ── 2. The name ──────────────────────────────────────────── */}

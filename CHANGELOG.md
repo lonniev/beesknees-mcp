@@ -55,6 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Wallet of Satoshi leads the wallet list in the first-timer explainer, on the
+  operator's own experience of it: it is the one with the least to understand
+  before it works. Cash App comes off — it filled the same "easiest" slot, and
+  three of a kind is not a list. Phoenix and Blue Wallet stay for the reader who
+  decides they would rather hold their own keys. The note now says the list is
+  easiest-first and that availability differs by country.
+
 - A new preview card: a round in progress rather than an empty board — tunnels
   cut, a drone at a door, all five hives, and the action button. The alt text
   on both the `og:` and `twitter:` tags describes what is actually in it now.
