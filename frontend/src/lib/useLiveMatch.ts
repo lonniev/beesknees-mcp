@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { stillLeaving, type Board } from "./leaving";
 
 export interface LiveBee {
   hive: number;
@@ -94,7 +95,7 @@ export interface LiveApi {
  * throttle themselves consistently and the operator keeps a valve it can turn
  * under load — rather than every client inventing its own backoff and drifting.
  */
-export function useLiveMatch(call: Caller, enabled = true): LiveApi {
+export function useLiveMatch(call: Caller, enabled = true, me = ""): LiveApi {
   const [board, setBoard] = useState<LiveState | null>(null);
   const [error, setError] = useState("");
   const seq = useRef(-1);
@@ -166,12 +167,21 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
         return 200;
       }
 
-      // The round we asked to leave is behind us the moment a different one
-      // answers. Cleared here rather than on the click, so the flag keeps
-      // being sent until the handover actually happens.
-      if (leaving.current && res.match_id && res.match_id !== leaving.current) {
-        leaving.current = "";
-      }
+      // Cleared when the player is IN a round again — not merely handed one.
+      //
+      // This used to clear on the first answer that named a different match,
+      // and that put the winner straight back on the coronation. The sequence:
+      // press "Queue for the next round", one poll goes out with `next_round`,
+      // the lobby comes back, the flag is dropped — and the very NEXT poll asks
+      // the ordinary question again, so the server hands over the finished
+      // round it is still holding for three minutes, and the result card
+      // returns. The button worked exactly once per poll and then undid itself.
+      //
+      // "I have read that result" stays true until they have joined something
+      // else. Seeing their own bee on the board is what says so; until then
+      // they are in a lobby with no round of their own, and asking for the next
+      // one costs nothing and is what they asked for.
+      leaving.current = stillLeaving(leaving.current, res as Board, me);
 
       if (!res.unchanged && res.bees) {
         seq.current = res.seq ?? seq.current;
@@ -187,7 +197,7 @@ export function useLiveMatch(call: Caller, enabled = true): LiveApi {
       if (alive.current) setError("");
       return 3000;
     }
-  }, [call]);
+  }, [call, me]);
 
   const schedule = useCallback(
     (ms: number) => {
