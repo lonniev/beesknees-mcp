@@ -62,7 +62,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       callTool(tool, args, { bestEffort: true }) as Promise<unknown>,
     [],
   );
-  const { board: live, error, refresh, leave } = useLiveMatch(call);
+  const { board: live, error, refresh, leave } = useLiveMatch(call, true, session.npub);
 
   const [target, setTarget] = useState<number | null>(null);
   const [verb, setVerb] = useState<"move" | "seal">("move");
