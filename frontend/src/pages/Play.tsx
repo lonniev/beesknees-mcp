@@ -112,8 +112,14 @@ export default function Play() {
           <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
           <span>
             <span className="font-semibold">Practice</span>
+            {/* Says what the reader GETS, not what the board contains. The
+              * count of bots is a fact about the simulation and meant nothing
+              * to somebody deciding whether to tap it; "no sats" and "nothing
+              * at stake" both name an absence, which is a poor pitch for the
+              * door a first-time visitor should actually go through. */}
             <span className="block text-sm text-ink/70">
-              Eleven bots, no sats, nothing at stake. Free, and always available.
+              Watch and learn how to play without having to purchase anything. Come
+              practice anytime.
             </span>
           </span>
         </button>
