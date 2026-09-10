@@ -40,9 +40,13 @@ test("the board's own objection outranks the phase", () => {
   assert.equal(s.mark, null);
 });
 
-test("the press is named by the word the board is using", () => {
-  assert.match(nextStep("tunnel", true, "", "Crawl").text, /crawl the line/);
-  assert.match(nextStep("tunnel", true, "", "Fly").text, /fly the line/);
+test("the hint names the BUTTON, in the word printed on it", () => {
+  // The action button says "Crawl!" or "Fly!", so the hint says the same word.
+  // "Press to crawl the line" described the gesture instead, which leaves the
+  // reader to match a sentence about pressing to a button labelled something
+  // else.
+  assert.match(nextStep("tunnel", true, "", "Crawl").text, /^Crawl! /);
+  assert.match(nextStep("tunnel", true, "", "Fly").text, /^Fly! /);
   assert.match(nextStep("forage", true, "", "Crawl").text, /press to crawl\.$/);
 });
 

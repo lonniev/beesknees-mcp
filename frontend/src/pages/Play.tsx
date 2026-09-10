@@ -99,9 +99,15 @@ export default function Play() {
       <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Play</h1>
+          {/* The code owner's words. It opened with "The same board either
+            * way", which compares two things the reader has not been told
+            * about yet — a sentence for somebody who already knows the game.
+            * This one starts by saying what the site is and then names the two
+            * doors, which is the order a first-time visitor needs. */}
           <p className="mt-1 text-sm text-ink/70">
-            The same board either way. The difference is whether the other eleven bees
-            belong to people, and whether the pot is real.
+            Welcome to The Bee's Knees game. You can choose to play a Practice round or
+            help raise donations with a Real round. During Practice play there are no
+            fees and the bees are agentic simulator bees.
           </p>
         </div>
 
@@ -130,10 +136,13 @@ export default function Play() {
             else if (canPlayLive) setMode("live");
           }}
           disabled={!canPlayLive && !needsOnboarding}
-          className={`flex items-start gap-3 rounded-xl border p-4 text-left ${
-            canPlayLive || needsOnboarding
-              ? "border-[var(--color-you)]/40 hover:bg-ink/4"
-              : "border-ink/14 opacity-55"
+          // The SAME border as Practice. A green rim on this one and a grey rim
+          // on the other read as a recommendation, and these are two doors
+          // rather than a default and an alternative. What still separates them
+          // is the icon's colour and, when the round is out of reach, the
+          // dimming — a state, which is a fair thing for a border not to carry.
+          className={`flex items-start gap-3 rounded-xl border border-ink/14 p-4 text-left ${
+            canPlayLive || needsOnboarding ? "hover:bg-ink/4" : "opacity-55"
           }`}
         >
           <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you-ink)]" />
