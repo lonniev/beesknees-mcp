@@ -53,8 +53,11 @@ export function nextStep(
   if (phase === "return") return { text: `Door chosen — press to ${verb}.`, mark: null };
   // The route is drawn, so this says what the NEXT press costs rather than
   // repeating a destination the player can already see marked.
+  // Names the BUTTON, not the gesture. "Press to crawl the line" describes the
+  // input; "Crawl! to follow the path" is the word actually printed on the
+  // thing to press, so the sentence and the button agree.
   return {
-    text: word === "Crawl" ? "Press to crawl the line." : "Press to fly the line.",
+    text: word === "Crawl" ? "Crawl! to follow the path" : "Fly! to follow the path",
     mark: null,
   };
 }
