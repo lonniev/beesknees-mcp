@@ -8,10 +8,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
-import { DoorMark, PollenFlower } from "./components/Marks.tsx";
 import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
+import NextStep from "./components/NextStep.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
@@ -96,49 +95,6 @@ function verbIcon(id: Verb, word: string) {
 }
 
 type Verb = (typeof VERBS)[number]["id"];
-
-/**
- * What to do next, in the order a player needs it.
- *
- * Written as one function because the prompt was three nested ternaries that
- * had already produced "No way through" at the exact moment the bee succeeded.
- * A prompt that reports the engine's opinion rather than the player's next move
- * is worse than none.
- */
-function NEXT_STEP(
-  phase: string | undefined,
-  target: number | null,
-  why: string,
-  word: string,
-): ReactNode {
-  if (phase === "done") return "At the queen.";
-  if (target === null) {
-    // The two hints that name a thing on the board SHOW it. A first-timer
-    // reading "tap a flower that still has pollen" has to work out which of the
-    // two flowers that is; the mark answers it without a sentence.
-    if (phase === "forage")
-      return (
-        <>
-          Tap a flower that still has pollen <PollenFlower />
-        </>
-      );
-    if (phase === "return")
-      return (
-        <>
-          Choose a door now — tap a gap in the hive wall <DoorMark />
-        </>
-      );
-    return "Tap where you want to end up — the queen, or anywhere on the way.";
-  }
-  if (why) return why;
-  const verb = word.toLowerCase();
-  if (phase === "forage") return `Flower chosen — press to ${verb}.`;
-  if (phase === "return") return `Door chosen — press to ${verb}.`;
-  // The route is drawn, so the prompt says what the NEXT press costs rather
-  // than repeating the destination the player can already see marked.
-  return word === "Crawl" ? "Press to crawl the line." : "Press to fly the line.";
-}
-
 
 /**
  * One rival hive, small.
@@ -362,7 +318,12 @@ export default function App() {
         ) : pending.action?.kind === "dig" ? (
           "Press to cut — eight seconds of digging, against one to crawl."
         ) : (
-          NEXT_STEP(you?.phase, target, pending.why, pending.word)
+          <NextStep
+            phase={you?.phase}
+            aimed={target !== null}
+            why={pending.why}
+            word={pending.word}
+          />
         )
       }
       actionLabel={

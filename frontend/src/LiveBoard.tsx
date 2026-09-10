@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footprints, Mountain, Wind } from "lucide-react";
 import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
+import NextStep from "./components/NextStep.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
 import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
@@ -282,7 +283,13 @@ export default function LiveBoard({ session }: { session: Session }) {
             {digging ? "Digging" : "Resting"} {(left / 1000).toFixed(1)}s
           </span>
         ) : (
-          note || (target === null ? "Tap where you want to end up." : "Press to move.")
+          // The SAME hint the practice board gives. This used to be a two-way
+          // ternary — one sentence before you aimed and one after — for a whole
+          // round, and neither said which of the things on screen to tap or
+          // what the bee was trying to do. The board that costs sats was the
+          // one giving the least help. `game/nextStep.ts` holds the words now,
+          // and its test refuses to let either board grow its own again.
+          <NextStep phase={mine?.phase} aimed={target !== null} why={note} word={word} />
         )
       }
       actionLabel={
