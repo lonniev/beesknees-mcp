@@ -67,7 +67,12 @@ def test_the_prose_routes_are_prerendered_and_the_live_ones_are_not() -> None:
     """
     prerender = (ROOT / "frontend" / "scripts" / "prerender.mjs").read_text()
     prose = prerender[prerender.index("const PROSE = ["):prerender.index("];", prerender.index("const PROSE = ["))]
-    assert '"/"' in prose and '"/about"' in prose, "the two prose routes are not both prerendered"
+    # `/why` is the load-bearing one: it carries the pollinator argument, and
+    # when Play took the root it would otherwise have had no URL at all — a
+    # fetcher follows only links it has been shown, and a router rotation is
+    # not one.
+    for page in ('"/"', '"/why"', '"/about"'):
+        assert page in prose, f"{page} is not prerendered"
     for live in ("/ledger", "/play", "/profile", "/operator"):
         assert f'"{live}"' not in prose, f"{live} is live data and must not be frozen into a build"
 

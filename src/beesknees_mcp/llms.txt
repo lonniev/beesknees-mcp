@@ -46,7 +46,8 @@ inward moves in a row, so progress is never a straight sprint at the centre.
   where donations went that costs money to check is not a claim worth believing.
 - **Profile** — your Nostr kind-0 identity, your satoshi balance, and what should
   happen to your winnings if you win.
-- **Why** — the pollinator case the game exists to fund.
+- **Why** (`/why`) — the pollinator case the game exists to fund. Served in
+  full as HTML; no JavaScript needed to read it.
 
 ## Payments and identity
 
@@ -67,8 +68,8 @@ inward moves in a row, so progress is never a straight sprint at the centre.
 - Then `beesknees_service_status` (free, no arguments) to check liveness, and
   `beesknees_check_price` to preview what a round will cost.
 
-You can also just read the site. `/` and `/about` are server-rendered, so a
-plain GET returns the whole of the argument and the whole of the strategy —
+You can also just read the site. `/`, `/why` and `/about` are server-rendered,
+so a plain GET returns the whole of the argument and the whole of the strategy —
 no JavaScript, no hydration, no scraping a bundle. The other routes are live
 (a board mid-round, a ledger of current figures, a screen belonging to one
 signed-in patron) and are deliberately not frozen into the build; ask the tools

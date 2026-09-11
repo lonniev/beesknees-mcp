@@ -58,7 +58,15 @@ const GUIDE_OUT = "llms.txt";
  * is pointed at `beesknees_settlement_history`, which is free and current.
  */
 const PROSE = [
-  ["/", "index.html", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
+  // `/` is the game chooser now. It is short, but it is what the bare domain
+  // serves and what the SPA fallback answers an unknown path with, so it is
+  // the first thing every fetcher reads — and an empty div is a poor greeting.
+  ["/", "index.html", /Welcome to The Bee(&#x27;|')s Knees game[\s\S]*Practice[\s\S]*Real round/],
+  // The pollinator argument, which used to be at `/`. Losing its URL when Play
+  // took the root would have undone the whole point of prerendering: a fetcher
+  // follows only links it has seen, so the argument needs a path of its own in
+  // `sitemap.xml` and in `llms.txt`, not a place in the router's rotation.
+  ["/why", "why.html", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
   // `about.html`, NOT `about/index.html`. Pages resolves a bare `/about` to
   // `about.html` and serves it; given a directory it answers **308 → /about/**
   // instead. The sitemap and every link on the site say `/about`, so the
