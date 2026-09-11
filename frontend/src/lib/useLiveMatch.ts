@@ -60,6 +60,21 @@ export interface LiveState {
   seed: number;
   /** Flowers already emptied — the one piece of meadow state a rival changes. */
   taken_pollen: { hive: number; cell: number }[];
+  /**
+   * What this round has raised, already split the way it will be paid.
+   *
+   * Divided by the SERVICE, by the same `split_pot` that writes the
+   * settlement — so the till on the board and the books at the end are one
+   * arithmetic. The client deliberately does not do its own 80/10: the
+   * rounding falls to the charity, and a second implementation is where that
+   * quietly stops being true.
+   *
+   * It rides the match row rather than costing a second query, and it only
+   * ever changes when the board does — a fare is recorded by the same call
+   * that bumps `seq` — so an `unchanged` reply carrying no pot is carrying no
+   * news either.
+   */
+  pot?: { pot: number; charity: number; winner: number };
 }
 
 type Caller = (tool: string, args: Record<string, unknown>) => Promise<unknown>;

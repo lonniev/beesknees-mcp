@@ -89,6 +89,14 @@ class FakeVault:
     def _t(self, table: str) -> str:
         return table
 
+    def _matches(self, rows: list) -> dict:
+        """Match rows, each with the running pot the real column computes."""
+        out = []
+        for m in rows:
+            pot = sum(f["sats"] for f in self.fares if f["match_id"] == m["match_id"])
+            out.append({**m, "pot_sats": pot})
+        return {"rows": out, "rowCount": len(out)}
+
     async def _execute(self, sql: str, params=None):
         p = params or []
         s = " ".join(sql.split())
@@ -112,19 +120,30 @@ class FakeVault:
                                   "winner_npub": None, "winner_hive": None}
             return {"rows": [], "rowCount": 1}
 
-        if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE state = 'forming'"):
-            rows = [m for m in self.matches.values()
-                    if m["state"] == "forming" and m.get("board") == p[0]]
-            return {"rows": rows[:1], "rowCount": len(rows[:1])}
-
-        if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE match_id"):
-            m = self.matches.get(p[0])
-            return {"rows": [m] if m else [], "rowCount": 1 if m else 0}
-
-        if s.startswith(f"SELECT * FROM {store.MATCHES} WHERE state IN"):
-            rows = [m for m in self.matches.values()
-                    if m["state"] in ("forming", "running") and m.get("board") == p[0]]
-            return {"rows": rows, "rowCount": len(rows)}
+        # Every match row carries `pot_sats`, because the real ones do — it is a
+        # scalar subquery over the fares, so a fake that merely TOLERATED the
+        # new SQL would pass while the pot read zero for ever.
+        #
+        # Matched on the WHERE rather than on a literal prefix. The prefix was
+        # `SELECT * FROM bk_matches`, and adding one column to the select list
+        # stopped three branches matching at once, silently.
+        if s.startswith("SELECT m.*") and f"FROM {store.MATCHES} m" in s:
+            if "m.state = 'forming'" in s:
+                rows = [m for m in self.matches.values()
+                        if m["state"] == "forming" and m.get("board") == p[0]]
+                return self._matches(rows[:1])
+            if f"JOIN {store.BEES} b" in s:
+                mine = {b["match_id"] for b in self.bees.values() if b["npub"] == p[0]}
+                rows = [m for m in self.matches.values()
+                        if m["match_id"] in mine and m.get("board") == p[1]]
+                return self._matches(rows[:1])
+            if "m.match_id = $1" in s:
+                m = self.matches.get(p[0])
+                return self._matches([m] if m else [])
+            if "m.state IN" in s:
+                rows = [m for m in self.matches.values()
+                        if m["state"] in ("forming", "running") and m.get("board") == p[0]]
+                return self._matches(rows)
 
         if s.startswith("SELECT m.match_id,"):
             rows = [{"match_id": m["match_id"],
@@ -1613,6 +1632,77 @@ def test_the_prize_leg_is_paid_separately_and_only_once(vault) -> None:
 # race on the runtime's single `_last_debit_cost` slot, and traded a race for a
 # certainty: the pot could only ever be too big, and 80% of too big is a
 # promise to a charity out of the operator's own pocket.
+
+
+def test_a_match_row_carries_its_running_pot(vault) -> None:
+    """The board's counter is fed by a COLUMN, not by a second query.
+
+    `match_state` is the hottest tool in the service — every player, about once
+    a second — and it is `free` so it stays cheap. Asking `pot_of` beside it
+    would have added a third read to the busiest path in the system. The pot
+    rides the match row instead, which costs no round trip; this is the test
+    that says it is actually there, because a row without it reads as a pot of
+    nothing and nobody would notice until a player watched a live round raise
+    zero sats.
+    """
+    from beesknees_mcp import server
+
+    async def go():
+        mid = await store.open_match()
+        assert (await store.get_match(mid))["pot_sats"] == 0, "a new match has raised nothing"
+
+        await server._charged("npub1human", mid, "join_match", 50)
+        await server._charged("npub1human", mid, "fly", 5)
+        await server._charged("npub1sim", mid, "join_match", 0)
+
+        m = await store.get_match(mid)
+        assert m["pot_sats"] == 55, "the row must carry what was actually paid"
+        # And the same figure the standalone read gives, so the column and the
+        # query it replaced cannot disagree.
+        assert m["pot_sats"] == await store.pot_of(mid)
+
+        # Every path `match_state` can reach a match by carries it too.
+        assert (await store.live_matches())[0]["pot_sats"] == 55
+        assert (await store.forming_match())["pot_sats"] == 55
+
+    asyncio.run(go())
+
+
+def test_the_counter_splits_the_pot_the_way_settlement_will(vault) -> None:
+    """One arithmetic, not two.
+
+    The counter on the board is the same `split_pot` that writes the books at
+    the end, so what a player watches climb is what gets paid. A frontend doing
+    its own 80/10 would be a second opinion about money — and the rounding,
+    which always falls to the charity rather than the operator, is exactly the
+    part a reimplementation gets wrong.
+    """
+    # 7 sats: the winner's tenth rounds DOWN, and the odd sat must not end up
+    # with the operator.
+    s = match_flow.split_pot(7)
+    assert s["charity"] + s["winner"] + s["operator"] == 7, "the split must lose nothing"
+    assert s["winner"] == 0 and s["operator"] == 0
+    assert s["charity"] == 7, "the remainder goes to the charity, never the operator"
+
+    # 1000 sats does NOT split 800/100/100. `int(1000 * (1.0 - 0.80 - 0.10))`
+    # is 99, because that subtraction is 0.09999999999999998 in binary floating
+    # point — so the operator is short a sat and the charity is over by one.
+    #
+    # Asserted as the INVARIANT rather than as the three numbers, because the
+    # invariant is the thing that must hold: nothing is lost, and whichever way
+    # the rounding falls it falls towards the charity. A test naming 800/100/100
+    # would have been a test asserting a bug that is not there.
+    big = match_flow.split_pot(1000)
+    assert sum((big["charity"], big["winner"], big["operator"])) == 1000
+    assert big["charity"] >= 800 and big["operator"] <= 100, (
+        "rounding must never move sats from the charity to the operator"
+    )
+
+    for pot in (0, 1, 3, 7, 9, 10, 11, 99, 100, 137, 1000, 10_001):
+        s = match_flow.split_pot(pot)
+        assert s["charity"] + s["winner"] + s["operator"] == pot, pot
+        assert s["charity"] >= s["operator"], pot
+        assert min(s["charity"], s["winner"], s["operator"]) >= 0, pot
 
 
 def test_the_pot_holds_what_was_paid_not_what_it_lists_at(vault) -> None:
