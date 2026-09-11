@@ -40,6 +40,20 @@ BEES = "bk_bees"
 CELLS = "bk_cells"
 FARES = "bk_fares"
 SETTLEMENTS = "bk_settlements"
+
+#: Every match row carries its running pot, as a COLUMN rather than a second
+#: query.
+#:
+#: `match_state` is the hottest tool in the service — every player, about once a
+#: second, for a whole round — and it is `free` precisely so it can stay cheap:
+#: free is the one category the runtime answers without a Neon pricing lookup.
+#: Calling `pot_of` beside it would have added a third read to the busiest path
+#: in the system, on every poll that carried a board. A scalar subquery on a row
+#: already being fetched costs an index scan and no round trip at all.
+_POT_COL = (
+    f", (SELECT coalesce(sum(f.sats), 0) FROM {FARES} f "
+    "WHERE f.match_id = m.match_id)::int AS pot_sats"
+)
 # A row here means that flower has been EMPTIED. No row, no rival got there first.
 POLLEN = "bk_pollen"
 #: Who the charity share goes to, and where a patron wants their own share sent.
@@ -453,8 +467,9 @@ _layout_cache: dict[tuple[int, int], geo.HiveBoard] = {}
 async def forming_match() -> dict[str, Any] | None:
     """The match currently taking seats, if any."""
     r = await _exec(
-        f"SELECT * FROM {MATCHES} WHERE state = 'forming' AND board = $1 "
-        "ORDER BY created_at LIMIT 1",
+        f"SELECT m.*{_POT_COL} FROM {MATCHES} m "
+        "WHERE m.state = 'forming' AND m.board = $1 "
+        "ORDER BY m.created_at LIMIT 1",
         [geo.board_fingerprint()],
     )
     rows = _rows(r)
@@ -462,7 +477,9 @@ async def forming_match() -> dict[str, Any] | None:
 
 
 async def get_match(match_id: str) -> dict[str, Any] | None:
-    r = await _exec(f"SELECT * FROM {MATCHES} WHERE match_id = $1", [match_id])
+    r = await _exec(
+        f"SELECT m.*{_POT_COL} FROM {MATCHES} m WHERE m.match_id = $1", [match_id]
+    )
     rows = _rows(r)
     return rows[0] if rows else None
 
@@ -477,7 +494,7 @@ async def latest_match_for(npub: str) -> dict[str, Any] | None:
     cared was shown a countdown to the next round instead.
     """
     r = await _exec(
-        f"SELECT m.* FROM {MATCHES} m JOIN {BEES} b ON b.match_id = m.match_id "
+        f"SELECT m.*{_POT_COL} FROM {MATCHES} m JOIN {BEES} b ON b.match_id = m.match_id "
         "WHERE b.npub = $1 AND m.board = $2 ORDER BY m.created_at DESC LIMIT 1",
         [npub, geo.board_fingerprint()],
     )
@@ -487,8 +504,9 @@ async def latest_match_for(npub: str) -> dict[str, Any] | None:
 
 async def live_matches() -> list[dict[str, Any]]:
     r = await _exec(
-        f"SELECT * FROM {MATCHES} WHERE state IN ('forming','running') AND board = $1 "
-        "ORDER BY created_at",
+        f"SELECT m.*{_POT_COL} FROM {MATCHES} m "
+        "WHERE m.state IN ('forming','running') AND m.board = $1 "
+        "ORDER BY m.created_at",
         [geo.board_fingerprint()],
     )
     return _rows(r)

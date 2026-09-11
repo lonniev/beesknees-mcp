@@ -437,14 +437,30 @@ async def match_state(
         # the dead match on screen; a forming match nobody has joined never
         # bumps its seq, so the client never escaped. Meanwhile the buttons
         # answered "no match is running", because the server had long moved on.
+        # The running pot, already split the way it will actually be paid.
+        #
+        # Split HERE rather than on the screen: `split_pot` is what settlement
+        # uses, so the counter a player watches climb during the round and the
+        # figure written into the books at the end are the same arithmetic. A
+        # frontend doing its own 80/10 would be a second opinion about money,
+        # and the rounding — which always falls to the charity — is exactly the
+        # part a reimplementation gets wrong.
+        #
+        # It rides the match row (see `_POT_COL`), so this costs no extra read,
+        # and it is carried on the `unchanged` reply too: that reply means the
+        # board has not moved, but a client that has just started polling has
+        # no figure yet and would otherwise sit at nothing until something did.
+        pot = match_flow.split_pot(int(m.get("pot_sats") or 0))
+
         if since_seq >= 0 and seq == since_seq:
             return {"success": True, "match_id": mid, "seq": seq, "state": state,
-                    "unchanged": True, "poll_after_ms": poll_ms}
+                    "unchanged": True, "poll_after_ms": poll_ms, "pot": pot}
 
         bees = await board_store.bees_in(mid)
         cells = await board_store.open_cells(mid)
         return {
             "success": True,
+            "pot": pot,
             "match_id": mid,
             "state": state,
             "seq": seq,

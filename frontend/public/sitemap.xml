@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The four pages worth landing on. `/signin`, `/profile` and `/operator` are
-  left out on purpose: the first is a door rather than a destination and the
-  other two belong to one patron.
+  The pages worth landing on. `/signin`, `/profile` and `/operator` are left
+  out on purpose: the first is a door rather than a destination and the other
+  two belong to one patron.
+
+  `/` and `/play` are the same page — the game chooser — and both are listed
+  because both are in circulation. `/why` carries the pollinator argument; it
+  used to be what `/` served, and when Play took the root it needed a path of
+  its own or it would have had no URL a crawler could ever be told about.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://beesknees.tollbooth-dpyc.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://beesknees.tollbooth-dpyc.com/why</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://beesknees.tollbooth-dpyc.com/play</loc>

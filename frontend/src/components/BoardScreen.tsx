@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import RoundTally, { type Pot } from "./RoundTally.tsx";
 import { Hourglass, Maximize2, Minimize2, Repeat, RotateCcw } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import Brood from "./Brood.tsx";
@@ -80,6 +81,11 @@ export interface BoardScreenProps {
 
   /** The verb strip. Ids and icons come from the caller so the words stay one set. */
   verbs: { id: string; hint: string; Icon: (p: { size?: number }) => ReactNode }[];
+  /** What this round has raised, already split. Absent in practice, where
+    * there is no money and a till would be showing a figure nobody paid. */
+  pot?: Pot | null;
+  /** Who the charity share goes to, for the till's label. */
+  charityName?: string;
   verb: string;
   onVerb: (id: string) => void;
 
@@ -160,6 +166,7 @@ function RivalColumn({
   frame,
   onPick,
   footer,
+  header,
 }: {
   hives: ScreenHive[];
   yourHive: number | null;
@@ -168,10 +175,13 @@ function RivalColumn({
   onPick: (id: number) => void;
   /** Dropped into the empty gutter BELOW the tiles. See the hint. */
   footer?: ReactNode;
+  /** Dropped into the empty gutter ABOVE them. See the round tally. */
+  header?: ReactNode;
 }) {
   if (!hives.length) return null;
   return (
     <div className="relative flex w-24 shrink-0 flex-col justify-center gap-2 lg:w-32 xl:w-40">
+      {header && <div className="shrink-0">{header}</div>}
       {hives.map((h) => (
         <div key={h.id} className="h-24 lg:h-32 xl:h-40">
           <RivalTile
@@ -482,6 +492,11 @@ export default function BoardScreen(p: BoardScreenProps) {
               youId={p.youId}
               frame={p.frame}
               onPick={p.onFocus}
+              /* The till goes in the RIGHT gutter, above the tiles. The hint
+                 already sits under the left column, so the two pieces of
+                 furniture end up diagonally opposite rather than stacked down
+                 one side of a centred board. */
+              header={<RoundTally pot={p.pot ?? null} charity={p.charityName} />}
             />
           )}
         </div>
@@ -572,6 +587,11 @@ export default function BoardScreen(p: BoardScreenProps) {
         * the order of what can be spared: the board, then the thing you press,
         * then a sentence you can play without. Above the controls it would have
         * pushed the button off instead. */}
+      {!wide && p.pot && (
+        <div className="shrink-0 px-2 pt-1">
+          <RoundTally pot={p.pot} charity={p.charityName} />
+        </div>
+      )}
       {!wide && <div className="shrink-0 pt-1">{hintLine}</div>}
     </div>
   );

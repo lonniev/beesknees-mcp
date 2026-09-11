@@ -20,13 +20,21 @@ globalThis.cancelAnimationFrame = () => {};
 // Deliberately content, not a class name: a wrapper div renders whether or not
 // the thing inside it does.
 const ROUTES = [
+  // `/` is the chooser now — the bare domain opens on the game. Both doors
+  // must be on it, and so must the sentence that says what the site is.
+  //
+  // The apostrophe is spelled both ways because this is SERVER-rendered
+  // markup: React escapes it to `&#x27;`, so a pattern carrying a literal `'`
+  // matches nothing on a page that rendered perfectly. The /signin probe below
+  // hit the same wall first.
+  ["/", /Welcome to The Bee(&#x27;|')s Knees game[\s\S]*Practice[\s\S]*real game/],
+  // Still routed under its own name, because it is in the sitemap, in llms.txt
+  // and in links already sent.
+  ["/play", /Practice[\s\S]*real game/],
   // The welcome page must SAY what this is, not merely be titled. It opened
   // with "A race to the queen", which tells a first-time visitor nothing —
   // matching only the name would have let that back in without a murmur.
-  ["/", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
-  // /play is a CHOICE now, not a board: practice against bots, or the real
-  // game if you are signed in with sats. Both doors must be on the page.
-  ["/play", /Practice[\s\S]*real game/],
+  ["/why", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
   ["/ledger", /Pollinator|ledger|Ledger/i],
   ["/about", /./],
   ["/signin", /Sign in to The Bee(&#x27;|')s Knees/],

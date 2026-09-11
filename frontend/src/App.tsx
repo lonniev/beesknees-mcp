@@ -40,12 +40,20 @@ const MD = {
 
 /// Left to right, and the question marks are the point: three of these ASK
 /// something and one of them tells you to go. `Play!` is the only imperative
-/// on the bar.
+/// on the bar, and it leads — a visitor who came to play should not have to
+/// cross three questions to reach the game. It is also what `/` serves, so the
+/// first tab and the bare domain are the same door.
+///
+/// The Why page moved to its own path when Play took the root. It needed one
+/// anyway: a fetcher gets no fragment and follows no link it has not seen, so
+/// the pollinator argument has to live at a URL that can be listed in
+/// `sitemap.xml` and named in `llms.txt` rather than only at whatever `/`
+/// happens to render this week.
 const TABS = [
-  { to: "/", label: "Why?", icon: MD.why },
+  { to: "/", label: "Play!", icon: MD.play },
+  { to: "/why", label: "Why?", icon: MD.why },
   { to: "/about", label: "About?", icon: MD.about },
   { to: "/ledger", label: "Ledger", icon: MD.ledger },
-  { to: "/play", label: "Play!", icon: MD.play },
 ];
 
 function Glyph({ d }: { d: string }) {
@@ -69,11 +77,11 @@ export default function App() {
   // like it wants scenery without any. The page mounts its own while it is a
   // chooser, which is the component that actually knows; here the route stays
   // out of it so the two cannot both mount and double the bees.
-  const onBoard = path.startsWith("/play");
+  const onBoard = path === "/" || path.startsWith("/play");
   /// The long reads. They get ground at the FOOT rather than pinned to the
   /// viewport — see `Meadowscape`'s note on the difference, and on why a hill
   /// under three screens of prose about colony loss argues with the argument.
-  const reading = ["/", "/about", "/ledger"].includes(path);
+  const reading = ["/why", "/about", "/ledger"].includes(path);
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
   const { isOperator } = useOperator(session.npub, session.signedIn);
@@ -156,8 +164,13 @@ export default function App() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Routes>
-          <Route path="/" element={<Welcome />} />
+          <Route path="/" element={<Play />} />
+          {/* Kept alongside `/`, not replaced by it. It is in `sitemap.xml`,
+            * in `llms.txt` and in links people have already sent each other;
+            * a route that used to work and quietly stops is worse than one
+            * more line. */}
           <Route path="/play" element={<Play />} />
+          <Route path="/why" element={<Welcome />} />
           <Route path="/ledger" element={<Ledger />} />
           <Route path="/about" element={<About />} />
           <Route path="/signin" element={<SignIn session={session} />} />
@@ -166,7 +179,10 @@ export default function App() {
             * service gates it again — a route that only exists for some people
             * is a route that 404s confusingly for the rest. */}
           <Route path="/operator" element={<Operator session={session} />} />
-          <Route path="*" element={<Welcome />} />
+          {/* An unknown path lands on the game, which is also what the SPA
+            * fallback serves — so the page a stranger gets is the same one the
+            * bare domain gets. */}
+          <Route path="*" element={<Play />} />
         </Routes>
 
         {/* Inside the scroller, after the page. Mounted here rather than by

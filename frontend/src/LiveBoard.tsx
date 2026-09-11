@@ -277,6 +277,8 @@ export default function LiveBoard({ session }: { session: Session }) {
       ]}
       verb={verb}
       onVerb={(v) => setVerb(v as "move" | "seal")}
+      pot={live.pot ?? null}
+      charityName={who?.name}
       prompt={
         !ready && left > 0 ? (
           <span className="text-[var(--color-you-ink)]">
