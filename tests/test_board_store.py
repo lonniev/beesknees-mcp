@@ -113,12 +113,18 @@ class FakeVault:
             return {"rows": [], "rowCount": 0}
 
         if s.startswith(f"INSERT INTO {store.MATCHES}"):
+            # ON CONFLICT DO NOTHING, honoured. A round's id is now its NAME,
+            # drawn from half a million rather than from 2**72, so "that one is
+            # taken" is a case the store handles and a fake that always claimed
+            # to have inserted would hide the handling of it.
+            if p[0] in self.matches:
+                return {"rows": [], "rowCount": 0}
             self.matches[p[0]] = {"match_id": p[0], "state": "forming", "seq": 0,
                                   "quorum_at": None, "started_at": None,
                                   "seed": p[1] if len(p) > 1 else 0,
                                   "board": p[2] if len(p) > 2 else "",
                                   "winner_npub": None, "winner_hive": None}
-            return {"rows": [], "rowCount": 1}
+            return {"rows": [{"match_id": p[0]}], "rowCount": 1}
 
         # Every match row carries `pot_sats`, because the real ones do — it is a
         # scalar subquery over the fares, so a fake that merely TOLERATED the
@@ -650,6 +656,42 @@ async def test_sealing_reopens_the_comb(vault):
     out = await store.seal(mid, "npubA", target)
     assert out["sealed"]
     assert (mid, 0, target) not in vault.cells, "sealing must actually close the cell"
+
+
+# ── What a round is called ───────────────────────────────────────────────
+
+
+async def test_a_round_is_named_in_three_words(vault):
+    """The id is the name, and the name is what the ledger prints."""
+    mid = await store.open_match()
+    parts = mid.split("-")
+    assert len(parts) == 3, f"{mid!r} is not three words"
+    assert all(w.isalpha() for w in parts), f"{mid!r} is not readable out loud"
+
+
+async def test_a_name_already_taken_is_drawn_again(vault, monkeypatch):
+    """Half a million names is not so many that two rounds cannot collide.
+
+    The store must BELIEVE the losing insert. If it returned the name it drew
+    without checking, the second round here would seed its mouths into the
+    first one's board and both would be played as one.
+    """
+    taken = await store.open_match()
+    drawn = iter([taken, taken, "clever-wren-wins"])
+    monkeypatch.setattr(store, "new_match_id", lambda: next(drawn))
+
+    mid = await store.open_match()
+
+    assert mid == "clever-wren-wins"
+    assert len(vault.matches) == 2, "the loser must not have overwritten the winner"
+
+
+async def test_a_name_that_never_comes_free_is_an_error_not_a_duplicate(vault, monkeypatch):
+    taken = await store.open_match()
+    monkeypatch.setattr(store, "new_match_id", lambda: taken)
+    with pytest.raises(store.BoardError):
+        await store.open_match()
+    assert len(vault.matches) == 1
 
 
 # ── Seats and the pot ────────────────────────────────────────────────────

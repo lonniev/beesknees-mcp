@@ -132,7 +132,13 @@ export default function Ledger() {
               <tbody className="divide-y divide-ink/10">
                 {data.settlements.map((s) => (
                   <tr key={s.match_id}>
-                    <td className="py-2 pr-4 font-mono text-[11px] text-ink/70">{s.match_id}</td>
+                    {/* A round is NAMED, not numbered — `swift-otter-digs`,
+                      * the way a shortlink is. That is the whole id, so it is
+                      * still the string a tool call takes; it is just set in
+                      * the page's own face now, because the reason for a
+                      * monospaced column was that the old ids were unreadable
+                      * runs of characters somebody had to compare by eye. */}
+                    <td className="py-2 pr-4 text-ink/80">{s.match_id}</td>
                     <Sats n={s.pot_sats} rate={rate} />
                     <Sats n={s.charity_sats} rate={rate} tone="text-[var(--color-wax-ink)]" />
                     <Sats n={s.winner_sats} rate={rate} />

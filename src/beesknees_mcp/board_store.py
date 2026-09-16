@@ -32,6 +32,7 @@ import secrets
 from typing import Any
 
 from beesknees_mcp import geometry as geo
+from beesknees_mcp import naming
 
 logger = logging.getLogger(__name__)
 
@@ -378,18 +379,42 @@ def _count(result: dict[str, Any]) -> int:
 
 
 def new_match_id() -> str:
-    return secrets.token_urlsafe(9)
+    """A round's id is its NAME — three words, like a shortlink's slug.
+
+    See `naming`: half a million names is plenty for something nobody has to
+    keep secret, and far too few to insert and walk away from, which is why
+    `open_match` below picks again when one is taken.
+    """
+    return naming.round_name()
+
+
+#: How many names to try before giving up. Two is already the unlucky case at
+#: any plausible number of rounds; five says the store is not the thing that
+#: broke.
+_NAME_TRIES = 5
 
 
 async def open_match() -> str:
-    """Start a match forming, with the seed and the board that shape its hives."""
-    mid = new_match_id()
-    seed = secrets.randbelow(2**31)
-    await _exec(
-        f"INSERT INTO {MATCHES} (match_id, state, seed, board) VALUES ($1, 'forming', $2, $3)",
-        [mid, seed, geo.board_fingerprint()],
-    )
-    return mid
+    """Start a match forming, with the seed and the board that shape its hives.
+
+    The insert is fenced on the name being free and reports whether it landed,
+    for the same reason every other write in this module is: a losing write
+    must be believed. Two workers reaching `ensure_forming` in the same second
+    can draw the same name, and the one that lost would otherwise seed mouths
+    into somebody else's match.
+    """
+    for _ in range(_NAME_TRIES):
+        mid = new_match_id()
+        got = await _exec(
+            f"INSERT INTO {MATCHES} (match_id, state, seed, board) "
+            "VALUES ($1, 'forming', $2, $3) "
+            "ON CONFLICT (match_id) DO NOTHING RETURNING match_id",
+            [mid, secrets.randbelow(2**31), geo.board_fingerprint()],
+        )
+        if _count(got):
+            return mid
+        logger.info("match name %s was already taken; drawing another", mid)
+    raise BoardError("could not find an unused name for a new match")
 
 
 async def retire_stale_boards() -> dict[str, int]:
