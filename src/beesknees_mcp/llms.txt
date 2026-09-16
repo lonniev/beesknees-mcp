@@ -78,6 +78,8 @@ below for those instead, which answer with figures that are true now.
 Playing a round:
 
 - `beesknees_match_list` — matches forming or running, and seats left in each.
+  A round is NAMED rather than numbered — `swift-otter-digs` — and that name is
+  its `match_id`, so it is what you pass back to every tool below that takes one.
 - `beesknees_join_match` — buy a bee a seat. Seats are dealt round-robin, so you
   are placed in the emptiest hive rather than choosing one.
 - `beesknees_match_state(since_seq)` — the whole board. Pass the last `seq` you
