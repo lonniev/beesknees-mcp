@@ -12,7 +12,7 @@ import {
   setStoredProof,
   type RecentLogin,
 } from "../lib/mcp";
-import { setSessionNsec } from "../lib/sessionNsec";
+import { setSessionNsec } from "@tollbooth-dpyc/web";
 import { readSignInFailure } from "../lib/signInSituation";
 
 // Flow mirrors optionality-mcp's NpubGate (the reference "good" npub-login):
