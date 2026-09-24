@@ -9,8 +9,8 @@
  */
 
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import Avatar from "./components/Avatar.tsx";
-import { avatarFor } from "./lib/avatar";
+import { Avatar } from "@tollbooth-dpyc/web/react";
+import { avatarFor } from "@tollbooth-dpyc/web";
 import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useSession } from "./lib/session.ts";

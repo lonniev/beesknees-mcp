@@ -17,7 +17,7 @@ import { LINK } from "../lib/ink";
 import { ExternalLink, HeartHandshake, Loader2 } from "lucide-react";
 import { payout, setPayout } from "../lib/mcp";
 import { useCharity } from "./CharityNote";
-import { fetchProfile } from "../lib/nostrProfile";
+import { fetchProfile } from "@tollbooth-dpyc/web";
 
 const field =
   "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm placeholder:text-ink/50 focus:border-amber-400 focus:outline-none";

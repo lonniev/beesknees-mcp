@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LogOut, RefreshCw, Zap } from "lucide-react";
-import NostrProfilePanel from "../components/NostrProfilePanel.tsx";
+import { NostrProfilePanel, SessionKeyClaim } from "@tollbooth-dpyc/web/react";
 import Winnings from "../components/Winnings.tsx";
 import { checkBalance, checkPayment, purchaseCredits } from "../lib/mcp";
 import type { Session } from "../lib/session.ts";
@@ -119,6 +119,9 @@ export default function Profile({ session }: { session: Session }) {
         * you can copy, so the page keeps only what the panel has no business
         * knowing: how this session is signing, and how to end it. */}
       <NostrProfilePanel npub={session.npub} />
+      {/* Browser-held session nsec only — silent when NIP-07 / courier.
+          Keyed by npub so a revealed key never carries across a sign-in. */}
+      <SessionKeyClaim key={session.npub} npub={session.npub} />
 
       <section className="rounded-xl border border-ink/14 p-4">
         <div className="flex items-center justify-between">

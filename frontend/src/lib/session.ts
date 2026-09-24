@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { currentClaim, onProofExpired, setStoredNpub, setStoredProof } from "./mcp";
 import { canSignFor, isProven } from "./signedIn";
-import { clearSessionNsec } from "./sessionNsec";
+import { clearSessionNsec } from "@tollbooth-dpyc/web";
 
 export interface Session {
   npub: string;

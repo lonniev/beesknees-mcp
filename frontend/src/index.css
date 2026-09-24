@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@tollbooth-dpyc/web/theme.css";
+@source "../node_modules/@tollbooth-dpyc/web/dist";
 
 /* This app is LIGHT. Not "light if your laptop is".
  *
@@ -91,6 +93,29 @@
 
 :root {
   color-scheme: light;
+}
+
+/* The shared account pieces from @tollbooth-dpyc/web, in the frame's own
+   colours: cards on the lavender sky with the page's ink ladder, and your lime
+   on the one button that acts. Written twice over so the package's dark-mode
+   block, which keys on `:root:not([data-theme="light"])`, never wins — this
+   app is light whatever the device says (see the top of this file). */
+:root,
+:root:not([data-theme="light"]) {
+  --tb-accent: var(--color-you);
+  --tb-on-accent: black;
+  --tb-surface: var(--color-sky);
+  --tb-surface-2: color-mix(in srgb, var(--color-ink) 7%, var(--color-sky));
+  --tb-ink: var(--color-ink);
+  --tb-muted: color-mix(in srgb, var(--color-ink) 65%, var(--color-sky));
+  --tb-line: color-mix(in srgb, var(--color-ink) 14%, var(--color-sky));
+  --tb-ok: var(--color-you-ink);
+  --tb-warn-bg: var(--color-sky);
+  --tb-warn-line: var(--color-wax);
+  --tb-warn-ink: var(--color-wax-ink);
+  --tb-err-bg: var(--color-sky);
+  --tb-err-line: var(--color-hot);
+  --tb-err-ink: var(--color-hot-ink);
 }
 
 html,
