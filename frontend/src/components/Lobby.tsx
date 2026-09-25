@@ -338,7 +338,7 @@ export default function Lobby({
         * controls, and a bare number counting to eight is a frozen "Loading…"
         * wearing a different hat. This game also asks people to spend money on
         * pollinators, and this minute is the one they are certain to read. */}
-      <QuoteScroller quotes={QUOTES} intervalMs={7000} className="pt-1" />
+      <QuoteScroller quotes={QUOTES} intervalMs={7000} className="quote-scroller pt-1" />
 
       {/* Somewhere to go, for the one screen where a visitor has nothing to do
         * and is certain to read something. */}

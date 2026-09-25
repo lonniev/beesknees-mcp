@@ -118,6 +118,13 @@
   --tb-err-ink: var(--color-hot-ink);
 }
 
+/* Bee poetry is set quieter than the account pieces: wax marks (lime vanishes
+   on the meadow it sits over) and the text a step back from full ink. */
+.quote-scroller {
+  --tb-accent: var(--color-wax-ink);
+  --tb-ink: color-mix(in srgb, var(--color-ink) 80%, transparent);
+}
+
 html,
 body,
 #root {
