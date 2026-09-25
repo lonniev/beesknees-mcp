@@ -30,6 +30,7 @@ import type { LiveState } from "../lib/useLiveMatch.ts";
 import type { Session } from "../lib/session.ts";
 import { QuoteScroller } from "@tollbooth-dpyc/web/react";
 import { QUOTES } from "../lib/quotes.ts";
+import { quoteStyles } from "../lib/quoteStyles.ts";
 
 /** Mirrors board_store.QUORUM — bees in ONE hive, which is what starts a match.
  *
@@ -338,7 +339,7 @@ export default function Lobby({
         * controls, and a bare number counting to eight is a frozen "Loading…"
         * wearing a different hat. This game also asks people to spend money on
         * pollinators, and this minute is the one they are certain to read. */}
-      <QuoteScroller quotes={QUOTES} intervalMs={7000} className="pt-1" />
+      <QuoteScroller quotes={QUOTES} intervalMs={7000} classNames={quoteStyles} />
 
       {/* Somewhere to go, for the one screen where a visitor has nothing to do
         * and is certain to read something. */}
