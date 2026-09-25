@@ -26,8 +26,8 @@ import SoloBoard from "../SoloBoard.tsx";
 import FirstTime from "../components/FirstTime.tsx";
 import { PageBees } from "../components/Meadow.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
-import { checkBalance } from "../lib/mcp";
-import { useSession } from "../lib/session.ts";
+import { checkBalance } from "@tollbooth-dpyc/web";
+import { useSession } from "@tollbooth-dpyc/web/react";
 
 type Mode = "choosing" | "solo" | "live";
 

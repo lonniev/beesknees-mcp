@@ -7,6 +7,7 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
+import "../src/tollbooth.ts";
 import App from "../src/App.tsx";
 
 export function renderRoute(path: string): string {

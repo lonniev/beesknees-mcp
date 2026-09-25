@@ -27,7 +27,7 @@ import { HIVE_NAMES } from "../game/match.ts";
 import FirstTime from "./FirstTime.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
-import type { Session } from "../lib/session.ts";
+import type { Session } from "@tollbooth-dpyc/web/react";
 import { QuoteScroller } from "@tollbooth-dpyc/web/react";
 import { QUOTES } from "../lib/quotes.ts";
 import { quoteStyles } from "../lib/quoteStyles.ts";

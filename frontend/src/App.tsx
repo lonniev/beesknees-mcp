@@ -9,11 +9,10 @@
  */
 
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { Avatar } from "@tollbooth-dpyc/web/react";
+import { Avatar, useSession } from "@tollbooth-dpyc/web/react";
 import { avatarFor } from "@tollbooth-dpyc/web";
 import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
-import { useSession } from "./lib/session.ts";
 import { useOperator } from "./lib/useOperator";
 import About from "./pages/About.tsx";
 import Ledger from "./pages/Ledger.tsx";
@@ -146,7 +145,7 @@ export default function App() {
           <NavLink to="/signin" className="font-semibold underline">
             Sign in
           </NavLink>
-          <button onClick={session.dismissNotice} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
+          <button onClick={session.refresh} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
             Dismiss
           </button>
         </div>

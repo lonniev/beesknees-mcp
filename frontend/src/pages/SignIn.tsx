@@ -14,8 +14,7 @@
 
 import { useLocation, useNavigate } from "react-router-dom";
 import Meadowscape from "../components/Meadowscape.tsx";
-import NpubGate from "../components/NpubGate.tsx";
-import type { Session } from "../lib/session.ts";
+import { NpubGate, type Session } from "@tollbooth-dpyc/web/react";
 
 export default function SignIn({ session }: { session: Session }) {
   const nav = useNavigate();

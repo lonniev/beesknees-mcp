@@ -37,7 +37,9 @@ const ROUTES = [
   ["/why", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
   ["/ledger", /Pollinator|ledger|Ledger/i],
   ["/about", /./],
-  ["/signin", /Sign in to The Bee(&#x27;|')s Knees/],
+  // The gate is the package's and its heading interpolates the app name, which
+  // React's server render joins with an empty comment: "Sign in to <!-- -->The…".
+  ["/signin", /Sign in to (<!-- -->)?The Bee(&#x27;|')s Knees/],
   // The operator console. Server-rendered with nobody signed in, so what must
   // appear is the REFUSAL — proof that the gate is drawn before the page is.
   ["/operator", /belongs to whoever runs the hive|Asking the hive/],

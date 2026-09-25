@@ -14,10 +14,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LogOut, RefreshCw, Zap } from "lucide-react";
-import { NostrProfilePanel, SessionKeyClaim } from "@tollbooth-dpyc/web/react";
+import { NostrProfilePanel, SessionKeyClaim, type Session } from "@tollbooth-dpyc/web/react";
+import { checkBalance, checkPayment, purchaseCredits } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
-import { checkBalance, checkPayment, purchaseCredits } from "../lib/mcp";
-import type { Session } from "../lib/session.ts";
 
 /** A dash, not a zero. See the note at the top of this file. */
 function sats(n: number | null): string {
