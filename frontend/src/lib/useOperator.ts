@@ -43,7 +43,7 @@ export function useOperator(npub: string, signedIn: boolean): OperatorStanding {
 
   useEffect(() => {
     let alive = true;
-    listCanonicalIdentities()
+    listCanonicalIdentities({ bestEffort: true })
       .then((r) => alive && setOperatorNpub(r?.operator_npub ?? ""))
       .catch(() => alive && setOperatorNpub(""))
       .finally(() => alive && setKnown(true));
