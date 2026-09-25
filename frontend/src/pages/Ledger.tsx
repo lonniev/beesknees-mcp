@@ -13,7 +13,8 @@
 import { useState } from "react";
 import { LINK } from "../lib/ink";
 import { ExternalLink } from "lucide-react";
-import { PageControls, SortHeader, TableShell } from "@tollbooth-dpyc/web/react";
+import { PageControls, SortHeader, TableShell, useTimezone } from "@tollbooth-dpyc/web/react";
+import { formatDateTime } from "@tollbooth-dpyc/web";
 import { sats } from "../lib/figures";
 import { useBtcUsd, usd } from "../lib/btcUsd";
 import type { LedgerSort } from "../lib/mcp";
@@ -37,14 +38,15 @@ const COLUMNS: { key: LedgerSort; label: string; right?: boolean }[] = [
  *
  * The date alone put every match on a day and no closer, which is no use on a
  * page whose whole job is to be checkable against somebody else's records —
- * several rounds settle in an hour. Rendered in the READER's timezone, because
- * the question a reader has is when it happened to them.
+ * several rounds settle in an hour. Rendered in the reader's chosen time zone
+ * (Profile → Time zone, automatic by default), because the question a reader
+ * has is when it happened to them. The server writes UTC, sometimes without
+ * the Z; it is added so the moment is never read as the browser's wall time.
  */
-function when(iso: string | undefined): string {
+function when(iso: string | undefined, zone: string): string {
   if (!iso) return "—";
-  const t = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`);
-  if (Number.isNaN(t.getTime())) return iso.slice(0, 16).replace("T", " ");
-  return t.toLocaleString(undefined, {
+  const utc = iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`;
+  return formatDateTime(utc, zone, {
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit",
   });
@@ -56,6 +58,7 @@ export default function Ledger() {
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const { data, failed } = useSettlements(page, PAGE, sort, dir);
   const rate = useBtcUsd();
+  const [, zone] = useTimezone();
 
   const total = data?.total ?? 0;
 
@@ -130,7 +133,7 @@ export default function Ledger() {
                   <Sats n={s.pot_sats} rate={rate} />
                   <Sats n={s.charity_sats} rate={rate} tone="text-[var(--color-wax-ink)]" />
                   <Sats n={s.winner_sats} rate={rate} />
-                  <td className="py-2 whitespace-nowrap text-ink/65">{when(s.created_at)}</td>
+                  <td className="py-2 whitespace-nowrap text-ink/65">{when(s.created_at, zone)}</td>
                 </tr>
               ))}
             </tbody>
