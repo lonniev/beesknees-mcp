@@ -12,7 +12,8 @@
 
 import { useState } from "react";
 import { LINK } from "../lib/ink";
-import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { PageControls, SortHeader, TableShell } from "@tollbooth-dpyc/web/react";
 import { sats } from "../lib/figures";
 import { useBtcUsd, usd } from "../lib/btcUsd";
 import type { LedgerSort } from "../lib/mcp";
@@ -57,17 +58,11 @@ export default function Ledger() {
   const rate = useBtcUsd();
 
   const total = data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE));
 
   /** A header press sorts by that column, or turns the sort it already has. */
-  function sortBy(key: LedgerSort) {
-    if (key === sort) setDir(dir === "asc" ? "desc" : "asc");
-    else {
-      setSort(key);
-      // A fresh column starts at its most useful end: newest, biggest, and A
-      // first for the one column that is a name.
-      setDir(key === "match" ? "asc" : "desc");
-    }
+  function sortBy(col: string, next: "asc" | "desc") {
+    setSort(col as LedgerSort);
+    setDir(next);
     setPage(0); // page 3 of the old order is nowhere in the new one
   }
 
@@ -92,84 +87,67 @@ export default function Ledger() {
 
       <div className="mt-9 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-sm font-semibold text-ink/90">Every settled match</h2>
-        {total > 0 && (
-          <span className="text-xs text-ink/65">
-            {sats(total)} settled · page {page + 1} of {pages}
-          </span>
-        )}
+        {total > 0 && <span className="text-xs text-ink/65">{sats(total)} settled</span>}
       </div>
 
       {data?.settlements?.length ? (
         <>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
-              <thead className="text-ink/65">
-                <tr>
-                  {COLUMNS.map((c) => (
-                    <th
-                      key={c.key}
-                      className={`py-2 font-normal ${c.right ? "text-right" : ""} ${
-                        c.key === "settled" ? "" : "pr-4"
-                      }`}
-                    >
-                      {/* The whole heading is the control. A tiny arrow beside a
-                        * word is a target nobody can hit on a phone. */}
-                      <button
-                        onClick={() => sortBy(c.key)}
-                        aria-sort={sort === c.key ? (dir === "asc" ? "ascending" : "descending") : "none"}
-                        className={`inline-flex items-center gap-1 rounded px-1 -mx-1 hover:text-ink/90 ${
-                          sort === c.key ? "text-ink/90" : ""
-                        }`}
-                      >
-                        {c.label}
-                        {sort === c.key &&
-                          (dir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {data.settlements.map((s) => (
-                  <tr key={s.match_id}>
-                    {/* A round is NAMED, not numbered — `swift-otter-digs`,
-                      * the way a shortlink is. That is the whole id, so it is
-                      * still the string a tool call takes; it is just set in
-                      * the page's own face now, because the reason for a
-                      * monospaced column was that the old ids were unreadable
-                      * runs of characters somebody had to compare by eye. */}
-                    <td className="py-2 pr-4 text-ink/80">{s.match_id}</td>
-                    <Sats n={s.pot_sats} rate={rate} />
-                    <Sats n={s.charity_sats} rate={rate} tone="text-[var(--color-wax-ink)]" />
-                    <Sats n={s.winner_sats} rate={rate} />
-                    <td className="py-2 whitespace-nowrap text-ink/65">{when(s.created_at)}</td>
-                  </tr>
+          <TableShell classNames={{ root: "mt-3 overflow-x-auto", table: "w-full text-left text-[13px]" }}>
+            <thead className="text-ink/65">
+              <tr>
+                {COLUMNS.map((c) => (
+                  // The whole heading is the control. A tiny arrow beside a
+                  // word is a target nobody can hit on a phone. A fresh
+                  // column starts at its most useful end: newest, biggest,
+                  // and A first for the one column that is a name.
+                  <SortHeader
+                    key={c.key}
+                    label={c.label}
+                    col={c.key}
+                    activeCol={sort}
+                    dir={dir}
+                    onSort={sortBy}
+                    initialDir={c.key === "match" ? "asc" : "desc"}
+                    classNames={{
+                      cell: `py-2 font-normal ${c.right ? "text-right" : ""} ${c.key === "settled" ? "" : "pr-4"}`,
+                      button: "inline-flex items-center gap-1 rounded px-1 -mx-1 hover:text-ink/90",
+                      active: "text-ink/90",
+                    }}
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink/10">
+              {data.settlements.map((s) => (
+                <tr key={s.match_id}>
+                  {/* A round is NAMED, not numbered — `swift-otter-digs`,
+                    * the way a shortlink is. That is the whole id, so it is
+                    * still the string a tool call takes; it is just set in
+                    * the page's own face now, because the reason for a
+                    * monospaced column was that the old ids were unreadable
+                    * runs of characters somebody had to compare by eye. */}
+                  <td className="py-2 pr-4 text-ink/80">{s.match_id}</td>
+                  <Sats n={s.pot_sats} rate={rate} />
+                  <Sats n={s.charity_sats} rate={rate} tone="text-[var(--color-wax-ink)]" />
+                  <Sats n={s.winner_sats} rate={rate} />
+                  <td className="py-2 whitespace-nowrap text-ink/65">{when(s.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </TableShell>
 
-          {pages > 1 && (
-            <div className="mt-3 flex items-center justify-between gap-3 text-[13px]">
-              <button
-                onClick={() => setPage((n) => Math.max(0, n - 1))}
-                disabled={page === 0}
-                className="rounded-lg bg-ink/6 px-3 py-1.5 disabled:opacity-40"
-              >
-                Newer
-              </button>
-              <span className="text-ink/65">
-                {page * PAGE + 1}–{Math.min(total, (page + 1) * PAGE)} of {sats(total)}
-              </span>
-              <button
-                onClick={() => setPage((n) => Math.min(pages - 1, n + 1))}
-                disabled={page >= pages - 1}
-                className="rounded-lg bg-ink/6 px-3 py-1.5 disabled:opacity-40"
-              >
-                Older
-              </button>
-            </div>
-          )}
+          <PageControls
+            page={page}
+            pageSize={PAGE}
+            total={total}
+            onPage={setPage}
+            hideSinglePage
+            classNames={{
+              root: "mt-3 flex items-center justify-between gap-2 text-[13px]",
+              chip: "whitespace-nowrap rounded-lg bg-ink/6 px-2.5 py-1.5 disabled:opacity-40 sm:px-3",
+              label: "min-w-0 text-center text-ink/65",
+            }}
+          />
         </>
       ) : (
         <p className="mt-3 text-sm text-ink/65">

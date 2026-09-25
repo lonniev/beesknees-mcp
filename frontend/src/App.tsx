@@ -145,7 +145,7 @@ export default function App() {
           <NavLink to="/signin" className="font-semibold underline">
             Sign in
           </NavLink>
-          <button onClick={session.refresh} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
+          <button onClick={session.dismissNotice} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
             Dismiss
           </button>
         </div>

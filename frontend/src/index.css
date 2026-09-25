@@ -97,11 +97,13 @@
 
 /* The shared account pieces from @tollbooth-dpyc/web, in the frame's own
    colours: cards on the lavender sky with the page's ink ladder, and your lime
-   on the one button that acts. Written twice over so the package's dark-mode
-   block, which keys on `:root:not([data-theme="light"])`, never wins — this
-   app is light whatever the device says (see the top of this file). */
+   on the one button that acts. Written for each of the package's selectors —
+   `:root`, its dark-OS `:root:not([data-theme="light"])` and its explicit
+   `:root[data-theme="dark"]` — so none of its dark blocks ever wins: this app
+   is light whatever the device says (see the top of this file). */
 :root,
-:root:not([data-theme="light"]) {
+:root:not([data-theme="light"]),
+:root[data-theme="dark"] {
   --tb-accent: var(--color-you);
   --tb-on-accent: black;
   --tb-surface: var(--color-sky);
