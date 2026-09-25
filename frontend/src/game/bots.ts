@@ -22,8 +22,6 @@ import {
 } from "./rules.ts";
 
 export const STRATEGIES = ["bore", "rider", "digger", "sealer", "random"] as const;
-export type Strategy = (typeof STRATEGIES)[number];
-
 /** Cells that end the current act — what the bee is actually heading for. */
 function goals(round: Round, bee: Bee): number[] {
   const { board } = round;

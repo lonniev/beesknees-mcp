@@ -5,8 +5,9 @@
  * so the field would be prefilled next time — and the shell's `useSession`
  * read "signed in" as "we know an npub". So a person who asked for a DM and
  * did not answer it was let in anyway on the next render: not as a stranger,
- * but as themselves, unproven. `mcp.isLoggedIn()` had the right rule all along
- * and the shell simply did not call it.
+ * but as themselves, unproven. The client already held the right rule — a
+ * cached DM proof, or a session nsec whose npub matches — and the shell simply
+ * did not apply it.
  *
  * Knowing a name is not knowing it is yours. An npub is public — it is on
  * every note its owner ever wrote — so the npub alone is a claim, never a

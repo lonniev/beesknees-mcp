@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { clearSessionNsec, debugPush, hasSessionNsec, sessionNsecNpub, signInlineProof } from "@tollbooth-dpyc/web";
-import { isProven, type Claim } from "./signedIn";
+import { type Claim } from "./signedIn";
 
 const SLUG = "beesknees";
 
@@ -184,12 +184,6 @@ export function currentClaim(): Claim {
   };
 }
 
-/// "Logged in" = we have the patron's npub AND a way to prove ownership:
-/// either a cached DM proof_token, or a session nsec whose npub matches.
-export function isLoggedIn(): boolean {
-  return isProven(currentClaim());
-}
-
 /// The npub the person typed last, remembered ONLY to prefill the field.
 /// Deliberately not `NPUB_STORAGE_KEY`: that one is the identity the app acts
 /// as, and writing a name there before it is proven is what let an unanswered
@@ -200,16 +194,6 @@ export function getLastTypedNpub(): string {
 
 export function setLastTypedNpub(npub: string): void {
   writeStored(LAST_TYPED_KEY, npub);
-}
-
-export function logOut(): void {
-  window.localStorage.removeItem(NPUB_STORAGE_KEY);
-  window.localStorage.removeItem(PROOF_STORAGE_KEY);
-  try {
-    clearSessionNsec();
-  } catch {
-    /* noop */
-  }
 }
 
 /// Resolve the proof for a paid call: prefer a fresh inline proof signed
@@ -525,73 +509,7 @@ export async function checkBalance(): Promise<CheckBalanceResult> {
   return callTool<CheckBalanceResult>("check_balance", {});
 }
 
-// ─── Funding / credential status probes (compose into StatusSurface) ─────────
-// All free. Patron rows use check_balance + session_status + check_proof_status.
-// Operator rows use service_status + check_authority_balance, gated
-// client-side to the operator npub.
-
-export interface ProofStatusResult {
-  success?: boolean;
-  status?: "valid" | "expired" | "unknown" | string;
-  expires_in_seconds?: number | null;
-  message?: string;
-  error?: string;
-  error_code?: string;
-}
-
-/// Whether the cached DM proof_token is still accepted. For session-nsec logins
-/// there is nothing to check (fresh inline proof each call) — callers should
-/// skip this and treat the proof row as ok. Free; takes explicit args so the
-/// envelope is not double-injected.
-export async function checkProofStatus(
-  patronNpub: string,
-  dpopToken: string,
-): Promise<ProofStatusResult> {
-  return callTool<ProofStatusResult>(
-    "check_proof_status",
-    { patron_npub: patronNpub, dpop_token: dpopToken },
-    { bestEffort: true },
-  );
-}
-
-export interface AuthorityBalanceResult {
-  success?: boolean;
-  balance_api_sats?: number;
-  balance_sats?: number;
-  error?: string;
-  message?: string;
-}
-
-/// This operator's tax balance at the Authority (sats available to certify
-/// patron purchases). Free. Best-effort — a failure is itself a status signal.
-export async function checkAuthorityBalance(): Promise<AuthorityBalanceResult> {
-  return callTool<AuthorityBalanceResult>(
-    "check_authority_balance",
-    {},
-    { bestEffort: true },
-  );
-}
-
-export interface CheckPriceResult {
-  success: boolean;
-  tool_id?: string;
-  tool_name?: string;
-  base_cost?: number;
-  effective_cost?: number;
-  cost?: number;
-  error?: string;
-  error_code?: string;
-}
-
-export async function checkPrice(
-  toolCapability: string,
-  toolKwargs: Record<string, unknown> = {},
-): Promise<CheckPriceResult> {
-  return callTool<CheckPriceResult>("check_price", {
-    tool_id: toolCapability,
-    tool_kwargs: JSON.stringify(toolKwargs),
-  });
-}
+// ─── Funding ─────────────────────────────────────────────────────────────
 
 export interface PurchaseCreditsResult {
   success?: boolean;
@@ -624,78 +542,10 @@ export async function checkPayment(invoiceId: string): Promise<CheckPaymentResul
   return callTool<CheckPaymentResult>("check_payment", { invoice_id: invoiceId });
 }
 
-export interface AccountStatementResult {
-  success?: boolean;
-  npub?: string;
-  balance_api_sats?: number;
-  total_deposited_api_sats?: number;
-  total_consumed_api_sats?: number;
-  total_expired_api_sats?: number;
-  active_tranches?: number;
-  today_usage?: Record<string, { calls: number; api_sats: number }>;
-  error?: string;
-}
-
-export async function getAccountStatement(days = 30): Promise<AccountStatementResult> {
-  return callTool<AccountStatementResult>("account_statement", { days });
-}
-
-// ─── Coupons (wheel 0.41.0+) ─────────────────────────────────────────────
-
-export interface PatronCoupon {
-  coupon_id: string;
-  name: string;
-  discount_percent: number;
-  valid_from: string;
-  valid_until: string;
-  uses_per_patron: number | null;
-  use_count: number;
-  uses_remaining: number | null;
-  total_uses: number | null;
-  total_remaining: number | null;
-  status: string; // active | window_closed | window_not_started | patron_limit | total_limit
-}
-
-export interface ListMyCouponsResult {
-  success: boolean;
-  count: number;
-  coupons: PatronCoupon[];
-  error?: string;
-}
-
-export interface RedeemCouponResult {
-  success: boolean;
-  coupon_id?: string;
-  name?: string;
-  discount_percent?: number;
-  valid_until?: string;
-  uses_remaining?: number | null;
-  uses_per_patron?: number | null;
-  error?: string;
-}
-
-export interface ForgetCouponResult {
-  success: boolean;
-  coupon_id?: string;
-  error?: string;
-}
-
-export async function listMyCoupons(): Promise<ListMyCouponsResult> {
-  return callTool<ListMyCouponsResult>("list_my_coupons", {});
-}
-
-export async function redeemCoupon(code: string): Promise<RedeemCouponResult> {
-  return callTool<RedeemCouponResult>("redeem_coupon", { code });
-}
-
-export async function forgetCoupon(couponId: string): Promise<ForgetCouponResult> {
-  return callTool<ForgetCouponResult>("forget_coupon", { coupon_id: couponId });
-}
-
 // ─── The Bee's Knees ─────────────────────────────────────────────────────
 //
 // The board is the SERVER's. Nothing below simulates anything — these are the
-// eleven ways a browser can ask the hive a question or tell it about a move.
+// ways a browser can ask the hive a question or tell it about a move.
 
 export interface LiveBee {
   hive: number;
@@ -736,25 +586,6 @@ export interface MatchState {
   seats: number;
   bees: LiveBee[];
   open_cells: { hive: number; cell: number }[];
-}
-
-/**
- * The live board.
- *
- * `bestEffort` matters more here than anywhere else in the app: this runs on a
- * loop for the whole match, and a single blip that bounced the proof would log
- * the player out mid-race. A diagnostic must never be able to do that.
- */
-export async function matchState(sinceSeq = -1): Promise<MatchState> {
-  return callTool<MatchState>("match_state", { since_seq: sinceSeq }, { bestEffort: true });
-}
-
-export async function myBee(): Promise<Record<string, unknown>> {
-  return callTool("my_bee", {}, { bestEffort: true });
-}
-
-export async function matchList(): Promise<Record<string, unknown>> {
-  return callTool("match_list", {}, { bestEffort: true });
 }
 
 export async function joinMatch(label: string): Promise<Record<string, unknown>> {

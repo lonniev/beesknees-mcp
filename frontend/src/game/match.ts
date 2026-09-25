@@ -174,10 +174,6 @@ export function quorumReached(match: Match): boolean {
   return match.hives.some((h) => h.seats.length >= QUORUM);
 }
 
-export function totalSeated(match: Match): number {
-  return match.hives.reduce((a, h) => a + h.seats.length, 0);
-}
-
 export function start(match: Match): void {
   if (match.state === "forming" && quorumReached(match)) match.state = "running";
 }
