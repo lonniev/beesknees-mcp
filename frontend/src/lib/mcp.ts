@@ -316,9 +316,6 @@ const BOOTSTRAP_TOOLS = new Set([
 const QUIET_TOOLS = new Set([
   "service_status",
   "get_nostr_profile",
-  "get_scheduler_log",
-  // Background personalization hydration (the editor's @handle) — not noteworthy.
-  "get_x_profile",
 ]);
 
 /**
@@ -578,9 +575,8 @@ export interface OperatorOnboardingResult {
   error?: string;
 }
 
-/// Operator credential readiness (BTCPay / X app / llm_api_key present-or-not).
-/// Free, no proof. A non-operator still gets the structural answer; the FE hides
-/// the panel unless the viewer is the operator npub.
+/// Operator credential readiness (BTCPay present-or-not). Free, no proof. A
+/// non-operator still gets the structural answer.
 export async function getOperatorOnboardingStatus(): Promise<OperatorOnboardingResult> {
   return callTool<OperatorOnboardingResult>(
     "get_operator_onboarding_status",
@@ -616,7 +612,8 @@ export interface SessionLifecycleResult {
 }
 
 /// Operator lifecycle (ready / warming_up / misconfigured / quota_exceeded / …).
-/// Free. Optional patron_npub also yields upstream_oauth (used by getXConnection).
+/// Free. Optional patron_npub adds the SDK's upstream_oauth block, unused here
+/// (beesknees has no upstream OAuth).
 export async function getSessionLifecycle(
   patronNpub?: string,
 ): Promise<SessionLifecycleResult> {
