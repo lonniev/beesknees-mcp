@@ -7,15 +7,13 @@
  * minute before their first round is the one minute they are certain to read.
  *
  * Real, attributed, and out of copyright or short enough to quote. Inlined so
- * the lobby can never fail on a network hiccup, exactly as cypher's does.
+ * the lobby can never fail on a network hiccup. The scroller that shows them
+ * is @tollbooth-dpyc/web's.
  */
 
-export interface Quote {
-  text: string;
-  author: string;
-}
+import type { Quote } from "@tollbooth-dpyc/web";
 
-export const QUOTES: Quote[] = [
+export const QUOTES: ReadonlyArray<Quote> = [
   // ── The hive as a world ──
   { text: "How doth the little busy bee improve each shining hour, and gather honey all the day from every opening flower.", author: "Isaac Watts, 1715" },
   { text: "The pedigree of honey does not concern the bee; a clover, any time, to him is aristocracy.", author: "Emily Dickinson" },
