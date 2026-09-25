@@ -311,20 +311,14 @@ const BOOTSTRAP_TOOLS = new Set([
 ]);
 
 /// Tools too noisy/background to clutter the debug log (polled liveness +
-/// profile hydration). Everything else — posting, OAuth, posts, snippets,
-/// credits — is logged so the panel shows what the FE is actually doing.
+/// profile hydration). Everything else is logged so the log shows what the FE
+/// is actually doing.
 const QUIET_TOOLS = new Set([
   "service_status",
   "get_nostr_profile",
-  // The scheduler-log poll feeds the debug panel its own synthesized entries;
-  // logging the poll call itself would just be noise.
   "get_scheduler_log",
   // Background personalization hydration (the editor's @handle) — not noteworthy.
   "get_x_profile",
-  // NOTE: `fetch_dynamic_block` (the claim-check poll for a resolving dynamic
-  // block) is intentionally NOT quiet. Each poll's status (pending → done/error)
-  // must be visible in the debug panel — otherwise a resolve looks like it never
-  // calls back, and a silent poll failure (e.g. a proof bounce) is undiagnosable.
 ]);
 
 /**
@@ -537,8 +531,7 @@ export async function checkBalance(): Promise<CheckBalanceResult> {
 // ─── Funding / credential status probes (compose into StatusSurface) ─────────
 // All free. Patron rows use check_balance + session_status + check_proof_status.
 // Operator rows use service_status + get_operator_onboarding_status +
-// check_authority_balance, gated client-side to the operator npub the same way
-// scheduler_pending is (getSchedulerStatus().operator_npub === stored npub).
+// check_authority_balance, gated client-side to the operator npub.
 
 export interface ProofStatusResult {
   success?: boolean;
