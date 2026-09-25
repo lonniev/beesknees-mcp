@@ -17,9 +17,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import { clearSessionNsec, hasSessionNsec, sessionNsecNpub, signInlineProof } from "@tollbooth-dpyc/web";
+import { clearSessionNsec, debugPush, hasSessionNsec, sessionNsecNpub, signInlineProof } from "@tollbooth-dpyc/web";
 import { isProven, type Claim } from "./signedIn";
-import { debugPush } from "./debugLog";
 
 const SLUG = "beesknees";
 
