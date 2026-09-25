@@ -527,8 +527,8 @@ export async function checkBalance(): Promise<CheckBalanceResult> {
 
 // ─── Funding / credential status probes (compose into StatusSurface) ─────────
 // All free. Patron rows use check_balance + session_status + check_proof_status.
-// Operator rows use service_status + get_operator_onboarding_status +
-// check_authority_balance, gated client-side to the operator npub.
+// Operator rows use service_status + check_authority_balance, gated
+// client-side to the operator npub.
 
 export interface ProofStatusResult {
   success?: boolean;
@@ -554,37 +554,6 @@ export async function checkProofStatus(
   );
 }
 
-export interface OnboardingField {
-  field: string;
-  category?: string;
-  status?: string;
-  lifecycle?: string;
-  how?: string;
-}
-
-export interface OperatorOnboardingResult {
-  ready?: boolean;
-  configured?: OnboardingField[];
-  missing?: OnboardingField[];
-  optional_missing?: OnboardingField[];
-  summary?: string;
-  bootstrap_error?: string;
-  vault_ok?: boolean;
-  credential_service?: string;
-  operator_name?: string;
-  error?: string;
-}
-
-/// Operator credential readiness (BTCPay present-or-not). Free, no proof. A
-/// non-operator still gets the structural answer.
-export async function getOperatorOnboardingStatus(): Promise<OperatorOnboardingResult> {
-  return callTool<OperatorOnboardingResult>(
-    "get_operator_onboarding_status",
-    {},
-    { bestEffort: true },
-  );
-}
-
 export interface AuthorityBalanceResult {
   success?: boolean;
   balance_api_sats?: number;
@@ -599,27 +568,6 @@ export async function checkAuthorityBalance(): Promise<AuthorityBalanceResult> {
   return callTool<AuthorityBalanceResult>(
     "check_authority_balance",
     {},
-    { bestEffort: true },
-  );
-}
-
-export interface SessionLifecycleResult {
-  success?: boolean;
-  lifecycle?: string;
-  message?: string;
-  detail?: string;
-  operator_npub?: string;
-}
-
-/// Operator lifecycle (ready / warming_up / misconfigured / quota_exceeded / …).
-/// Free. Optional patron_npub adds the SDK's upstream_oauth block, unused here
-/// (beesknees has no upstream OAuth).
-export async function getSessionLifecycle(
-  patronNpub?: string,
-): Promise<SessionLifecycleResult> {
-  return callTool<SessionLifecycleResult>(
-    "session_status",
-    patronNpub ? { patron_npub: patronNpub } : {},
     { bestEffort: true },
   );
 }
