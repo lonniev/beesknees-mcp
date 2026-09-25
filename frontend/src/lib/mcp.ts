@@ -17,9 +17,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-import { clearSessionNsec, hasSessionNsec, sessionNsecNpub, signInlineProof } from "@tollbooth-dpyc/web";
+import { clearSessionNsec, debugPush, hasSessionNsec, sessionNsecNpub, signInlineProof } from "@tollbooth-dpyc/web";
 import { isProven, type Claim } from "./signedIn";
-import { debugPush } from "./debugLog";
 
 const SLUG = "beesknees";
 
@@ -312,20 +311,11 @@ const BOOTSTRAP_TOOLS = new Set([
 ]);
 
 /// Tools too noisy/background to clutter the debug log (polled liveness +
-/// profile hydration). Everything else — posting, OAuth, posts, snippets,
-/// credits — is logged so the panel shows what the FE is actually doing.
+/// profile hydration). Everything else is logged so the log shows what the FE
+/// is actually doing.
 const QUIET_TOOLS = new Set([
   "service_status",
   "get_nostr_profile",
-  // The scheduler-log poll feeds the debug panel its own synthesized entries;
-  // logging the poll call itself would just be noise.
-  "get_scheduler_log",
-  // Background personalization hydration (the editor's @handle) — not noteworthy.
-  "get_x_profile",
-  // NOTE: `fetch_dynamic_block` (the claim-check poll for a resolving dynamic
-  // block) is intentionally NOT quiet. Each poll's status (pending → done/error)
-  // must be visible in the debug panel — otherwise a resolve looks like it never
-  // calls back, and a silent poll failure (e.g. a proof bounce) is undiagnosable.
 ]);
 
 /**
@@ -537,9 +527,8 @@ export async function checkBalance(): Promise<CheckBalanceResult> {
 
 // ─── Funding / credential status probes (compose into StatusSurface) ─────────
 // All free. Patron rows use check_balance + session_status + check_proof_status.
-// Operator rows use service_status + get_operator_onboarding_status +
-// check_authority_balance, gated client-side to the operator npub the same way
-// scheduler_pending is (getSchedulerStatus().operator_npub === stored npub).
+// Operator rows use service_status + check_authority_balance, gated
+// client-side to the operator npub.
 
 export interface ProofStatusResult {
   success?: boolean;
@@ -565,38 +554,6 @@ export async function checkProofStatus(
   );
 }
 
-export interface OnboardingField {
-  field: string;
-  category?: string;
-  status?: string;
-  lifecycle?: string;
-  how?: string;
-}
-
-export interface OperatorOnboardingResult {
-  ready?: boolean;
-  configured?: OnboardingField[];
-  missing?: OnboardingField[];
-  optional_missing?: OnboardingField[];
-  summary?: string;
-  bootstrap_error?: string;
-  vault_ok?: boolean;
-  credential_service?: string;
-  operator_name?: string;
-  error?: string;
-}
-
-/// Operator credential readiness (BTCPay / X app / llm_api_key present-or-not).
-/// Free, no proof. A non-operator still gets the structural answer; the FE hides
-/// the panel unless the viewer is the operator npub.
-export async function getOperatorOnboardingStatus(): Promise<OperatorOnboardingResult> {
-  return callTool<OperatorOnboardingResult>(
-    "get_operator_onboarding_status",
-    {},
-    { bestEffort: true },
-  );
-}
-
 export interface AuthorityBalanceResult {
   success?: boolean;
   balance_api_sats?: number;
@@ -611,26 +568,6 @@ export async function checkAuthorityBalance(): Promise<AuthorityBalanceResult> {
   return callTool<AuthorityBalanceResult>(
     "check_authority_balance",
     {},
-    { bestEffort: true },
-  );
-}
-
-export interface SessionLifecycleResult {
-  success?: boolean;
-  lifecycle?: string;
-  message?: string;
-  detail?: string;
-  operator_npub?: string;
-}
-
-/// Operator lifecycle (ready / warming_up / misconfigured / quota_exceeded / …).
-/// Free. Optional patron_npub also yields upstream_oauth (used by getXConnection).
-export async function getSessionLifecycle(
-  patronNpub?: string,
-): Promise<SessionLifecycleResult> {
-  return callTool<SessionLifecycleResult>(
-    "session_status",
-    patronNpub ? { patron_npub: patronNpub } : {},
     { bestEffort: true },
   );
 }
