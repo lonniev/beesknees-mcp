@@ -22,9 +22,10 @@ import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
 import { COMB, DEFAULT_RULES, TICK_MS, makeGeometry, neighbors, ringOf, type Bee } from "./game/rules.ts";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import { cooldownLeft, useLiveMatch, type LiveBee } from "./lib/useLiveMatch.ts";
-import { callTool, claimPrize, dig as callDig, fly as callFly, seal as callSeal } from "./lib/mcp";
+import { callTool } from "@tollbooth-dpyc/web";
+import type { Session } from "@tollbooth-dpyc/web/react";
+import { claimPrize, dig as callDig, fly as callFly, seal as callSeal } from "./lib/mcp";
 import { useCharity } from "./components/CharityNote";
-import type { Session } from "./lib/session.ts";
 
 const G = makeGeometry();
 /** The client reasons with the same rules the server enforces. */

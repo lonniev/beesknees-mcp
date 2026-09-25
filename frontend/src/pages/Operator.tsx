@@ -28,7 +28,7 @@ import {
   type Treasury,
 } from "../lib/mcp";
 import { useOperator } from "../lib/useOperator";
-import type { Session } from "../lib/session.ts";
+import type { Session } from "@tollbooth-dpyc/web/react";
 
 const card = "rounded-xl border border-ink/14 p-4";
 const field =

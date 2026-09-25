@@ -15,7 +15,7 @@ import { annotate } from "../lib/glossary.tsx";
 import {
   BeeMark, Crawl, DoorMark, Fly, Mound, PluckedFlower, PollenFlower, QueenMark, YouMark,
 } from "../components/Marks.tsx";
-import { serviceStatus } from "../lib/mcp";
+import { serviceStatus } from "@tollbooth-dpyc/web";
 
 /** One paragraph, with the jargon in it explained. */
 function P({ text, seen, className = "" }: { text: string; seen: Set<string>; className?: string }) {
