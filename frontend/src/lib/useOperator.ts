@@ -26,7 +26,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { canonicalIdentities } from "./mcp";
+import { listCanonicalIdentities } from "@tollbooth-dpyc/web";
 
 export interface OperatorStanding {
   /** The signed-in npub matches the service's operator. */
@@ -43,7 +43,7 @@ export function useOperator(npub: string, signedIn: boolean): OperatorStanding {
 
   useEffect(() => {
     let alive = true;
-    canonicalIdentities()
+    listCanonicalIdentities()
       .then((r) => alive && setOperatorNpub(r?.operator_npub ?? ""))
       .catch(() => alive && setOperatorNpub(""))
       .finally(() => alive && setKnown(true));

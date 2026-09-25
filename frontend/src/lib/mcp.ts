@@ -187,7 +187,7 @@ export async function checkNow(): Promise<Record<string, unknown>> {
 
 // ── The operator's own console ────────────────────────────────────────────
 //
-// Every one of these except `canonicalIdentities` is `restricted`: the runtime
+// Every one of these is `restricted`: the runtime
 // proves the caller is the operator before it runs. The frontend's own gate is
 // cosmetic — it decides what to DRAW, never what is allowed — so a patron who
 // finds the route gets a page whose every button is refused by the service.
@@ -237,9 +237,4 @@ export interface CharityPayment {
 /** Pay every outstanding charity leg, in one Lightning payment. */
 export async function payCharity(): Promise<CharityPayment> {
   return callTool<CharityPayment>("pay_charity", {}, { timeoutMs: 180_000 });
-}
-
-/** Who the service believes its operator is. Free, so the gate can be drawn. */
-export async function canonicalIdentities(): Promise<{ operator_npub?: string }> {
-  return callTool("list_canonical_identities", {}, { bestEffort: true });
 }
