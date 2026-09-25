@@ -15,7 +15,9 @@ import { annotate } from "../lib/glossary.tsx";
 import {
   BeeMark, Crawl, DoorMark, Fly, Mound, PluckedFlower, PollenFlower, QueenMark, YouMark,
 } from "../components/Marks.tsx";
-import { serviceStatus } from "@tollbooth-dpyc/web";
+import { BuildInfoPanel } from "@tollbooth-dpyc/web/react";
+import { LINK } from "../lib/ink";
+import { serviceStatus, type ServiceStatus } from "@tollbooth-dpyc/web";
 
 /** One paragraph, with the jargon in it explained. */
 function P({ text, seen, className = "" }: { text: string; seen: Set<string>; className?: string }) {
@@ -117,7 +119,8 @@ const TECH = [
 ];
 
 export default function About() {
-  const [status, setStatus] = useState<Record<string, unknown> | null>(null);
+  // `null` until the hive answers; the panel reads "—" until then.
+  const [status, setStatus] = useState<ServiceStatus | null>(null);
   // One page, one pass: a term is marked the first time it appears and left
   // alone after that. Six dotted underlines of "MCP" reads as spam.
   const seen = new Set<string>();
@@ -125,21 +128,12 @@ export default function About() {
   useEffect(() => {
     let alive = true;
     serviceStatus()
-      .then((s) => alive && setStatus(s as Record<string, unknown>))
+      .then((s) => alive && setStatus(s))
       .catch(() => undefined);
     return () => {
       alive = false;
     };
   }, []);
-
-  const rows: [string, string][] = status
-    ? [
-        ["Service", String(status.service ?? "—")],
-        ["Version", String(status.version ?? "—")],
-        ["Tollbooth SDK", String(status.tollbooth_dpyc_version ?? "—")],
-        ["Persistence", status.vault_configured ? "configured" : "not configured"],
-      ]
-    : [];
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8 leading-relaxed">
@@ -322,18 +316,26 @@ export default function About() {
         Read from the running service rather than from the repository, so this says what is
         actually answering you.
       </p>
-      <dl className="mt-3 divide-y divide-ink/10 rounded-xl bg-ink/4 text-sm">
-        {rows.length ? (
-          rows.map(([k, v]) => (
-            <div key={k} className="flex justify-between px-4 py-2.5">
-              <dt className="text-ink/70">{k}</dt>
-              <dd className="font-mono text-[12px]">{v}</dd>
-            </div>
-          ))
-        ) : (
-          <div className="px-4 py-2.5 text-ink/65">Asking the hive…</div>
-        )}
-      </dl>
+      <BuildInfoPanel
+        status={status}
+        heading={null}
+        frontend={{ version: __APP_VERSION__, source: "https://github.com/lonniev/beesknees-mcp" }}
+        classNames={{
+          root: "mt-3 divide-y divide-ink/10 rounded-xl bg-ink/4 text-sm",
+          section: "px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink/65",
+          row: "flex justify-between gap-4 px-4 py-2.5",
+          label: "shrink-0 text-ink/70",
+          value: "min-w-0 break-words text-right font-mono text-[12px]",
+          link: LINK,
+        }}
+      >
+        <div className="flex justify-between gap-4 px-4 py-2.5">
+          <span className="shrink-0 text-ink/70">Persistence</span>
+          <span className="font-mono text-[12px]">
+            {status ? (status.vault_configured ? "configured" : "not configured") : "—"}
+          </span>
+        </div>
+      </BuildInfoPanel>
 
       <p className="mt-8 text-xs text-ink/65">
         Five hives run at once with twelve seats each, and a match begins as soon as one hive

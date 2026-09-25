@@ -14,7 +14,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LogOut, RefreshCw, Zap } from "lucide-react";
-import { NostrProfilePanel, SessionKeyClaim, useTopUp, type Session } from "@tollbooth-dpyc/web/react";
+import {
+  NostrProfilePanel, SessionKeyClaim, TimezonePicker, UsageSummary, useTopUp, type Session,
+  type UsageFigure, type UsageSummaryClassNames,
+} from "@tollbooth-dpyc/web/react";
 import { checkBalance } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
 
@@ -26,6 +29,33 @@ function sats(n: number | null): string {
 /** Top-up sizes, plainly labelled. The operator sets prices; this only offers
  *  round numbers to pay in, and never guesses what a round of play will cost. */
 const TOP_UPS = [1_000, 5_000, 20_000];
+
+/** The month only: the balance has its own card above, and lifetime totals
+ *  under a "Last 30 days" heading would read as the month's. */
+const MONTH: readonly UsageFigure[] = ["spent", "calls", "credited"];
+
+/** The page's card, chip and ink ladder — the package draws, the hive dresses. */
+const MONTH_LOOK: UsageSummaryClassNames = {
+  root: "rounded-xl border border-ink/14 p-4",
+  header: "flex items-center justify-between",
+  heading: "text-sm text-ink/78",
+  chip: "rounded-lg border border-ink/20 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/7 disabled:opacity-40",
+  figures: "mt-3 grid grid-cols-3 gap-2",
+  figure: "rounded-lg bg-ink/4 px-2 py-2",
+  value: "text-lg font-semibold tabular-nums",
+  label: "text-[11px] text-ink/65",
+  subheading: "mt-4 text-xs font-semibold text-ink/78",
+  list: "mt-1 divide-y divide-ink/10 text-sm",
+  row: "flex items-baseline gap-2 py-1.5",
+  loading: "mt-2 text-xs text-ink/65",
+  error: "mt-2 text-xs text-ink/70",
+  empty: "mt-3 text-xs text-ink/65",
+};
+
+/** A tool's name without the service's prefix: "fly", not "beesknees_fly". */
+function toolName(tool: string): string {
+  return tool.replace(/^beesknees_/, "").replace(/_/g, " ");
+}
 
 export default function Profile({ session }: { session: Session }) {
   const [balance, setBalance] = useState<number | null>(null);
@@ -156,7 +186,37 @@ export default function Profile({ session }: { session: Session }) {
         {msg && <p className="mt-3 text-xs text-ink/78">{msg}</p>}
       </section>
 
+      <UsageSummary
+        figures={MONTH}
+        labels={{ spent: "Spent", calls: "Moves & calls", credited: "Bought" }}
+        classNames={MONTH_LOOK}
+        renderRow={(t) => (
+          <>
+            <span className="min-w-0 flex-1 truncate">{toolName(t.tool)}</span>
+            <span className="text-xs text-ink/65 tabular-nums">
+              {t.calls.toLocaleString("en-US")} {t.calls === 1 ? "call" : "calls"}
+            </span>
+            <span className="w-20 text-right tabular-nums">{sats(t.sats)} sats</span>
+          </>
+        )}
+      />
+
       <Winnings npub={session.npub} />
+
+      <section className="rounded-xl border border-ink/14 p-4">
+        <TimezonePicker
+          label="Time zone"
+          classNames={{
+            root: "flex flex-col gap-1.5",
+            label: "text-sm text-ink/78",
+            select:
+              "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm focus:border-[var(--color-you-ink)] focus:outline-none",
+          }}
+        />
+        <p className="mt-2 text-xs text-ink/65">
+          The times on the Ledger read in this zone.
+        </p>
+      </section>
 
       <div className="flex items-center gap-3 px-1 pb-2">
         <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
