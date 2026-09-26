@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { HeartHandshake, Loader2, RefreshCw, Send, Trophy, Wallet } from "lucide-react";
+import { HeartHandshake, Loader2, Send, Trophy, Wallet } from "lucide-react";
 import {
   payCharity,
   setCharity,
@@ -28,7 +28,7 @@ import {
   type Treasury,
 } from "../lib/mcp";
 import { useOperator } from "../lib/useOperator";
-import type { Session } from "@tollbooth-dpyc/web/react";
+import { RefreshButton, type Session } from "@tollbooth-dpyc/web/react";
 
 const card = "rounded-xl border border-ink/14 p-4";
 const field =
@@ -56,8 +56,9 @@ export default function Operator({ session }: { session: Session }) {
   const [address, setAddress] = useState("");
   const [dirty, setDirty] = useState(false);
 
+  // Returns both reads, so the refresh button spins until they land.
   const load = useCallback(() => {
-    treasury()
+    const books = treasury()
       .then((r) => {
         setT(r);
         // Never clobber what somebody is mid-way through typing.
@@ -68,11 +69,12 @@ export default function Operator({ session }: { session: Session }) {
         }
       })
       .catch(() => setT(null));
-    settlementHistory(50).then(setHistory).catch(() => setHistory(null));
+    const ledger = settlementHistory(50).then(setHistory).catch(() => setHistory(null));
+    return Promise.all([books, ledger]);
   }, [dirty]);
 
   useEffect(() => {
-    if (isOperator) load();
+    if (isOperator) void load();
   }, [isOperator, load]);
 
   if (!known) {
@@ -107,7 +109,7 @@ export default function Operator({ session }: { session: Session }) {
       }
       setDirty(false);
       setMsg({ tone: "ok", text: `Saved. The charity share goes to ${name.trim()}.` });
-      load();
+      void load();
     } catch (e) {
       setMsg({ tone: "err", text: (e as Error).message });
     } finally {
@@ -132,7 +134,7 @@ export default function Operator({ session }: { session: Session }) {
             }${r.settled ? "." : " — the node reports it as still in flight."}`
           : "Nothing is owed to the charity.",
       });
-      load();
+      void load();
     } catch (e) {
       setMsg({ tone: "err", text: (e as Error).message });
     } finally {
@@ -147,9 +149,12 @@ export default function Operator({ session }: { session: Session }) {
     <div className="mx-auto max-w-2xl space-y-5 px-4 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">The hive's books</h1>
-        <button onClick={load} title="Refresh" className="rounded-lg p-2 text-ink/65 hover:bg-ink/7">
-          <RefreshCw size={15} />
-        </button>
+        <RefreshButton
+          onRefresh={load}
+          label="Refresh the books"
+          iconSize={15}
+          classNames={{ root: "inline-flex items-center justify-center rounded-lg text-ink/65 hover:bg-ink/7 disabled:opacity-60" }}
+        />
       </div>
 
       {/* ── The wallet ─────────────────────────────────────────────── */}
