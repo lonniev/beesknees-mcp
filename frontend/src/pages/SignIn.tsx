@@ -16,6 +16,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Meadowscape from "../components/Meadowscape.tsx";
 import { NpubGate, type Session } from "@tollbooth-dpyc/web/react";
 
+/** The site's own words above the sign-in card. */
+const WELCOME = "A race to the queen. Five hives, twelve seats each, one winner a round, and a share of every round retained for charity.";
+
 export default function SignIn({ session }: { session: Session }) {
   const nav = useNavigate();
   const loc = useLocation();
@@ -26,6 +29,7 @@ export default function SignIn({ session }: { session: Session }) {
     <>
       <Meadowscape />
       <NpubGate
+        welcome={WELCOME}
         notice={session.notice}
         startFresh={Boolean(nav_state?.generate)}
         onLogin={() => {
