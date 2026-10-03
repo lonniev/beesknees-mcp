@@ -22,7 +22,7 @@ import { Application, BlurFilter, Container, Graphics, Sprite, Texture } from "p
 import { OPEN, isHive, ringOf, type Board, type Geometry } from "../game/rules.ts";
 import { paintGrain, paintShape, paintedCanvas } from "../art/canvas.ts";
 import { bee, crown, daisy } from "../art/shapes.ts";
-import { VIEW, cellArc, cellCentre, ringRadius, slotAngle, type CellArc } from "../lib/polar.ts";
+import { VIEW, cellArc, cellCentre, ringRadius, slotAngle } from "../lib/polar.ts";
 import {
   diffFrame,
   easeOut,
@@ -31,7 +31,9 @@ import {
   type Snapshot,
   type StageBee,
 } from "../lib/stageMath.ts";
+import { drawCell } from "./draw.ts";
 import { readPalette, type Palette } from "./palette.ts";
+import { Wedding } from "./wedding.ts";
 
 const TAU = Math.PI * 2;
 
@@ -93,22 +95,6 @@ interface Particle {
 interface Cap {
   gfx: Graphics;
   age: number;
-}
-
-function drawCell(gfx: Graphics, arc: CellArc, inset = 0): Graphics {
-  if (arc.kind === "disc") return gfx.circle(0, 0, arc.r - inset);
-  if (arc.kind === "square") return gfx.rect(arc.x + inset, arc.y + inset, arc.side - 2 * inset, arc.side - 2 * inset);
-  const r0 = arc.r0 + inset;
-  const r1 = arc.r1 - inset;
-  const da = inset / ((r0 + r1) / 2);
-  const a0 = arc.a0 + da;
-  const a1 = arc.a1 - da;
-  gfx.moveTo(r1 * Math.cos(a0), r1 * Math.sin(a0));
-  gfx.arc(0, 0, r1, a0, a1);
-  gfx.lineTo(r0 * Math.cos(a1), r0 * Math.sin(a1));
-  gfx.arc(0, 0, r0, a1, a0, true);
-  gfx.closePath();
-  return gfx;
 }
 
 /** A dashed polyline, by hand — Pixi strokes have no dash. */
@@ -180,6 +166,7 @@ export class HiveStage {
   private pool: Sprite[] = [];
   private live: Particle[] = [];
   private caps: Cap[] = [];
+  private wedding: Wedding | null = null;
 
   private hot = false;
   private mine = false;
@@ -265,8 +252,8 @@ export class HiveStage {
     app.stage.addChild(root);
 
     // The drawn hive is the centred square of the host — the same square the
-    // SVG letterboxes itself into, which `Coronation` and the foragers'
-    // `drawnHive` both assume. Sized by hand: `resizeTo` would fill the box.
+    // SVG letterboxes itself into, which the foragers' `drawnHive` assumes.
+    // Sized by hand: `resizeTo` would fill the box.
     const fit = () => {
       const r = host.getBoundingClientRect();
       const s = Math.floor(Math.min(r.width, r.height));
@@ -582,6 +569,7 @@ export class HiveStage {
     if (p.epoch !== this.epoch || fresh) {
       // A new match. Nobody tweens from the last one's seat to this one's.
       this.epoch = p.epoch;
+      this.endWedding();
       for (const b of [...this.bees.values()]) this.dropBee(b);
       for (const [c, sp] of this.flowers) {
         sp.texture = board.pollen[c] ? this.tex.full : this.tex.empty;
@@ -620,6 +608,7 @@ export class HiveStage {
       if (ph.to === "done") {
         b.crown.visible = true;
         this.burst(b.cell, this.tex.grain, 24, 14, 2.6, 900, 0xfff1a8);
+        this.startWedding(b, now);
       }
     }
     for (const c of d.sealed) this.sealCap(c);
@@ -649,6 +638,39 @@ export class HiveStage {
     this.armedRing.visible = p.armed;
   }
 
+  // ── The wedding ───────────────────────────────────────────────────────
+
+  private startWedding(winner: BeeSprite, now: number): void {
+    if (!this.g) return;
+    this.endWedding();
+    const others = [...this.bees.values()].filter((b) => b.id !== winner.id && isHive(this.g!, b.cell));
+    this.wedding = new Wedding({
+      g: this.g,
+      palette: this.palette,
+      tex: this.tex,
+      winner,
+      others,
+      yours: winner.id === this.youId,
+      spawn: (texture, x, y, size, vx, vy, life, tint) => this.particle(texture, x, y, size, vx, vy, life, tint),
+      reduced: this.opts.reduced,
+      now,
+    });
+    this.root.addChildAt(this.wedding.layer, this.root.getChildIndex(this.armedRing));
+  }
+
+  private endWedding(): void {
+    if (!this.wedding) return;
+    const w = this.wedding;
+    this.wedding = null;
+    const winner = this.bees.get(w.winnerId);
+    if (winner) {
+      winner.sprite.visible = true;
+      winner.crown.visible = winner.phase === "done";
+    }
+    this.root.removeChild(w.layer);
+    w.destroy();
+  }
+
   private tick(): void {
     if (this.lost) return;
     const now = performance.now();
@@ -657,7 +679,9 @@ export class HiveStage {
     const reduced = this.opts.reduced;
     const P = this.palette;
 
+    this.wedding?.tick(now);
     for (const b of this.bees.values()) {
+      if (this.wedding?.owns(b.id)) continue;
       if (b.tween) {
         const tw = b.tween;
         const k = tw.dur ? Math.min(1, (now - tw.t0) / tw.dur) : 1;
@@ -698,7 +722,10 @@ export class HiveStage {
     // yourself on a crowded ring a glance rather than a search.
     const you = this.youId === null ? null : this.bees.get(this.youId) ?? null;
     this.halo.clear();
-    if (you && this.g) {
+    if (this.wedding?.yours) {
+      const [cx, cy] = this.wedding.consortAt;
+      this.halo.circle(cx, cy, 7).fill({ color: P.you, alpha: 0.22 }).stroke({ width: 1.0, color: P.you, alpha: 0.95 });
+    } else if (you && this.g) {
       const len = Math.hypot(you.x, you.y);
       if (len > 0) {
         const r1 = ringRadius(this.g, 1);
