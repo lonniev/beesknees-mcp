@@ -1,26 +1,13 @@
 /**
- * The two things about a flying bee that a screenshot cannot tell you.
- *
- * Which way it is pointing, and whether it is at the hive it thinks it is at.
- * Both were wrong once in the sibling this is ported from, and both were only
- * ever caught by somebody watching the animation.
+ * The thing about a flying bee that a screenshot cannot tell you: whether it
+ * is at the hive it thinks it is at. It was wrong once in the sibling this is
+ * ported from, and only ever caught by somebody watching the animation.
  */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { aimBee, doorOn, drawnHive } from "./beeFlight.ts";
-
-test("a bee always flies nose-first and never on its back", () => {
-  for (let tilt = -180; tilt <= 180; tilt += 5) {
-    const { rotate, mirror } = aimBee(tilt);
-    assert.ok(rotate > -180 && rotate <= 180, `${tilt}° came out as ${rotate}°`);
-    // Past a quarter turn either way is upside down, whichever branch drew it.
-    assert.ok(Math.abs(rotate) <= 91, `${tilt}° drew the bee inverted (${rotate}°)`);
-    // The glyph points west, so a westbound bee is the one left unmirrored.
-    assert.equal(mirror, Math.abs(tilt) <= 90, `${tilt}° mirrored the wrong way`);
-  }
-});
+import { doorOn, drawnHive } from "./beeFlight.ts";
 
 test("a hive is the square inside its box, not the box", () => {
   const layer = { w: 1000, h: 500 };

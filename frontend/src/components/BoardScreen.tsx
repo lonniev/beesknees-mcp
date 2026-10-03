@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import RoundTally, { type Pot } from "./RoundTally.tsx";
 import { Hourglass, Maximize2, Minimize2, Repeat, RotateCcw } from "lucide-react";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
+import HiveStage from "./HiveStage.tsx";
 import Brood from "./Brood.tsx";
 import Coronation from "./Coronation.tsx";
 import Meadow from "./Meadow.tsx";
@@ -74,6 +75,12 @@ export interface BoardScreenProps {
   againLabel?: string;
 
   frame: number;
+  /**
+   * Which match this is. The WebGL board tweens bees between frames, and a
+   * fresh match reuses the seat ids of the last one — without this it would
+   * fly every bee across the board from where its predecessor finished.
+   */
+  epoch: string;
   target: number | null;
   route?: number[];
   options?: number[];
@@ -376,21 +383,22 @@ export default function BoardScreen(p: BoardScreenProps) {
           )}
 
           {/* The focused board. Its ELEMENT is wider than the hive drawn in
-            * it — a square viewBox letterboxed in a wide box — which is what
-            * `drawnHive` corrects for so a bee homes to the hive rather than
-            * to the empty band beside it. */}
+            * it — a square letterboxed in a wide box, whether the SVG's
+            * viewBox or the WebGL canvas — which is what `drawnHive` corrects
+            * for so a bee homes to the hive rather than to the empty band
+            * beside it. */}
           <div ref={boardBox} className="relative min-h-0 flex-1" data-hive="focus">
             {shown && (
-              <HiveView
+              <HiveStage
                 board={shown.board}
                 bees={shown.bees}
                 hot={shown.hot}
                 frame={p.frame}
+                epoch={`${p.epoch}:${shown.id}`}
                 youId={mineHere ? p.youId : null}
                 target={mineHere ? p.target : null}
                 route={mineHere ? p.route : []}
                 options={mineHere ? p.options : []}
-                focused
                 armed={p.verb === "seal"}
                 onTapCell={p.onTapCell}
               />

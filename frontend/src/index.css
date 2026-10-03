@@ -138,7 +138,8 @@ body {
   user-select: none;
 }
 
-svg.hive {
+svg.hive,
+canvas.hive {
   touch-action: none;
 }
 

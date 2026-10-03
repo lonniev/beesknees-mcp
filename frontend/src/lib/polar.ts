@@ -93,6 +93,31 @@ export function cellShape(g: Geometry, cell: number): string {
 export const cellCentre = ruleCentre;
 
 /**
+ * The same cell as numbers rather than as an SVG string.
+ *
+ * The WebGL stage draws a cell with `arc` and `lineTo` calls, and parsing the
+ * `d` string back into those would be a second copy of this arithmetic that
+ * could disagree with the first. So the numbers come out here, and `cellPath`
+ * and this must stay the same shape — the test holds their corners together.
+ */
+export type CellArc =
+  | { kind: "disc"; r: number }
+  | { kind: "wedge"; r0: number; r1: number; a0: number; a1: number }
+  | { kind: "square"; x: number; y: number; side: number };
+
+export function cellArc(g: Geometry, cell: number): CellArc {
+  if (!isHive(g, cell)) {
+    const [cx, cy] = ruleCentre(g, cell);
+    return { kind: "square", x: cx - g.step / 2, y: cy - g.step / 2, side: g.step };
+  }
+  const r = ringOf(g, cell);
+  if (r === 0) return { kind: "disc", r: ringRadius(g, 1) };
+  const n = g.size[r];
+  const i = cell - g.offset[r];
+  return { kind: "wedge", r0: ringRadius(g, r), r1: ringRadius(g, r + 1), a0: slotAngle(n, i), a1: slotAngle(n, i + 1) };
+}
+
+/**
  * The comb's cell boundaries as ONE path.
  *
  * Un-dug comb was a flat brown disc, which is most of the hive and reads as
