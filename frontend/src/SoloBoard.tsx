@@ -12,7 +12,7 @@ import BoardScreen from "./components/BoardScreen.tsx";
 import { VERBS, activityLabel, busyWord, moveWord, readyLabel, tacticLabel, verbIcon, type Verb } from "./game/verbs.ts";
 import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
-import { approach, routeToward, stepToward } from "./game/bots.ts";
+import { heldUp, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
 import { isHot, queenName, queenOf, seated, youWon } from "./game/match.ts";
@@ -186,14 +186,12 @@ export default function App() {
       return { action: { kind: "collapse", at: target }, why: "", word: fallback };
     }
 
-    // A rival standing in the doorway is not "no way through". Every door may
-    // have a queue and this bee has to be near its own door regardless, so when
-    // the direct route is taken we route toward it anyway and take the best
-    // legal step — which puts the bee alongside the door rather than refusing
-    // it. Only a bee that cannot get any closer at all is genuinely waiting.
-    const direct = stepToward(round, you, target);
-    const queueing = !direct;
-    const step = direct ?? approach(round, you, target);
+    // A rival in the cell the route wants next is a jam, not a wall: the step
+    // offered is the one that gets nearer by that measure, which beside a taken
+    // door puts the bee alongside it rather than refusing it — and when nothing
+    // gets nearer, the honest answer is to wait, which costs a player nothing.
+    const step = stepToward(round, you, target);
+    const queueing = heldUp(round, you, target);
     if (!step || step.kind === "wait" || step.kind === "collapse")
       return { action: null, why: "Held up — nothing gets you closer yet.", word: fallback };
 
@@ -206,7 +204,7 @@ export default function App() {
     const action = { kind: solid ? "dig" : "fly", to: step.to } as Action;
     return {
       action,
-      why: queueing ? `That door is taken — ${word.toLowerCase()} up beside it.` : "",
+      why: queueing && you.phase === "return" ? `That door is taken — ${word.toLowerCase()} up beside it.` : "",
       word,
     };
   }, [frame, inHive, match.state, target, verb, you, yourHive]);

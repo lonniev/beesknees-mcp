@@ -21,7 +21,7 @@ import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
 import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
 import { COMB, DEFAULT_RULES, TICK_MS, makeGeometry, neighbors, ringOf, type Bee } from "./game/rules.ts";
-import { approach, routeToward, stepToward } from "./game/bots.ts";
+import { routeToward, stepToward } from "./game/bots.ts";
 import { cooldownLeft, useLiveMatch, type LiveBee } from "./lib/useLiveMatch.ts";
 import { callTool } from "@tollbooth-dpyc/web";
 import type { Session } from "@tollbooth-dpyc/web/react";
@@ -182,7 +182,7 @@ export default function LiveBoard({ session }: { session: Session }) {
 
   const next = useMemo(() => {
     if (!round || !bee || target === null || verb === "seal") return null;
-    return stepToward(round, bee, target) ?? approach(round, bee, target);
+    return stepToward(round, bee, target);
   }, [round, bee, target, verb]);
 
   /**

@@ -39,7 +39,7 @@ import {
   toQueen,
   type Phase,
 } from "./rules.ts";
-import { approach, routeToward, stepToward } from "./bots.ts";
+import { heldUp, routeToward, stepToward } from "./bots.ts";
 import { hydrate, hiveSeed } from "./live.ts";
 
 test("rings narrow toward the queen — the funnel is real", () => {
@@ -456,9 +456,10 @@ test("a door somebody is standing in still lets you queue up beside it", () => {
   a.cell = neighbors(g, outside).find((n) => ringOf(g, n) > g.R && n !== door)!;
   a.phase = "return" as Phase;
 
-  assert.equal(stepToward(round, a, door), null, "the direct route really is taken");
+  // Two cells out, the cell the route wants NEXT is free; the body is beyond it.
+  assert.equal(heldUp(round, a, door), false);
 
-  const step = approach(round, a, door);
+  const step = stepToward(round, a, door);
   assert.ok(step, "a queued bee must still be offered a move");
   assert.equal(step!.kind, "fly");
   const to = (step as { to: number }).to;
@@ -471,9 +472,9 @@ test("a door somebody is standing in still lets you queue up beside it", () => {
 });
 
 test("a bee waiting behind a rival is not sent shuffling sideways for ever", () => {
-  // `approach` must only offer a step that closes the gap. Without that guard a
-  // queued bee paces back and forth beside the door, paying a fare each time to
-  // end up exactly where it started.
+  // A step must close the gap. Without that guard a queued bee paces back and
+  // forth beside the door, paying a fare each time to end up exactly where it
+  // started.
   const round = makeRound(["rider", "rider"], DEFAULT_RULES, mulberry32(67));
   const g = round.board.g;
   const [a, b] = round.bees;
@@ -484,7 +485,8 @@ test("a bee waiting behind a rival is not sent shuffling sideways for ever", () 
   b.cell = door;
   a.cell = outside;
   a.phase = "return" as Phase;
-  assert.equal(approach(round, a, door), null, "nothing gets it closer, so it waits");
+  assert.equal(stepToward(round, a, door), null, "nothing gets it closer, so it waits");
+  assert.ok(heldUp(round, a, door), "and the reason is the body in the doorway");
 });
 
 test("two hives do not share one distance field", () => {
