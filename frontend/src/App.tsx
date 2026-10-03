@@ -11,6 +11,7 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { Avatar, useSession } from "@tollbooth-dpyc/web/react";
 import { avatarFor } from "@tollbooth-dpyc/web";
+import { ArtSymbols } from "./art/svg.tsx";
 import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useOperator } from "./lib/useOperator";
@@ -87,6 +88,8 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Every mark on the site, once, for every <use> below. */}
+      <ArtSymbols />
       <nav className="flex shrink-0 items-center gap-1 border-b border-ink/14 px-2 py-1.5">
         {/* The wordmark goes on a phone; the bee stays. Five labelled
           * destinations and a brand do not fit 390px, and the bar was the one

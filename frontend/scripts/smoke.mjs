@@ -36,7 +36,8 @@ try {
   // is how an earlier version of this check "found" seven hives.
   const count = (re) => (html.match(re) || []).length;
   const boards = count(/class="hive/g);
-  const bees = count(/🐝/g);
+  // The bee is a <use> of one shared mark now, not a glyph — count the uses.
+  const bees = count(/href="#bk-bee"/g);
 
   // The aim must reach the screen. The halo, the state and the tap handler were
   // each correct on their own while the prop between two of them was never
@@ -65,7 +66,7 @@ try {
 
   console.log(
     `rendered ${html.length} bytes · ${boards} boards · ${bees} bees · ` +
-      `${count(/👑/g)} queens · ${youMarks} "you" marks · aim ${unaimed}->${aimed}`,
+      `${count(/href="#bk-crown"/g)} crowns · ${youMarks} "you" marks · aim ${unaimed}->${aimed}`,
   );
 
   if (aimed <= unaimed) problems.push(`aiming draws nothing (${unaimed} -> ${aimed} marks)`);
