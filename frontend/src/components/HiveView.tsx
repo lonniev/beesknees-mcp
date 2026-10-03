@@ -35,6 +35,16 @@ export interface ViewBee {
   id: number;
   cell: number;
   phase: string;
+  /**
+   * How many cells this bee has cut, and how many it has sealed.
+   *
+   * Not drawn here. The WebGL stage reads them to tell a dig from a walk into
+   * somebody else's shaft — a cell opening and a bee arriving in it is not
+   * proof the bee did the cutting. Optional because a thumbnail never needs
+   * them.
+   */
+  digs?: number;
+  seals?: number;
 }
 
 interface Props {

@@ -262,7 +262,7 @@ export function step(bees: Forager[], field: Field, dt: number, o: StepOpts, rnd
  *
  * The buzz is visual only. It never enters the physics, or the bee would jitter
  * its way across the screen rather than hold a line. `t` is seconds. `tilt` is
- * degrees, 0 east, as `aimBee` and a top-down sprite both expect.
+ * degrees, 0 east, which a top-down sprite takes as its rotation.
  */
 export function pose(b: Forager, t: number, calm: number): { x: number; y: number; tilt: number } {
   const amp = 0.0016 * calm * (b.phase === "resting" ? 0.3 : 1);

@@ -258,7 +258,7 @@ export default function LiveBoard({ session }: { session: Session }) {
         name: HIVE_NAMES[h.id],
         queen: `Queen ${QUEEN_NAMES[h.id % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[h.id]}`,
         board: h.board,
-        bees: h.bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase })),
+        bees: h.bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase, digs: b.digs, seals: b.seals })),
         hot: h.bees.some((b) => ringOf(G, b.cell) <= HOT_RING),
       }))}
       focus={focus}

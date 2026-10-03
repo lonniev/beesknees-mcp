@@ -30,7 +30,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { aimBee, drawnHive } from "../lib/beeFlight.ts";
+import { paintBee, paintedCanvas } from "../lib/beeArt.ts";
+import { drawnHive } from "../lib/beeFlight.ts";
 import { pose, spawn, step, type Field } from "../lib/forage.ts";
 
 /**
@@ -162,16 +163,29 @@ export default function Meadow({
     let field = measure(host);
     const bees = spawn(count, field.hives, wander, Math.random);
 
+    // The same painted bee as the board's racers, seen from above, so the
+    // scenery and the game are one species. Two canvases per bee — wings up,
+    // wings down — and the flap is which one is showing. The canvas sits
+    // centred on the bee's point so the rotation turns it about its thorax.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     host.replaceChildren();
     const nodes = bees.map((b) => {
       const el = document.createElement("div");
+      const px = Math.round(16 + b.scale * 6);
       el.style.cssText =
         "position:absolute;left:0;top:0;pointer-events:none;will-change:transform;" +
-        `font-size:${10 + b.scale * 4}px;line-height:1;user-select:none;opacity:.62;`;
-      el.textContent = "🐝";
+        `width:${px}px;height:${px}px;margin:${-px / 2}px 0 0 ${-px / 2}px;opacity:.78;`;
       el.setAttribute("aria-hidden", "true");
+      const up = paintedCanvas(px, dpr, (ctx, size) => paintBee(ctx, size, "up"));
+      const down = paintedCanvas(px, dpr, (ctx, size) => paintBee(ctx, size, "down"));
+      for (const c of [up, down]) {
+        c.style.position = "absolute";
+        c.style.inset = "0";
+        el.appendChild(c);
+      }
+      down.style.visibility = "hidden";
       host.appendChild(el);
-      return el;
+      return { el, up, down };
     });
 
     // The hives move: the gutters collapse below `md`, the focus changes, the
@@ -198,15 +212,18 @@ export default function Meadow({
       step(bees, field, dt, { calm, wander, ptr, call: call.current }, Math.random);
 
       const t = now / 1000;
+      // The wingbeat: ~20 flaps a second, each bee on its own clock so a row
+      // of them does not beat in step. Reduced motion holds the wings still.
       bees.forEach((b, i) => {
         const at = pose(b, t, calm);
-        // Face the flight path. The physics is untouched — this only decides
-        // which way the drawing points along a vector it did not choose.
-        const aim = aimBee(at.tilt);
-        nodes[i].style.transform =
-          `translate(${at.x * field.w}px, ${at.y * field.h}px) ` +
-          `rotate(${aim.rotate}deg) ` +
-          `scale(${aim.mirror ? -b.scale : b.scale}, ${b.scale})`;
+        // Face the flight path. Top-down, so heading is the whole of it —
+        // no mirror, nothing upside down.
+        nodes[i].el.style.transform =
+          `translate(${at.x * field.w}px, ${at.y * field.h}px) rotate(${at.tilt}deg)`;
+        const flying = b.phase !== "resting";
+        const wingsUp = !reduced && flying ? (((t * 20 + b.buzz) | 0) & 1) === 0 : true;
+        nodes[i].up.style.visibility = wingsUp ? "" : "hidden";
+        nodes[i].down.style.visibility = wingsUp ? "hidden" : "";
       });
 
       raf.current = requestAnimationFrame(frame);

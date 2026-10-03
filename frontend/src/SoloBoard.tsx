@@ -292,7 +292,7 @@ export default function App() {
         name: h.name,
         queen: queenOf(h),
         board: h.round.board,
-        bees: seated(h),
+        bees: seated(h).map((b) => ({ id: b.id, cell: b.cell, phase: b.phase, digs: b.digs, seals: b.collapses })),
         hot: isHot(h),
       }))}
       focus={focus}
