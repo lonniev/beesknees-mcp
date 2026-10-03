@@ -158,7 +158,25 @@ function chasedFrom(round: Round, bee: Bee, behind: number): boolean {
  * neighbour they want would make the game a test of fingertip precision. The
  * route is recomputed every move, so a collapse ahead re-routes on its own.
  */
-function costToTarget(round: Round, bee: Bee, target: number, ignoreBodies: boolean): Float64Array {
+export type Bodies = "wall" | "ghost" | "jam";
+
+/**
+ * What a body in the way costs, on top of the cell's own fare: the wait it
+ * usually is.
+ *
+ * The player's step is planned with bodies as JAMS, not walls, and that is the
+ * fix for a bee that went forward and back and forward between the same cells.
+ * With bodies as walls, a rival stepping into the next cell flipped the whole
+ * shortest route to a detour — often outward — and their stepping out flipped
+ * it back, a fare paid each way. A price is smooth where a wall is a cliff: a
+ * short jam is worth waiting out, a long one is worth going round, and a rival
+ * shuffling one cell does not turn the plan inside out.
+ */
+function jamCost(rules: Round["rules"]): number {
+  return rules.cooldownTicks * 2;
+}
+
+function costToTarget(round: Round, bee: Bee, target: number, bodies: Bodies): Float64Array {
   const { rules, board } = round;
   const g = board.g;
 
@@ -198,26 +216,23 @@ function costToTarget(round: Round, bee: Bee, target: number, ignoreBodies: bool
       // Searching BACKWARDS from the target: `armed` is the state we would be
       // in on arriving here, so a predecessor is any cell that could step in.
       const armedHere = state >= N;
+      // Another bee's body — in the meadow as much as in the comb — is a wall,
+      // a ghost or a jam. See `Bodies`.
+      const occupied =
+        rules.occupancy &&
+        bodies !== "ghost" &&
+        round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === cell);
+      if (occupied && bodies === "wall") continue;
+      const toll = occupied ? jamCost(rules) : 0;
       for (const prev of neighbors(g, cell)) {
         if (board.blocked[cell]) continue;
-        // Another bee's body is a wall for as long as it stands there — in the
-        // meadow as much as in the comb. `ignoreBodies` asks the other question:
-        // where would this bee go if nobody were in the way? That route is what
-        // lets a bee queue toward a door somebody is standing in, instead of
-        // being told there is no way through.
-        if (
-          rules.occupancy &&
-          !ignoreBodies &&
-          round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === cell)
-        )
-          continue;
         const wentInward = ringOf(g, cell) < ringOf(g, prev) && ringOf(g, prev) <= g.R;
         if (wentInward !== armedHere) continue;
+        const w = (board.state[cell] === OPEN ? fly : digCost) + toll;
         if (rules.staggerRequired && wentInward) {
           // Only reachable from a predecessor that was NOT already committed.
-          push(prev, d + (board.state[cell] === OPEN ? fly : digCost));
+          push(prev, d + w);
         } else {
-          const w = board.state[cell] === OPEN ? fly : digCost;
           push(prev, d + w);
           push(prev + N, d + w);
         }
@@ -229,47 +244,55 @@ function costToTarget(round: Round, bee: Bee, target: number, ignoreBodies: bool
 }
 
 /**
- * One step along the quickest route to `target`, or null if there is no route.
+ * One step along the cheapest way to `target`, or null when the right thing
+ * to do is wait.
  *
- * Bodies count: a cell somebody is standing in is a wall for as long as they
- * stand there, so this returns null when a rival is the only thing in the way.
- * `approach` is the answer to that case.
+ * Bodies are jams, not walls (see `Bodies`), and the step must get STRICTLY
+ * nearer by that measure from the state the bee is actually in — committed by
+ * the stagger, or free. A step that does not get nearer is a step back, and a
+ * bee that steps back pays a fare to be where it was: when the only way on is
+ * through somebody, the answer is to stand still until they move, which for a
+ * player costs nothing at all.
  */
 export function stepToward(round: Round, bee: Bee, target: number): Action | null {
   if (target === bee.cell) return null;
-  const dist = costToTarget(round, bee, target, false);
-  return pick(round, bee, dist);
+  const dist = costToTarget(round, bee, target, "jam");
+  const N = round.board.g.cells;
+  const here = dist[bee.cell + (bee.cameInward ? N : 0)];
+  const step = pick(round, bee, dist);
+  if (!step) return null;
+  return step.d < here ? step.action : null;
 }
 
 /**
- * One step that gets NEARER the target, even when the route is currently taken.
- *
- * "No way through" is true and useless. Every door may have a queue and a bee
- * has to be near its chosen door anyway, so when a rival is standing in the
- * only way in, the right answer is to move up beside it and wait — not to be
- * refused. The route is computed as though nobody were in the way, and then the
- * step is chosen from the moves that are actually legal, so a bee never walks
- * through anyone: it just knows which way to queue.
- *
- * Returns null only when no legal move gets closer at all, which is a genuine
- * wait rather than a mistake.
+ * Is a rival the reason the bee is not moving — standing in the cell the route
+ * wants next? What the hint says when a step is refused, or when the step on
+ * offer is the one beside a door somebody is in.
  */
-export function approach(round: Round, bee: Bee, target: number): Action | null {
-  if (target === bee.cell) return null;
-  const g = round.board.g;
-  const ghost = costToTarget(round, bee, target, true);
+export function heldUp(round: Round, bee: Bee, target: number): boolean {
+  if (target === bee.cell) return false;
+  const { board, rules } = round;
+  const g = board.g;
   const N = g.cells;
-  const here = Math.min(ghost[bee.cell], ghost[bee.cell + N]);
-  const step = pick(round, bee, ghost);
-  if (!step || step.kind === "wait" || step.kind === "collapse") return null;
-  // It must actually close the gap. Without this a queued bee shuffles sideways
-  // for ever, paying a fare each time to stay exactly where it was.
-  const after = Math.min(ghost[step.to], ghost[step.to + N]);
-  return after < here ? step : null;
+  const dist = costToTarget(round, bee, target, "jam");
+  let best = -1;
+  let bestD = Infinity;
+  for (const n of neighbors(g, bee.cell)) {
+    if (board.blocked[n]) continue;
+    const armedAfter = ringOf(g, n) < ringOf(g, bee.cell) && ringOf(g, bee.cell) <= g.R;
+    const d = dist[armedAfter ? n + N : n];
+    if (d < bestD) {
+      bestD = d;
+      best = n;
+    }
+  }
+  if (best < 0) return false;
+  return rules.occupancy && round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === best);
 }
 
 /** The best legal neighbour under a cost field. Shared by both callers above. */
-function pick(round: Round, bee: Bee, dist: Float64Array): Action | null {
+/** The legal neighbour lowest in the field, with its cost, or null. */
+function pick(round: Round, bee: Bee, dist: Float64Array): { action: Action; d: number } | null {
   const { board } = round;
   const g = board.g;
   const N = g.cells;
@@ -287,7 +310,7 @@ function pick(round: Round, bee: Bee, dist: Float64Array): Action | null {
     }
   }
   if (best < 0 || !Number.isFinite(bestD)) return null;
-  return board.state[best] === OPEN ? { kind: "fly", to: best } : { kind: "dig", to: best };
+  return { action: board.state[best] === OPEN ? { kind: "fly", to: best } : { kind: "dig", to: best }, d: bestD };
 }
 
 function randomBot(round: Round, bee: Bee): Action {
@@ -349,7 +372,7 @@ export function routeToward(round: Round, bee: Bee, target: number, max = 80): n
   const g = round.board.g;
   const N = g.cells;
   if (target === bee.cell) return [];
-  const dist = costToTarget(round, bee, target, true);
+  const dist = costToTarget(round, bee, target, "jam");
 
   const path: number[] = [];
   const seen = new Set<number>([bee.cell]);
@@ -361,6 +384,12 @@ export function routeToward(round: Round, bee: Bee, target: number, max = 80): n
     let bestD = Infinity;
     for (const n of neighbors(g, cell)) {
       if (round.board.blocked[n]) continue;
+      // The FIRST cell is the step the bee will actually take, and a body
+      // standing there is a wall this second whatever it costs in the field —
+      // so the line starts where the bee will go, not through somebody.
+      // Further along, bodies will have moved, and the field's price for them
+      // is the honest guess.
+      if (i === 0 && round.rules.occupancy && round.bees.some((b) => b.id !== bee.id && b.phase !== "done" && b.cell === n)) continue;
       const wentInward = ringOf(g, n) < ringOf(g, cell) && ringOf(g, cell) <= g.R;
       // The stagger shapes the drawn line too, or it would promise a straight
       // shaft the rules will not let the bee cut.
