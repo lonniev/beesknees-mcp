@@ -160,6 +160,14 @@ canvas.hive {
     inset 0 -1px 0 color-mix(in srgb, white 60%, transparent);
 }
 
+/* The teeny print under a tactic's icon. */
+.bk-cell > span {
+  font-size: 8.5px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+
 .bk-verb-on {
   background: linear-gradient(
     180deg,

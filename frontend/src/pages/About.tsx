@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { annotate } from "../lib/glossary.tsx";
 import {
-  BeeMark, Crawl, DoorMark, Fill, Fly, PluckedFlower, PollenFlower, QueenMark, YouMark,
+  BeeMark, Crawl, DoorMark, Fly, Mound, PluckedFlower, PollenFlower, QueenMark, YouMark,
 } from "../components/Marks.tsx";
 import { BuildInfoPanel } from "@tollbooth-dpyc/web/react";
 import { LINK } from "../lib/ink";
@@ -231,7 +231,7 @@ export default function About() {
         </div>
         <div>
           <dt className="inline font-semibold text-ink/90">
-            <Fill /> Fill
+            <Mound /> Mound
           </dt>
           <dd className="inline text-ink/85">
             {" "}

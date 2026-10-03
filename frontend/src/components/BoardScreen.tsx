@@ -71,7 +71,7 @@ export interface BoardScreenProps {
   onTapCell: (cell: number) => void;
 
   /** The verb strip. Ids and marks come from `game/verbs.ts` so the words stay one set. */
-  verbs: readonly { id: string; hint: string; icon: SymbolId }[];
+  verbs: readonly { id: string; hint: string; icon: SymbolId; label: string }[];
   /** What this round has raised, already split. Absent in practice, where
     * there is no money and a till would be showing a figure nobody paid. */
   pot?: Pot | null;
@@ -541,17 +541,21 @@ export default function BoardScreen(p: BoardScreenProps) {
             * own, in the button's ink: a selected tactic and an idle one differ in
             * their ground, not in their glyph. */}
           <div className="bk-tray flex gap-1.5 rounded-2xl p-1.5">
-            {p.verbs.map(({ id, hint, icon }) => (
+            {/* The icon with its name in teeny print beneath, in the same
+              * cell: the screen has the pixels for it now, and a word that
+              * small is a caption on the mark, not a sentence about it. */}
+            {p.verbs.map(({ id, hint, icon, label }) => (
               <button
                 key={id}
                 onClick={() => p.onVerb(id)}
                 title={hint}
                 aria-pressed={p.verb === id}
-                className={`flex h-11 w-11 items-center justify-center rounded-xl transition sm:h-12 sm:w-12 ${
+                className={`bk-cell flex h-11 w-11 flex-col items-center justify-center rounded-xl transition sm:h-12 sm:w-12 ${
                   p.verb === id ? "bk-verb-on text-[var(--color-ink)]" : "text-ink/70 hover:bg-ink/7"
                 }`}
               >
-                <Art id={icon} size={24} />
+                <Art id={icon} size={21} />
+                <span>{label}</span>
               </button>
             ))}
             <button
@@ -559,11 +563,12 @@ export default function BoardScreen(p: BoardScreenProps) {
               disabled={!p.cruiseEnabled}
               title="Cruise"
               aria-pressed={p.cruise}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl transition sm:h-12 sm:w-12 disabled:opacity-35 ${
+              className={`bk-cell flex h-11 w-11 flex-col items-center justify-center rounded-xl transition sm:h-12 sm:w-12 disabled:opacity-35 ${
                 p.cruise ? "bk-verb-on text-[var(--color-ink)]" : "text-ink/70 hover:bg-ink/7"
               }`}
             >
-              <Art id="cruise" size={24} />
+              <Art id="cruise" size={21} />
+              <span>cruise</span>
             </button>
           </div>
         </div>

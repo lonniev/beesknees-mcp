@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { activityLabel, moveWord, readyLabel, verbIcon, verbLabel } from "./verbs.ts";
+import { activityLabel, moveWord, readyLabel, tacticLabel, verbIcon, verbLabel } from "./verbs.ts";
 
 test("moving names itself from where the step ends", () => {
   assert.equal(moveWord(false), "Fly");
@@ -34,4 +34,10 @@ test("a wait is named after the work, and the verb that caused it rides the labe
 test("ready says what pressing will do", () => {
   assert.deepEqual(readyLabel("move", "Crawl"), { icon: "crawl", text: "Crawl!" });
   assert.deepEqual(readyLabel("seal", "Fly"), { icon: "fill", text: "Fill!" });
+});
+
+test("the tactic's teeny label follows the word, and the seal is a mound", () => {
+  assert.equal(tacticLabel("move", "Fly"), "fly");
+  assert.equal(tacticLabel("move", "Crawl"), "crawl");
+  assert.equal(tacticLabel("seal", "Crawl"), "mound");
 });
