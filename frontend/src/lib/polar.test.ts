@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { isHive, makeGeometry, ringOf } from "../game/rules.ts";
-import { TAU, VIEW, cellAt, cellCentre, cellPath, cellShape, ringRadius, slotAngle, xy } from "./polar.ts";
+import { TAU, VIEW, cellArc, cellAt, cellCentre, cellPath, cellShape, ringRadius, slotAngle, xy } from "./polar.ts";
 
 const g = makeGeometry();
 
@@ -119,4 +119,25 @@ test("a full turn of any ring covers the whole circle with no gap", () => {
     const n = g.size[r];
     assert.ok(Math.abs(slotAngle(n, n) - slotAngle(n, 0) - TAU) < 1e-9, `ring ${r} does not close`);
   }
+});
+
+test("cellArc and cellPath are the same cell — corners agree to the hundredth", () => {
+  // The SVG board draws from the string and the WebGL stage from the numbers.
+  // If these drifted, a tap would land on one cell and the bee on another.
+  const num = (s: string) => s.split(/[\s,]+/).filter((t) => /^-?[\d.]+$/.test(t)).map(Number);
+  for (const cell of [1, 7, g.offset[5] + 3, g.offset[g.R], g.hiveCells + 4]) {
+    const arc = cellArc(g, cell);
+    const d = num(cellShape(g, cell));
+    if (arc.kind === "wedge") {
+      const [x0, y0] = xy(arc.r1, arc.a0);
+      assert.ok(Math.abs(d[0] - x0) < 0.01 && Math.abs(d[1] - y0) < 0.01, `cell ${cell} outer corner drifted`);
+      assert.ok(Math.abs(d[2] - arc.r1) < 0.01, `cell ${cell} outer radius drifted`);
+    } else if (arc.kind === "square") {
+      assert.ok(Math.abs(d[0] - arc.x) < 0.01 && Math.abs(d[1] - arc.y) < 0.01, `cell ${cell} square drifted`);
+      assert.equal(arc.side, g.step);
+    } else assert.fail(`cell ${cell} is not the queen`);
+  }
+  const queen = cellArc(g, 0);
+  assert.equal(queen.kind, "disc");
+  assert.equal((queen as { r: number }).r, ringRadius(g, 1));
 });
