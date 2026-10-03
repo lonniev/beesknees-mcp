@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
-import { VERBS, activityLabel, busyWord, moveWord, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { VERBS, activityLabel, busyWord, moveWord, readyLabel, tacticLabel, verbIcon, type Verb } from "./game/verbs.ts";
 import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
@@ -273,7 +273,7 @@ export default function App() {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, pending.word) }))}
+      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, pending.word), label: tacticLabel(id, pending.word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
       cruise={cruise}

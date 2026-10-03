@@ -46,10 +46,10 @@ export function Crawl() {
   );
 }
 
-/** The seal verb, by the name the button gives it. */
-export function Fill() {
+/** The seal verb — a mound of wax over an open cell. */
+export function Mound() {
   return (
-    <Inline title="Fill a tunnel in">
+    <Inline title="Mound a tunnel shut">
       <Art id="fill" size={18} tint="var(--color-ink)" />
     </Inline>
   );

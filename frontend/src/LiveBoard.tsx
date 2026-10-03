@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
-import { VERBS, activityLabel, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { VERBS, activityLabel, readyLabel, tacticLabel, verbIcon, type Verb } from "./game/verbs.ts";
 import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import Lobby from "./components/Lobby.tsx";
@@ -338,7 +338,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, word) }))}
+      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, word), label: tacticLabel(id, word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
       cruise={cruise}
