@@ -169,6 +169,19 @@ export function iconFill(): Shape {
   };
 }
 
+/** Cruise: the bee silhouette with its own wake — it moves without being pressed. */
+export function iconCruise(): Shape {
+  return {
+    box: 24,
+    prims: [
+      { k: "path", d: "M-20 -6 h9 M-22 0 h11 M-20 6 h9", stroke: "currentColor", w: 2, cap: "round" },
+      { k: "ellipse", cx: 2, cy: 0, rx: 9, ry: 6, fill: "currentColor" },
+      { k: "circle", cx: 13, cy: 0, r: 4, fill: "currentColor" },
+      { k: "ellipse", cx: 0, cy: -7, rx: 6, ry: 3, rot: -20, fill: "rgba(220,235,255,0.6)", stroke: "currentColor", w: 1.4 },
+    ],
+  };
+}
+
 /** Every symbol the DOM can `<use>`. A closed set: a typo is a build error, not a blank. */
 export const SYMBOLS = {
   bee: () => bee("up"),
@@ -180,6 +193,7 @@ export const SYMBOLS = {
   go: () => iconGo(),
   crawl: () => iconCrawl(),
   fill: () => iconFill(),
+  cruise: () => iconCruise(),
 } as const;
 
 export type SymbolId = keyof typeof SYMBOLS;

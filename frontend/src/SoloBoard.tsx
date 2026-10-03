@@ -7,9 +7,10 @@
  * asked for the next move.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
 import { VERBS, activityLabel, busyWord, moveWord, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
@@ -39,12 +40,15 @@ export default function App() {
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [verb, setVerb] = useState<Verb>("move");
   const [target, setTarget] = useState<number | null>(null);
+  // Off on every mount. A default that moves the bee is not a default.
+  const [cruise, setCruise] = useState(false);
 
   // A new match re-seats you, so the view follows your bee rather than staying
   // parked on whichever rival you were watching when the last round ended.
   const newMatch = useCallback(() => {
     restart();
     setFocus(0);
+    setCruise(false);
   }, [restart]);
   const yourHive = match.you ? match.hives[match.you.hive] : null;
   const ready = cooldown <= 0;
@@ -128,16 +132,16 @@ export default function App() {
   );
 
   /**
-   * Drop an aim that has become pointless.
+   * Drop an aim that is over — reached, or a flower a rival emptied first.
    *
-   * A flower a rival emptied first is the case this exists for: without it the
-   * bee keeps flying at a spent flower and the player has to notice for
-   * themselves that the thing they aimed at is gone.
+   * Without the second the bee keeps flying at a spent flower and the player
+   * has to notice for themselves that the thing they aimed at is gone. Without
+   * the first the hint said "Held up — nothing gets you closer yet" over a bee
+   * standing exactly where it was sent. See `game/aim.ts`.
    */
   useEffect(() => {
-    if (target === null || !yourHive || !you) return;
-    const b = yourHive.round.board;
-    if (you.phase === "forage" && b.flower[target] && !b.pollen[target]) setTarget(null);
+    if (!yourHive || !you) return;
+    if (aimOver(yourHive.round.board, you, target)) setTarget(null);
   }, [frame, target, you, yourHive]);
 
   /**
@@ -213,6 +217,37 @@ export default function App() {
     if (verb === "seal") setTarget(null);
   }, [pending, ready, submit, verb]);
 
+  /**
+   * Cruise: press the button for me whenever pressing it would do something.
+   *
+   * It never chooses an aim. The moment there is no step — the aim reached,
+   * spent, or nothing getting closer — it simply has nothing to press, and the
+   * hint says what to choose; the next tap resumes it. After a beat, so the
+   * drawn bee lands before its next step is taken. Solo's board is the engine's
+   * own, so there is no stale read to guard against (`seqAdvanced` is true).
+   */
+  const canCruise = shouldCruise({
+    on: cruise,
+    inHive: !!you && you.phase === "tunnel",
+    ready,
+    busy: false,
+    hasStep: verb === "move" && pending.action !== null,
+    running: match.state === "running",
+    seqAdvanced: true,
+  });
+  // Keyed on the verdict alone. `act` is rebuilt every frame, ten times a
+  // second, and a timer re-armed on each rebuild would never go off.
+  const actRef = useRef(act);
+  actRef.current = act;
+  useEffect(() => {
+    if (!canCruise) return;
+    const t = setTimeout(() => actRef.current(), CRUISE_BEAT_MS);
+    return () => clearTimeout(t);
+  }, [canCruise]);
+  useEffect(() => {
+    if (match.state !== "running") setCruise(false);
+  }, [match.state]);
+
   const elapsed = Math.floor((match.tick * TICK_MS) / 1000);
 
   return (
@@ -241,6 +276,9 @@ export default function App() {
       verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, pending.word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
+      cruise={cruise}
+      cruiseEnabled={!!you && you.phase === "tunnel" && match.state === "running"}
+      onCruise={setCruise}
       prompt={
         !ready ? (
           <span className="text-[var(--color-you-ink)]">

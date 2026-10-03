@@ -79,6 +79,14 @@ export interface BoardScreenProps {
   charityName?: string;
   verb: string;
   onVerb: (id: string) => void;
+  /**
+   * Cruise: the bee takes each move as soon as it is ready, until there is
+   * nothing to press. A standing choice, so it lives in the tactic tray; only
+   * offered inside the hive, where the presses are many and the choice is one.
+   */
+  cruise: boolean;
+  cruiseEnabled: boolean;
+  onCruise: (on: boolean) => void;
 
   prompt: ReactNode;
   actionLabel: ActionLabel;
@@ -546,6 +554,17 @@ export default function BoardScreen(p: BoardScreenProps) {
                 <Art id={icon} size={24} />
               </button>
             ))}
+            <button
+              onClick={() => p.onCruise(!p.cruise)}
+              disabled={!p.cruiseEnabled}
+              title="Cruise"
+              aria-pressed={p.cruise}
+              className={`flex h-11 w-11 items-center justify-center rounded-xl transition sm:h-12 sm:w-12 disabled:opacity-35 ${
+                p.cruise ? "bk-verb-on text-[var(--color-ink)]" : "text-ink/70 hover:bg-ink/7"
+              }`}
+            >
+              <Art id="cruise" size={24} />
+            </button>
           </div>
         </div>
 
