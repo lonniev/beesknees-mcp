@@ -268,6 +268,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       tag={`${live.bees.length} bees`}
       elapsedSec={elapsed}
       frame={live.seq}
+      epoch={live.match_id}
       target={target}
       route={route}
       options={options}

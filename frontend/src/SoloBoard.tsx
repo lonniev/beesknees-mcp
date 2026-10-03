@@ -303,6 +303,7 @@ export default function App() {
       elapsedSec={elapsed}
       onNewMatch={newMatch}
       frame={frame}
+      epoch={String(match.hives[0].round.board.id)}
       target={target}
       route={route}
       options={options}
