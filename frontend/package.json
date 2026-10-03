@@ -19,6 +19,7 @@
     "@tollbooth-dpyc/web": "1.7.1",
     "lucide-react": "^1.24.0",
     "nostr-tools": "^2.25.2",
+    "pixi.js": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.3"
