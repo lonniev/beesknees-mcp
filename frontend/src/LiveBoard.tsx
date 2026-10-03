@@ -12,9 +12,10 @@
  * second ago — and the server's answer is the one that counts.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
 import { VERBS, activityLabel, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
@@ -69,6 +70,15 @@ export default function LiveBoard({ session }: { session: Session }) {
   const [verb, setVerb] = useState<Verb>("move");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  // Off on every mount: a default that spends is not a default.
+  const [cruise, setCruise] = useState(false);
+  // The board's `seq` when the last move was sent. `ready` is true again the
+  // instant the call returns, before the next poll, so a cruise that acted on
+  // `ready` alone would pay for a second move from the old cell.
+  const sentSeq = useRef(-1);
+  // Lost races in a row. One is the game; two means the route is contested
+  // and the player should look.
+  const lostRaces = useRef(0);
   const [now, setNow] = useState(Date.now());
   const [watching, setWatching] = useState<number | null>(null);
   const [claimed, setClaimed] = useState("");
@@ -142,23 +152,33 @@ export default function LiveBoard({ session }: { session: Session }) {
   );
 
   /**
-   * Drop an aim at a flower somebody else emptied.
+   * Drop an aim that is over — reached, or a flower somebody else emptied.
    *
    * Aiming reserves NOTHING — the server never hears where you are pointing,
    * and pollen is taken by arriving, inside the move statement. So the flower
    * you set off for can be gone before you land, and the only honest thing the
-   * board can do is say so and let you choose again. Without this you keep
-   * flying at a spent flower and have to work out for yourself why nothing
-   * happens when you arrive.
+   * board can do is say so and let you choose again. And a bee standing on its
+   * aim has nothing left to press for; the hint should say what to choose.
    */
   useEffect(() => {
-    if (target === null || !myHive || !mine || mine.phase !== "forage") return;
-    const b = myHive.board;
-    if (b.flower[target] && !b.pollen[target]) {
-      setTarget(null);
-      setNote("A rival got there first — pick another flower.");
-    }
+    if (!myHive || !mine) return;
+    const over = aimOver(myHive.board, mine, target);
+    if (!over) return;
+    setTarget(null);
+    if (over === "spent") setNote("A rival got there first — pick another flower.");
   }, [live?.seq, target, myHive, mine]);
+
+  /**
+   * A finished act retires its aim — the same rule solo has had all along.
+   *
+   * Landing on the flower ends the forage; the aim stayed on the flower the
+   * bee was already standing in, so the hint said "Flower chosen — press to
+   * fly" over a button that could do nothing.
+   */
+  const phase = mine?.phase;
+  useEffect(() => {
+    setTarget(null);
+  }, [phase]);
 
   const next = useMemo(() => {
     if (!round || !bee || target === null || verb === "seal") return null;
@@ -192,6 +212,7 @@ export default function LiveBoard({ session }: { session: Session }) {
     if (!ready || busy) return;
     setBusy(true);
     setNote("");
+    sentSeq.current = live?.seq ?? -1;
     try {
       let res: Record<string, unknown>;
       if (verb === "seal" && target !== null) res = await callSeal(target);
@@ -200,21 +221,65 @@ export default function LiveBoard({ session }: { session: Session }) {
       } else return;
       // The server's answer is the fact. `moved: false` is not an error — it is
       // a race this bee lost, and saying so is more use than a silent no-op.
-      if (res.error) setNote(String(res.error));
+      //
+      // Cruise stops where continuing would be wrong: an error (an empty
+      // balance arrives THIS way, as a normal reply with `error_code`, not as a
+      // thrown 402), a refusal, or a second lost race in a row. The note already
+      // carries the server's own reason; nothing is added to it.
+      if (res.error) {
+        setNote(String(res.error));
+        setCruise(false);
+      }
       // A refusal is the rules speaking, and it says why. It used to arrive as
       // "Tool execution failed. Check operator logs." — which reads as a broken
       // service when the service was working perfectly.
-      else if (res.refused) setNote(String(res.refused));
-      else if (res.moved === false) setNote(String(res.reason ?? "Somebody got there first."));
-      else if (res.pollen === true) setNote("Pollen! Head for a door.");
+      else if (res.refused) {
+        setNote(String(res.refused));
+        setCruise(false);
+      } else if (res.moved === false) {
+        setNote(String(res.reason ?? "Somebody got there first."));
+        if (++lostRaces.current >= 2) setCruise(false);
+      } else {
+        lostRaces.current = 0;
+        if (res.pollen === true) setNote("Pollen! Head for a door.");
+      }
       if (verb === "seal") setTarget(null);
       refresh();
     } catch (e) {
       setNote((e as Error).message);
+      setCruise(false);
     } finally {
       setBusy(false);
     }
-  }, [ready, busy, verb, target, next, round, refresh]);
+  }, [ready, busy, verb, target, next, round, refresh, live?.seq]);
+
+  /**
+   * Cruise: press the button for me whenever pressing it would do something.
+   *
+   * Never from the meadow, never while a call is in flight, and never twice
+   * on the same read of the board — see `game/aim.ts` for each guard. It
+   * chooses no aim: with nothing to press it idles, the hint says what to
+   * choose, and the next tap resumes it.
+   */
+  const canCruise = shouldCruise({
+    on: cruise,
+    inHive: mine?.phase === "tunnel",
+    ready,
+    busy,
+    hasStep: verb === "move" && !!next && next.kind !== "wait" && next.kind !== "collapse",
+    running: live?.state === "running",
+    seqAdvanced: (live?.seq ?? -1) !== sentSeq.current,
+  });
+  const actRef = useRef(act);
+  actRef.current = act;
+  useEffect(() => {
+    if (!canCruise) return;
+    const t = setTimeout(() => void actRef.current(), CRUISE_BEAT_MS);
+    return () => clearTimeout(t);
+  }, [canCruise]);
+  useEffect(() => {
+    if (live && live.state !== "running") setCruise(false);
+  }, [live?.state, live]);
 
   if (!live) {
     return <div className="p-8 text-center text-sm text-ink/70">{error || "Finding a hive…"}</div>;
@@ -276,6 +341,9 @@ export default function LiveBoard({ session }: { session: Session }) {
       verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
+      cruise={cruise}
+      cruiseEnabled={mine?.phase === "tunnel" && live.state === "running"}
+      onCruise={setCruise}
       pot={live.pot ?? null}
       charityName={who?.name}
       prompt={
