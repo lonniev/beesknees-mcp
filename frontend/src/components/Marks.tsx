@@ -7,14 +7,14 @@
  * the explanation is three screens behind them.
  *
  * Every mark here is the mark the board draws, in the colours it draws it —
- * lucide icons for the tactics, the same glyphs for the flowers and the bees,
- * the same tokens for the queen's chamber and the halo. That matters more than
+ * the same shapes from `art/shapes.ts` for the bees, the flowers, the crown
+ * and the tactics, the same tokens for the queen's chamber and the halo. That matters more than
  * it sounds: a picture in the instructions that is merely LIKE the thing on
  * screen is worse than no picture, because it teaches somebody to look for
  * something that is not there.
  */
 
-import { Footprints, Mountain, Wind } from "lucide-react";
+import { Art } from "../art/svg.tsx";
 
 /** A mark sitting on the text baseline, at about the size of a capital. */
 function Inline({ children, title }: { children: React.ReactNode; title: string }) {
@@ -33,7 +33,7 @@ function Inline({ children, title }: { children: React.ReactNode; title: string 
 export function Fly() {
   return (
     <Inline title="Fly">
-      <Wind size={16} className="text-[var(--color-ink)]" />
+      <Art id="go" size={18} tint="var(--color-ink)" />
     </Inline>
   );
 }
@@ -41,33 +41,34 @@ export function Fly() {
 export function Crawl() {
   return (
     <Inline title="Crawl">
-      <Footprints size={16} className="text-[var(--color-ink)]" />
+      <Art id="crawl" size={18} tint="var(--color-ink)" />
     </Inline>
   );
 }
 
-export function Mound() {
+/** The seal verb, by the name the button gives it. */
+export function Fill() {
   return (
-    <Inline title="Mound a tunnel shut">
-      <Mountain size={16} className="text-[var(--color-ink)]" />
+    <Inline title="Fill a tunnel in">
+      <Art id="fill" size={18} tint="var(--color-ink)" />
     </Inline>
   );
 }
 
-/** A flower that still has its pollen. `HiveView` draws this one 🌼. */
+/** A flower that still has its pollen — the daisy the board draws. */
 export function PollenFlower() {
   return (
     <Inline title="A flower with pollen">
-      <span className="text-[15px] leading-none">🌼</span>
+      <Art id="daisy" size={19} />
     </Inline>
   );
 }
 
-/** One somebody has already taken. `HiveView` draws this one 🪻. */
+/** One somebody has already taken: the same daisy, gone to lavender. */
 export function PluckedFlower() {
   return (
     <Inline title="A flower already plucked">
-      <span className="text-[15px] leading-none">🪻</span>
+      <Art id="daisy-empty" size={19} />
     </Inline>
   );
 }
@@ -75,7 +76,7 @@ export function PluckedFlower() {
 export function BeeMark() {
   return (
     <Inline title="A bee">
-      <span className="text-[15px] leading-none">🐝</span>
+      <Art id="bee" size={20} rotate={-20} />
     </Inline>
   );
 }
@@ -86,9 +87,9 @@ export function QueenMark() {
     <Inline title="The queen, in her chamber">
       <span
         className="inline-flex h-[19px] w-[19px] items-center justify-center rounded-full text-[11px] leading-none"
-        style={{ background: "var(--color-queen)", opacity: 0.9 }}
+        style={{ background: "var(--color-queen)", opacity: 0.9, color: "var(--color-wax)" }}
       >
-        👑
+        <Art id="crown" size={12} />
       </span>
     </Inline>
   );
@@ -111,7 +112,7 @@ export function YouMark() {
           boxShadow: "inset 0 0 0 1.6px var(--color-you)",
         }}
       >
-        🐝
+        <Art id="bee" size={14} rotate={-20} />
       </span>
     </Inline>
   );

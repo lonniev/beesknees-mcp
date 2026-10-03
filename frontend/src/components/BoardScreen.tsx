@@ -16,6 +16,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import RoundTally, { type Pot } from "./RoundTally.tsx";
 import { Hourglass, Maximize2, Minimize2, Repeat, RotateCcw } from "lucide-react";
+import { Art } from "../art/svg.tsx";
+import type { SymbolId } from "../art/shapes.ts";
+import type { ActionLabel } from "../game/verbs.ts";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import HiveStage from "./HiveStage.tsx";
 import Brood from "./Brood.tsx";
@@ -24,25 +27,6 @@ import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
 import { useWide } from "../lib/useWide.ts";
-
-/**
- * What the button says while the bee is busy, rather than what to press.
- *
- * The button showed its imperative the whole time — "Dig!" greyed out for eight
- * seconds — so the one control on screen spent most of a round telling you to do
- * something you had already done. Naming the ACTIVITY makes the wait the bee's
- * work rather than the interface's silence, and it agrees with the prompt beside
- * it instead of contradicting it.
- *
- * `word` is Crawl or Fly, which the caller already decides from where the step
- * ENDS — underground is a crawl whichever side of the threshold you started on.
- */
-export function activityLabel(action: string | null | undefined, word: string): string {
-  if (action === "dig") return "⛏️ Digging…";
-  if (action === "collapse") return "🧱 Sealing…";
-  if (action === "fly") return word === "Crawl" ? "👣 Crawling…" : "💨 Flying…";
-  return "🐝 Resting…";
-}
 
 export interface ScreenHive {
   id: number;
@@ -86,8 +70,8 @@ export interface BoardScreenProps {
   options?: number[];
   onTapCell: (cell: number) => void;
 
-  /** The verb strip. Ids and icons come from the caller so the words stay one set. */
-  verbs: { id: string; hint: string; Icon: (p: { size?: number }) => ReactNode }[];
+  /** The verb strip. Ids and marks come from `game/verbs.ts` so the words stay one set. */
+  verbs: readonly { id: string; hint: string; icon: SymbolId }[];
   /** What this round has raised, already split. Absent in practice, where
     * there is no money and a till would be showing a figure nobody paid. */
   pot?: Pot | null;
@@ -97,7 +81,7 @@ export interface BoardScreenProps {
   onVerb: (id: string) => void;
 
   prompt: ReactNode;
-  actionLabel: string;
+  actionLabel: ActionLabel;
   actionEnabled: boolean;
   onAct: () => void;
   /** Fraction of the current rest still to serve, 1 → 0. Drawn on the button. */
@@ -544,20 +528,22 @@ export default function BoardScreen(p: BoardScreenProps) {
           * with the thing it modifies. */}
         <div className="flex shrink-0 items-center gap-2">
           <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Tactic?</span>
-          <div className="flex gap-2 rounded-xl bg-ink/4 p-1.5">
-            {p.verbs.map(({ id, hint, Icon }) => (
+          {/* A tray the tactics sit IN — sunk a little, so the chosen one, raised
+            * and purple, reads as the cell that is lit. The marks are the board's
+            * own, in the button's ink: a selected tactic and an idle one differ in
+            * their ground, not in their glyph. */}
+          <div className="bk-tray flex gap-1.5 rounded-2xl p-1.5">
+            {p.verbs.map(({ id, hint, icon }) => (
               <button
                 key={id}
                 onClick={() => p.onVerb(id)}
                 title={hint}
                 aria-pressed={p.verb === id}
-                className={`flex h-11 w-11 items-center justify-center rounded-lg transition sm:h-12 sm:w-12 ${
-                  p.verb === id
-                    ? "bg-[var(--color-tactic)] text-[var(--color-ink)]"
-                    : "text-ink/70 hover:bg-ink/7"
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition sm:h-12 sm:w-12 ${
+                  p.verb === id ? "bk-verb-on text-[var(--color-ink)]" : "text-ink/70 hover:bg-ink/7"
                 }`}
               >
-                <Icon size={19} />
+                <Art id={icon} size={24} />
               </button>
             ))}
           </div>
@@ -569,23 +555,26 @@ export default function BoardScreen(p: BoardScreenProps) {
         <span className="min-w-2 flex-1 sm:min-w-6" />
 
         <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Now?</span>
+        {/* Lime wax: your colour, with the weight of a thing you press. */}
         <button
           onClick={p.onAct}
           disabled={!p.actionEnabled}
-          className={`relative min-w-28 shrink-0 overflow-hidden rounded-xl px-4 py-3 font-semibold transition sm:min-w-40 sm:px-6 ${
-            p.actionEnabled ? "bg-[var(--color-you)] text-black" : "bg-ink/7 text-ink/70"
-          }`}
+          className="bk-act relative min-w-28 shrink-0 overflow-hidden rounded-2xl px-4 py-3 font-semibold transition sm:min-w-40 sm:px-6"
         >
-          {/* The rest, drawn ON the button it gates: the unfilled part IS the
-           * wait. A bee moves once a second and rather longer after a dig, which
-           * is what stops spending from buying speed. */}
+          {/* The rest, drawn ON the button it gates: lime wax rising across it
+           * as the wait runs down, so the unfilled part IS the wait. A bee moves
+           * once a second and rather longer after a dig, which is what stops
+           * spending from buying speed. */}
           {p.restLeft > 0 && (
             <span
-              className="absolute inset-y-0 left-0 bg-[var(--color-you)]/30 transition-[width] duration-100"
+              className="bk-rest absolute inset-y-0 left-0 transition-[width] duration-100"
               style={{ width: `${Math.max(0, Math.min(1, 1 - p.restLeft)) * 100}%` }}
             />
           )}
-          <span className="relative">{p.actionLabel}</span>
+          <span className="relative inline-flex items-center justify-center gap-1.5">
+            {p.actionLabel.icon && <Art id={p.actionLabel.icon} size={18} />}
+            {p.actionLabel.text}
+          </span>
         </button>
 
       </div>
