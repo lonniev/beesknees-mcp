@@ -30,7 +30,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { paintBee, paintedCanvas } from "../lib/beeArt.ts";
+import { paintShape, paintedCanvas } from "../art/canvas.ts";
+import { bee } from "../art/shapes.ts";
 import { drawnHive } from "../lib/beeFlight.ts";
 import { pose, spawn, step, type Field } from "../lib/forage.ts";
 
@@ -176,8 +177,8 @@ export default function Meadow({
         "position:absolute;left:0;top:0;pointer-events:none;will-change:transform;" +
         `width:${px}px;height:${px}px;margin:${-px / 2}px 0 0 ${-px / 2}px;opacity:.78;`;
       el.setAttribute("aria-hidden", "true");
-      const up = paintedCanvas(px, dpr, (ctx, size) => paintBee(ctx, size, "up"));
-      const down = paintedCanvas(px, dpr, (ctx, size) => paintBee(ctx, size, "down"));
+      const up = paintedCanvas(px, dpr, (ctx, size) => paintShape(ctx, size, bee("up")));
+      const down = paintedCanvas(px, dpr, (ctx, size) => paintShape(ctx, size, bee("down")));
       for (const c of [up, down]) {
         c.style.position = "absolute";
         c.style.inset = "0";

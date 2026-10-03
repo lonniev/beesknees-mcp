@@ -20,7 +20,8 @@
 
 import { Application, BlurFilter, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { OPEN, isHive, ringOf, type Board, type Geometry } from "../game/rules.ts";
-import { paintBee, paintCrown, paintFlower, paintGrain, paintedCanvas } from "../lib/beeArt.ts";
+import { paintGrain, paintShape, paintedCanvas } from "../art/canvas.ts";
+import { bee, crown, daisy } from "../art/shapes.ts";
 import { VIEW, cellArc, cellCentre, ringRadius, slotAngle, type CellArc } from "../lib/polar.ts";
 import {
   diffFrame,
@@ -229,14 +230,14 @@ export class HiveStage {
     const made = (px: number, paint: (ctx: CanvasRenderingContext2D, size: number) => void) =>
       Texture.from(paintedCanvas(px, dpr, paint));
     this.tex = {
-      beeUp: made(64, (c, s) => paintBee(c, s, "up")),
-      beeDown: made(64, (c, s) => paintBee(c, s, "down")),
-      full: made(48, (c, s) => paintFlower(c, s, true)),
-      empty: made(48, (c, s) => paintFlower(c, s, false)),
+      beeUp: made(64, (c, s) => paintShape(c, s, bee("up"))),
+      beeDown: made(64, (c, s) => paintShape(c, s, bee("down"))),
+      full: made(48, (c, s) => paintShape(c, s, daisy(true))),
+      empty: made(48, (c, s) => paintShape(c, s, daisy(false))),
       grain: made(12, (c, s) => paintGrain(c, s, "#fcd34d")),
       crumb: made(12, (c, s) => paintGrain(c, s, "#c9a227")),
       glow: made(64, (c, s) => paintGrain(c, s, "#ff5fa2")),
-      crown: made(48, (c, s) => paintCrown(c, s)),
+      crown: made(48, (c, s) => paintShape(c, s, crown())),
     };
 
     this.queenGlow = new Sprite(this.tex.glow);
