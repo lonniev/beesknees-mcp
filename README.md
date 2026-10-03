@@ -121,10 +121,13 @@ always check where it went.
 | `src/beesknees_mcp/server.py` | Frozen tool catalog + `OperatorRuntime` bootstrap |
 | `frontend/src/game/` | The same rules in TypeScript — the client's engine |
 | `frontend/src/lib/polar.ts` | Cell ⇄ wedge, and the tap hit test |
+| `frontend/src/lib/stageMath.ts` | What changed between two looks at a hive — the WebGL board's diff |
+| `frontend/src/lib/beeArt.ts` | The bee, the daisy, the crown: one painter for the board and the page |
+| `frontend/src/stage/` | The focused hive in WebGL (PixiJS). Reached only by dynamic import |
 | `sim/run.ts` | Batch runner: is this a game or a lottery? |
 
 **The rules exist in three copies** — this Python, the client's TypeScript, and
-the renderer — and nothing at runtime reports that they have drifted; the game
+the renderers — and nothing at runtime reports that they have drifted; the game
 simply starts rejecting moves a player can see are legal. `tests/test_geometry.py`
 and `frontend/src/game/rules.test.ts` assert the same invariants on purpose, so
 a drift fails a build instead of a match.
@@ -153,6 +156,12 @@ thing a flat paywall can never give you.
 the local engine — the whole match filled with bots but one seat — so the
 interface can be played before anybody has paid for anything.
 
+The focused hive is drawn in WebGL on top of an SVG first paint. The SVG is
+what the server-side smoke and prerender checks see, what a browser shows on
+its first frame, and what the game falls back to if WebGL is lost; the stage
+takes over once PixiJS has loaded and drawn. Nothing about the game lives in
+the stage — it renders what both engines already compute.
+
 ## Develop
 
 ```bash
@@ -163,8 +172,9 @@ python -m beesknees_mcp.server       # runs the validate_operator_tools guard
 
 cd frontend && npm install
 npm run dev                          # solo mode on http://localhost:5180
-npm test && npm run smoke            # invariants, then a real first paint
+npm test && npm run smoke            # invariants, then a real first paint (the SVG one)
 ```
+
 
 ## License
 
