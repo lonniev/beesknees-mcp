@@ -51,6 +51,11 @@ export function verbIcon(id: Verb, word: string): SymbolId {
   return "fill";
 }
 
+/** The tactic's name in teeny print under its icon: the move by the word it is called out there, the seal by the owner's word for it. */
+export function tacticLabel(id: Verb, word: string): string {
+  return id === "move" ? word.toLowerCase() : "mound";
+}
+
 /** The verb as the button's imperative. */
 export function verbLabel(id: Verb, word: string): string {
   return id === "move" ? `${word}!` : "Fill!";
