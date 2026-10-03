@@ -468,7 +468,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                 {p.onNewMatch && (
                   <button
                     onClick={p.onNewMatch}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-wax)] px-5 py-2 text-sm font-medium text-black"
+                    className="bk-wax inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold"
                   >
                     <Repeat size={15} /> {p.againLabel ?? "Play Again"}
                   </button>

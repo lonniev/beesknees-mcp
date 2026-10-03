@@ -20,7 +20,7 @@ import { useCharity } from "./CharityNote";
 import { fetchProfile } from "@tollbooth-dpyc/web";
 
 const field =
-  "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm placeholder:text-ink/50 focus:border-amber-400 focus:outline-none";
+  "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm placeholder:text-ink/50 focus:border-[var(--color-wax)] focus:outline-none";
 
 export default function Winnings({ npub }: { npub: string }) {
   const [donate, setDonate] = useState(true);
@@ -156,7 +156,7 @@ export default function Winnings({ npub }: { npub: string }) {
       </button>
 
       {msg && (
-        <p className={`mt-3 text-xs ${msg.tone === "ok" ? "text-ink/78" : "text-red-300/80"}`}>
+        <p className={`mt-3 text-xs ${msg.tone === "ok" ? "text-ink/78" : "text-[var(--color-hot-ink)]"}`}>
           {msg.text}
         </p>
       )}
@@ -181,15 +181,15 @@ function Choice({
       type="button"
       onClick={onSelect}
       className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ${
-        checked ? "border-amber-400/50 bg-amber-400/5" : "border-ink/14 hover:bg-ink/4"
+        checked ? "border-[var(--color-wax)]/60 bg-[var(--color-wax)]/8" : "border-ink/14 hover:bg-ink/4"
       }`}
     >
       <span
         className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border ${
-          checked ? "border-amber-400" : "border-ink/32"
+          checked ? "border-[var(--color-wax-ink)]" : "border-ink/32"
         }`}
       >
-        {checked && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+        {checked && <span className="h-2 w-2 rounded-full bg-[var(--color-wax-ink)]" />}
       </span>
       <span className="min-w-0">
         <span className="block text-sm text-ink/95">{title}</span>

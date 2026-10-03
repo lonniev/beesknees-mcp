@@ -31,6 +31,7 @@ import { Link } from "react-router-dom";
 import { useCharity } from "../components/CharityNote.tsx";
 import LossChart from "../components/LossChart.tsx";
 import WildVsManaged from "../components/WildVsManaged.tsx";
+import { Art } from "../art/svg.tsx";
 
 export default function Welcome() {
   // The beneficiary is the operator's to choose and can change, so the page
@@ -87,7 +88,7 @@ export default function Welcome() {
           weakest — and lawn culture exists to remove them.
         </li>
         <li>
-          <span aria-hidden="true">🐝</span> Honeybees are livestock. The wild bees are the
+          <Art id="bee" size={17} rotate={-20} className="-mt-0.5 inline-block align-middle" /> Honeybees are livestock. The wild bees are the
           ones with nobody to replace their losses.
         </li>
       </ul>
@@ -135,7 +136,7 @@ export default function Welcome() {
           leave the dandelions, skip the broadleaf spray, let the clover be.
         </p>
 
-        <h2 className="pt-2 text-lg font-semibold text-ink">🐝 Wild Bees most at Risk</h2>
+        <h2 className="flex items-center gap-2 pt-2 text-lg font-semibold text-ink"><Art id="bee" size={20} rotate={-20} /> Wild Bees most at Risk</h2>
 
         <p>
           Honeybees are livestock. They are not an endangered species — colony numbers hold up

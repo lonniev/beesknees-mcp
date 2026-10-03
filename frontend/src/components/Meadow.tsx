@@ -8,7 +8,7 @@
  *
  * ── Not confusable with a racer ────────────────────────────────────────────
  *
- * A racing bee is the same 🐝 glyph, sitting on a cell. So a loose one drifting
+ * A racing bee is the same painted bee, sitting on a cell. So a loose one drifting
  * over a board would be a bee on the playfield that the rules know nothing
  * about, which is worse than no bees at all. This layer therefore sits BEHIND
  * the hives: each hive paints an opaque meadow square, so a forager crossing

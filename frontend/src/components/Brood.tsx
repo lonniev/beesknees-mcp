@@ -16,6 +16,8 @@
  * land after its cause.
  */
 
+import { Art } from "../art/svg.tsx";
+
 /** A hexagon, flat-top, centred on (cx, cy). Comb, not a honeycomb pattern. */
 function hex(cx: number, cy: number, r: number): string {
   const pts = Array.from({ length: 6 }, (_, i) => {
@@ -43,21 +45,19 @@ export default function Brood({ yours = false }: { yours?: boolean }) {
     >
       {/* The pair. The crown sits over the queen, not over the winner — she was
         * always the queen; he only just arrived. */}
-      <div className="flex items-end gap-2" aria-hidden="true">
+      <div className="flex items-end gap-2" aria-hidden="true" style={{ color: "var(--color-wax)" }}>
         <span className="relative inline-block">
-          <span
-            className="absolute -top-3 left-1/2 -translate-x-1/2 leading-none"
-            style={{ fontSize: yours ? 16 : 13 }}
-          >
-            👑
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 leading-none">
+            <Art id="crown" size={yours ? 20 : 16} />
           </span>
-          <span className="bk-queen block leading-none" style={{ fontSize: yours ? 40 : 30 }}>
-            🐝
+          {/* The queen, facing up the page as a bee at rest in her chamber. */}
+          <span className="bk-queen block leading-none">
+            <Art id="bee" size={yours ? 46 : 34} rotate={-100} />
           </span>
         </span>
         {/* Arriving, and out of breath: the winner is the one that moves. */}
-        <span className="bk-suitor block leading-none" style={{ fontSize: yours ? 26 : 20 }}>
-          🐝
+        <span className="bk-suitor block leading-none">
+          <Art id="bee" size={yours ? 32 : 24} rotate={-80} />
         </span>
       </div>
 
