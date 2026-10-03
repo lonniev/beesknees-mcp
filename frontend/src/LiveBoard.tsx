@@ -387,12 +387,16 @@ export default function LiveBoard({ session }: { session: Session }) {
                 // tacked onto the sentence with a second dash.
                 note: claimed ? claimed.replace(/^\s*—\s*/, "") : undefined,
                 yours: true,
+                hive: winnerBee?.hive,
+                beeId: winnerBee?.seat,
               }
             : {
                 label: winnerBee?.label || live.winner_npub.slice(0, 12),
                 detail: winnerBee
                   ? `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`
                   : "reached the queen first",
+                hive: winnerBee?.hive,
+                beeId: winnerBee?.seat,
               }
           : {
               // Ended with nobody home: the ceiling ran out. Still a result,

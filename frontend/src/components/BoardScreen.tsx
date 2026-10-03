@@ -21,8 +21,6 @@ import type { SymbolId } from "../art/shapes.ts";
 import type { ActionLabel } from "../game/verbs.ts";
 import { HiveView, type ViewBee } from "./HiveView.tsx";
 import HiveStage from "./HiveStage.tsx";
-import Brood from "./Brood.tsx";
-import Coronation from "./Coronation.tsx";
 import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
@@ -106,6 +104,10 @@ export interface BoardScreenProps {
     yours?: boolean;
     /** Nobody reached a queen — the ceiling ran out. A result, not a victory. */
     unwon?: boolean;
+    /** Where it happened: the hive, and the winner's seat in it. The board
+     * turns to that hive, and its stage holds the wedding there. */
+    hive?: number;
+    beeId?: number;
   } | null;
 }
 
@@ -266,10 +268,10 @@ export default function BoardScreen(p: BoardScreenProps) {
   /**
    * Whether the reward tableau has been dismissed.
    *
-   * The coronation runs for about two seconds and the result card is opaque
-   * and covered it at 1.15 — so a bee crossed a meadow, queued at a door and
-   * cut thirty cells of comb, and its reward was cut off half way through by a
-   * button. The card now waits to be asked for.
+   * The wedding runs for about seven seconds on the board and the result card
+   * is opaque — a bee crossed a meadow, queued at a door and cut thirty cells
+   * of comb, and its reward was once cut off half way through by a button. The
+   * card waits to be asked for.
    *
    * Keyed on the win itself, so a fresh result starts a fresh flourish rather
    * than arriving already dismissed by the last one.
@@ -287,6 +289,21 @@ export default function BoardScreen(p: BoardScreenProps) {
   // result. Ceremony for a stalemate reads as mockery, and so does a wait.
   const showCard = Boolean(p.winner) && (p.winner!.unwon || still || dismissed === won);
   const immersive = !wide && zoomed;
+
+  /**
+   * The board turns to the hive where the race was decided.
+   *
+   * The wedding is drawn on that hive's stage, by the bees that were there; a
+   * player watching their own hive while a rival won elsewhere would otherwise
+   * see nothing but a result card. Once, per win; the gutters are still there
+   * to look back.
+   */
+  const where = p.winner?.hive;
+  useEffect(() => {
+    if (where !== undefined && where !== null && p.focus !== where) p.onFocus(where);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [where, won]);
+
   const rivals = p.hives.filter((h) => h.id !== p.focus);
   const shown = p.focus === null ? null : p.hives.find((h) => h.id === p.focus) ?? null;
   const mineHere = p.yourHive !== null && p.yourHive === p.focus;
@@ -387,6 +404,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                 hot={shown.hot}
                 frame={p.frame}
                 epoch={`${p.epoch}:${shown.id}`}
+                winnerId={p.winner && p.winner.hive === shown.id && p.winner.beeId !== undefined ? p.winner.beeId : null}
                 youId={mineHere ? p.youId : null}
                 target={mineHere ? p.target : null}
                 route={mineHere ? p.route : []}
@@ -424,10 +442,6 @@ export default function BoardScreen(p: BoardScreenProps) {
             </div>
           )}
 
-          {p.winner && !p.winner.unwon && (
-              <Coronation key={p.winner.detail} yours={Boolean(p.winner.yours)} />
-            )}
-
             {p.winner && !showCard && (
               /* The whole hive is the button. Nothing to aim at, and no way to
                * miss it — the one thing a person wants here is to look, and
@@ -453,16 +467,10 @@ export default function BoardScreen(p: BoardScreenProps) {
                  * not reach. */
                 className="bk-reveal absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 text-white backdrop-blur-sm"
               >
-                {p.winner.unwon ? (
-                  // No brood for a round nobody won. Ceremony for a stalemate
-                  // reads as mockery.
-                  <Hourglass size={34} className="text-white/45" />
-                ) : (
-                  // A trophy is a sports cup, and this was a race to a queen.
-                  // The tableau says what actually happened; `yours` only makes
-                  // it bigger and lays two more eggs.
-                  <Brood yours={Boolean(p.winner.yours)} />
-                )}
+                {/* The wedding was on the board, under this card. A round nobody
+                  * won gets the hourglass: ceremony for a stalemate reads as
+                  * mockery. */}
+                {p.winner.unwon && <Hourglass size={34} className="text-white/45" />}
                 <div className="text-center">
                   <div className="text-xl font-semibold">{p.winner.label}</div>
                   <div className="mt-0.5 text-sm text-white/70">{p.winner.detail}</div>

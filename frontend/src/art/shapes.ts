@@ -118,17 +118,6 @@ export function crown(fill = BEE_PALETTE.wax): Shape {
   };
 }
 
-/** A capped cell with an egg in it — the brood. */
-export function eggCell(): Shape {
-  return {
-    box: 16,
-    prims: [
-      { k: "path", d: "M-13 0 L-6.5 -11.3 L6.5 -11.3 L13 0 L6.5 11.3 L-6.5 11.3 Z", fill: "rgba(242,193,78,0.18)", stroke: BEE_PALETTE.wax, w: 1.2, join: "round" },
-      { k: "ellipse", cx: 0, cy: 1, rx: 4.2, ry: 5.8, fill: "#fff7d6" },
-    ],
-  };
-}
-
 /**
  * The verbs, in the same hand as the bee.
  *
@@ -189,7 +178,6 @@ export const SYMBOLS = {
   daisy: () => daisy(true),
   "daisy-empty": () => daisy(false),
   crown: () => crown("currentColor"),
-  "egg-cell": () => eggCell(),
   go: () => iconGo(),
   crawl: () => iconCrawl(),
   fill: () => iconFill(),

@@ -31,6 +31,8 @@ interface Props {
   frame: number;
   /** Which match this is — see `StageProps.epoch`. */
   epoch: string;
+  /** The winner's id when the race was decided in THIS hive; the stage holds the wedding. */
+  winnerId: number | null;
   onTapCell?: (cell: number) => void;
 }
 
@@ -138,5 +140,6 @@ function asStageProps(p: Props): StageProps {
     options: p.options,
     armed: p.armed,
     epoch: p.epoch,
+    winnerId: p.winnerId,
   };
 }
