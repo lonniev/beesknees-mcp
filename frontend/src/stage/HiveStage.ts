@@ -51,6 +51,12 @@ export interface StageProps {
    * tweening seat 3 of the last round across the board to seat 3 of this one.
    */
   epoch: string;
+  /**
+   * The winner, when the race was decided in this hive. Told, not inferred: a
+   * player who turns to the hive after the fact sees the bees arrive already
+   * `done`, with no phase change to notice, and still gets the wedding.
+   */
+  winnerId: number | null;
 }
 
 export interface StageOpts {
@@ -167,6 +173,8 @@ export class HiveStage {
   private live: Particle[] = [];
   private caps: Cap[] = [];
   private wedding: Wedding | null = null;
+  /** Which win the wedding on stage is for, so it is held once per win. */
+  private wed = "";
 
   private hot = false;
   private mine = false;
@@ -570,6 +578,7 @@ export class HiveStage {
       // A new match. Nobody tweens from the last one's seat to this one's.
       this.epoch = p.epoch;
       this.endWedding();
+      this.wed = "";
       for (const b of [...this.bees.values()]) this.dropBee(b);
       for (const [c, sp] of this.flowers) {
         sp.texture = board.pollen[c] ? this.tex.full : this.tex.empty;
@@ -608,7 +617,6 @@ export class HiveStage {
       if (ph.to === "done") {
         b.crown.visible = true;
         this.burst(b.cell, this.tex.grain, 24, 14, 2.6, 900, 0xfff1a8);
-        this.startWedding(b, now);
       }
     }
     for (const c of d.sealed) this.sealCap(c);
@@ -634,6 +642,13 @@ export class HiveStage {
     this.board = board;
 
     for (const b of this.bees.values()) this.dress(b);
+    const wedKey = p.winnerId === null ? "" : `${p.epoch}:${p.winnerId}`;
+    if (wedKey !== this.wed) {
+      this.wed = wedKey;
+      const winner = p.winnerId === null ? null : this.bees.get(p.winnerId);
+      if (winner) this.startWedding(winner, now);
+      else this.endWedding();
+    }
     this.paintOverlay(p, p.youId === null ? null : this.bees.get(p.youId) ?? null);
     this.armedRing.visible = p.armed;
   }

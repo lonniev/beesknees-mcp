@@ -307,10 +307,14 @@ export default function App() {
                 label: `Consort to ${queenName(match.hives[match.winner.hive])}`,
                 detail: `Hive ${match.hives[match.winner.hive].name} is yours — first bee home`,
                 yours: true,
+                hive: match.winner.hive,
+                beeId: match.winner.beeId,
               }
             : {
                 label: match.winner.label,
                 detail: `reached ${queenOf(match.hives[match.winner.hive])}`,
+                hive: match.winner.hive,
+                beeId: match.winner.beeId,
               }
           : null
       }

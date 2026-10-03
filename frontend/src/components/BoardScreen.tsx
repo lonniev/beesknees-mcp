@@ -104,6 +104,10 @@ export interface BoardScreenProps {
     yours?: boolean;
     /** Nobody reached a queen — the ceiling ran out. A result, not a victory. */
     unwon?: boolean;
+    /** Where it happened: the hive, and the winner's seat in it. The board
+     * turns to that hive, and its stage holds the wedding there. */
+    hive?: number;
+    beeId?: number;
   } | null;
 }
 
@@ -285,6 +289,21 @@ export default function BoardScreen(p: BoardScreenProps) {
   // result. Ceremony for a stalemate reads as mockery, and so does a wait.
   const showCard = Boolean(p.winner) && (p.winner!.unwon || still || dismissed === won);
   const immersive = !wide && zoomed;
+
+  /**
+   * The board turns to the hive where the race was decided.
+   *
+   * The wedding is drawn on that hive's stage, by the bees that were there; a
+   * player watching their own hive while a rival won elsewhere would otherwise
+   * see nothing but a result card. Once, per win; the gutters are still there
+   * to look back.
+   */
+  const where = p.winner?.hive;
+  useEffect(() => {
+    if (where !== undefined && where !== null && p.focus !== where) p.onFocus(where);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [where, won]);
+
   const rivals = p.hives.filter((h) => h.id !== p.focus);
   const shown = p.focus === null ? null : p.hives.find((h) => h.id === p.focus) ?? null;
   const mineHere = p.yourHive !== null && p.yourHive === p.focus;
@@ -385,6 +404,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                 hot={shown.hot}
                 frame={p.frame}
                 epoch={`${p.epoch}:${shown.id}`}
+                winnerId={p.winner && p.winner.hive === shown.id && p.winner.beeId !== undefined ? p.winner.beeId : null}
                 youId={mineHere ? p.youId : null}
                 target={mineHere ? p.target : null}
                 route={mineHere ? p.route : []}
