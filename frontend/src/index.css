@@ -143,6 +143,85 @@ canvas.hive {
   touch-action: none;
 }
 
+/* ── Wax ──────────────────────────────────────────────────────────────────
+ *
+ * The board draws comb, wax and glow now, and controls that were flat tints
+ * beside it read as a different product. These give the chrome the same
+ * material — a highlight along the top edge, weight along the bottom, a tray
+ * the tactics sit IN — without changing a single hue: lime is still "you, act
+ * now", purple is still the standing tactic, wax is still money and
+ * celebration. Everything is derived from the tokens, so the contrast ladder
+ * measured for them still holds. */
+
+.bk-tray {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-sky));
+  box-shadow:
+    inset 0 1px 2px color-mix(in srgb, var(--color-ink) 14%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, white 60%, transparent);
+}
+
+.bk-verb-on {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-tactic) 70%, white),
+    color-mix(in srgb, var(--color-tactic) 92%, var(--color-ink))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 65%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--color-ink) 12%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-ink) 15%, transparent);
+}
+
+.bk-act {
+  color: color-mix(in srgb, var(--color-ink) 92%, var(--color-you));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-you) 78%, white),
+    color-mix(in srgb, var(--color-you) 88%, var(--color-ink))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 60%, transparent),
+    inset 0 -3px 0 color-mix(in srgb, var(--color-ink) 14%, transparent),
+    0 2px 4px color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+
+/* Spent, or nothing to press yet: pale wax, the weight gone out of it. The
+   ink stays at /72, which is above the 4.5:1 floor on this ground. */
+.bk-act:disabled {
+  color: color-mix(in srgb, var(--color-ink) 72%, var(--color-sky));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-ink) 6%, var(--color-sky)),
+    color-mix(in srgb, var(--color-ink) 12%, var(--color-sky))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 55%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+/* The rest, as lime wax rising across the button. */
+.bk-rest {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-you) 40%, transparent),
+    color-mix(in srgb, var(--color-you) 55%, transparent)
+  );
+}
+
+/* A celebration pill — Play Again, the lobby's fund button when it is a
+   gift rather than a move. Wax, not lime: it is not an action in the game. */
+.bk-wax {
+  color: var(--color-comb);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-wax) 80%, white),
+    color-mix(in srgb, var(--color-wax) 90%, var(--color-wax-ink))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 60%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+
 /* A slow breath on your own bee's halo. Slow on purpose: a fast blink competes
    with the board for attention, and the board is the thing being read. */
 @keyframes bk-breathe {

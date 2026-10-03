@@ -9,6 +9,7 @@
  */
 
 import { memo, useCallback, useRef } from "react";
+import { UseArt } from "../art/svg.tsx";
 import { OPEN, ringOf } from "../game/rules.ts";
 import type { Board } from "../game/rules.ts";
 import {
@@ -96,8 +97,15 @@ interface Props {
   onTapHive?: () => void;
 }
 
-function beeGlyph(bee: ViewBee): string {
-  return bee.phase === "done" ? "👑" : "🐝";
+/**
+ * A bee, drawn with the same mark the WebGL board and the page use, pointed
+ * at the queen — the direction every racer is ultimately going, and the one
+ * a still thumbnail can honestly claim. The winner wears the crown instead.
+ */
+function BeeMark({ bee, x, y, size }: { bee: ViewBee; x: number; y: number; size: number }) {
+  if (bee.phase === "done") return <UseArt id="crown" x={x} y={y} size={size} />;
+  const heading = (Math.atan2(-y, -x) * 180) / Math.PI;
+  return <UseArt id="bee" x={x} y={y} size={size} rotate={heading} />;
 }
 
 function HiveViewInner({ board, bees, hot, frame, youId, target, route, options, focused, armed, onTapCell, onTapHive }: Props) {
@@ -199,19 +207,11 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
         const [x, y] = cellCentre(g, c);
         const full = Boolean(board.pollen[c]);
         return (
-          <text
-            key={`f${c}`}
-            x={x}
-            y={y}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={6}
-            // Still a small step, so a live flower leads even before the hue
-            // registers — but the hue is what carries it now.
-            opacity={full ? 0.95 : 0.62}
-          >
-            {full ? "🌼" : "🪻"}
-          </text>
+          // Still a small step in opacity, so a live flower leads even before
+          // the hue registers — but the hue is what carries it now.
+          <g key={`f${c}`} opacity={full ? 0.95 : 0.62}>
+            <UseArt id={full ? "daisy" : "daisy-empty"} x={x} y={y} size={8.5} />
+          </g>
         );
       })}
 
@@ -282,9 +282,9 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
 
       {/* The queen's chamber. */}
       <circle cx={0} cy={0} r={ringRadius(g, 1)} fill="var(--color-queen)" opacity={0.9} />
-      <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fontSize={focused ? 5 : 9}>
-        👑
-      </text>
+      <g style={{ color: "var(--color-wax)" }}>
+        <UseArt id="crown" x={0} y={0} size={focused ? 6 : 8} />
+      </g>
 
       {/* Rivals first, dimmed, so your own bee is never drawn under one. */}
       {bees
@@ -292,17 +292,9 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
         .map((bee) => {
           const [x, y] = cellCentre(g, bee.cell);
           return (
-            <text
-              key={`b${bee.id}`}
-              x={x}
-              y={y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={focused ? 4.5 : 7}
-              opacity={bee.phase === "done" ? 1 : 0.5}
-            >
-              {beeGlyph(bee)}
-            </text>
+            <g key={`b${bee.id}`} opacity={bee.phase === "done" ? 1 : 0.7} style={{ color: "var(--color-wax)" }}>
+              <BeeMark bee={bee} x={x} y={y} size={focused ? 7 : 11} />
+            </g>
           );
         })}
 
@@ -347,15 +339,9 @@ function HiveViewInner({ board, bees, hot, frame, youId, target, route, options,
                   stroke="var(--color-you)"
                   strokeWidth={focused ? 1.1 : 1.8}
                 />
-                <text
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={focused ? 5.5 : 9}
-                >
-                  {beeGlyph(youBee)}
-                </text>
+                <g style={{ color: "var(--color-wax)" }}>
+                  <BeeMark bee={youBee} x={x} y={y} size={focused ? 8.5 : 13} />
+                </g>
               </>
             );
           })()}

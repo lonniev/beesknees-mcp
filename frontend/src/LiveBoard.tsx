@@ -13,8 +13,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Footprints, Mountain, Wind } from "lucide-react";
-import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
+import BoardScreen from "./components/BoardScreen.tsx";
+import { VERBS, activityLabel, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
 import NextStep from "./components/NextStep.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
@@ -66,7 +66,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   const { board: live, error, refresh, leave } = useLiveMatch(call, true, session.npub);
 
   const [target, setTarget] = useState<number | null>(null);
-  const [verb, setVerb] = useState<"move" | "seal">("move");
+  const [verb, setVerb] = useState<Verb>("move");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -273,12 +273,9 @@ export default function LiveBoard({ session }: { session: Session }) {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={[
-        { id: "move", hint: "Travel — cut fresh comb where you must", Icon: word === "Crawl" ? Footprints : Wind },
-        { id: "seal", hint: "Bring down an open tunnel", Icon: Mountain },
-      ]}
+      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, word) }))}
       verb={verb}
-      onVerb={(v) => setVerb(v as "move" | "seal")}
+      onVerb={(v) => setVerb(v as Verb)}
       pot={live.pot ?? null}
       charityName={who?.name}
       prompt={
@@ -298,16 +295,14 @@ export default function LiveBoard({ session }: { session: Session }) {
       }
       actionLabel={
         mine?.phase === "done"
-          ? "👑 Home"
+          ? { icon: "crown", text: "Home" }
           : !ready && left > 0
             // The server does not say WHICH action is being served, so it is read
             // off the length of the rest: only a cut costs more than one.
             ? activityLabel(digging ? "dig" : "fly", word)
             : busy
-              ? "…"
-              : verb === "seal"
-                ? "Fill!"
-                : `${word}!`
+              ? { icon: null, text: "…" }
+              : readyLabel(verb, word)
       }
       actionEnabled={ready && !busy && (verb === "seal" ? target !== null : Boolean(next))}
       onAct={act}

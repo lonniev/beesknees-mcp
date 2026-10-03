@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { HeartHandshake, Coins, Trophy } from "lucide-react";
+import { Art } from "../art/svg.tsx";
 import { settlementHistory, type SettlementHistory } from "../lib/mcp";
 
 /** Slow on purpose: settlements happen per match, not per second. */
@@ -69,8 +70,9 @@ export default function Scoreboard() {
         * a fact about the split and true from the very first sat; the total
         * underneath is the evidence for it. */}
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate font-medium text-ink/90">
-          🐝 Every move you make feeds the pollinators
+        <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-ink/90">
+          <Art id="bee" size={16} rotate={-20} className="shrink-0" />
+          Every move you make feeds the pollinators
           <span className="ml-1 font-normal text-ink/70">— 80% of every pot goes to them</span>
         </span>
         <div className="flex items-center gap-1.5 text-ink/70">
@@ -104,7 +106,9 @@ export default function Scoreboard() {
             <Trophy size={11} className="text-[var(--color-wax-ink)]" />
             {top.map((row, i) => (
               <span key={row.npub} className="tabular-nums" title={row.npub}>
-                <span aria-hidden>{["🥇", "🥈", "🥉"][i]}</span>{" "}
+                {/* Gold, silver, bronze — the crown the winner wears on the
+                  * board, in the metal of the place. */}
+                <Art id="crown" size={13} tint={["#c9960c", "#8a8f98", "#b06a3b"][i]} className="-translate-y-px" />{" "}
                 <span className="font-mono text-[10px]">{short(row.npub)}</span>{" "}
                 <span className="text-ink/85">
                   {row.wins} {row.wins === 1 ? "win" : "wins"}

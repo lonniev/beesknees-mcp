@@ -8,8 +8,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Footprints, Mountain, Wind } from "lucide-react";
-import BoardScreen, { activityLabel } from "./components/BoardScreen.tsx";
+import BoardScreen from "./components/BoardScreen.tsx";
+import { VERBS, activityLabel, busyWord, moveWord, readyLabel, verbIcon, type Verb } from "./game/verbs.ts";
 import NextStep from "./components/NextStep.tsx";
 import { approach, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
@@ -26,76 +26,6 @@ import { useSoloMatch } from "./lib/useMatch.ts";
  * own shaft and riding somebody else's cost differently and take different
  * amounts of TIME, so which one you are doing should be something you say.
  */
-/**
- * Two modes, not three — and only one of them is a decision.
- *
- * Fly and Dig were separate buttons the player had to choose BETWEEN before
- * tapping, which made them a mode error waiting to happen: whether a step is a
- * crawl or a cut is decided by the cell, not by the person, and with "Fly"
- * selected the diggable cells were not offered at all, so a perfectly good
- * comb face read as a dead end. Moving is now one verb that names itself from
- * the cell it is about to enter.
- *
- * Seal stays its own mode because it genuinely is one: it is the only thing
- * here that destroys rather than travels, and it must never be a mis-tap.
- */
-const VERBS = [
-  { id: "move", label: "Go!", Icon: Wind, hint: "Travel — cut fresh comb where you must" },
-  { id: "seal", label: "Fill!", Icon: Mountain, hint: "Bring down an open tunnel" },
-] as const;
-
-/**
- * The same motion is called something different inside the hive.
- *
- * A bee in the meadow flies; a bee in a tunnel crawls. It is one verb in the
- * rules and two words on the button, because "Fly" over a bee that is
- * underground reads as a bug rather than as a synonym.
- */
-function verbLabel(id: Verb, word: string): string {
-  if (id === "move") return `${word}!`;
-  return VERBS.find((v) => v.id === id)!.label;
-}
-
-/**
- * The motion's name, decided by where it ENDS rather than where it starts.
- *
- * A bee on the square outside a door is about to go underground, so it crawls
- * in — even though it is standing in open air. A bee in the doorway heading
- * back out is about to be airborne, so it flies out. Naming the word after the
- * bee's current cell got both of those backwards, which is exactly the moment
- * the word matters: at the threshold.
- */
-/**
- * What the bee is DOING while its clock runs down.
- *
- * It said "Resting" whatever the delay was for, which told the player their bee
- * was idle at the exact moment it was working hardest — eight seconds of it,
- * after cutting a cell. The wait was never the problem. Being told an
- * industrious animal was having a lie-down was.
- *
- * The cell really does open the instant the dig is paid for, and the bee really
- * is standing in it — that is the rule, and the server's fenced write depends on
- * it. So this is an honest reading of the same fact rather than a fiction: the
- * bee is in the cell it is still busy cutting its way through.
- */
-function busyWord(action: string | null | undefined): string {
-  if (action === "dig") return "Digging";
-  if (action === "collapse") return "Sealing";
-  return "Resting";
-}
-
-function moveWord(destInHive: boolean): string {
-  return destInHive ? "Crawl" : "Fly";
-}
-
-/** Wings above ground, feet below. A bee going into a tunnel is not flying. */
-function verbIcon(id: Verb, word: string) {
-  if (id === "move") return word === "Crawl" ? Footprints : Wind;
-  return VERBS.find((v) => v.id === id)!.Icon;
-}
-
-type Verb = (typeof VERBS)[number]["id"];
-
 /**
  * One rival hive, small.
  *
@@ -308,7 +238,7 @@ export default function App() {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={VERBS.map(({ id, hint }) => ({ id, hint, Icon: verbIcon(id, pending.word) }))}
+      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, pending.word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
       prompt={
@@ -329,7 +259,7 @@ export default function App() {
       }
       actionLabel={
         // Busy: say what the bee is doing. Ready: say what pressing will do.
-        ready ? verbLabel(verb, pending.word) : activityLabel(you?.lastAction, pending.word)
+        ready ? readyLabel(verb, pending.word) : activityLabel(you?.lastAction, pending.word)
       }
       actionEnabled={Boolean(pending.action) && ready}
       onAct={act}

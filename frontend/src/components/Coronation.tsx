@@ -27,12 +27,14 @@
  */
 
 import { useMemo } from "react";
+import { Art } from "../art/svg.tsx";
+import type { SymbolId } from "../art/shapes.ts";
 
 /** Where the wave starts: the queen chamber, as a share of the hive's square. */
 const QUEEN = 0.08;
 
 interface Fleck {
-  glyph: string;
+  glyph: SymbolId;
   dx: string;
   dy: string;
   spin: string;
@@ -55,7 +57,7 @@ function swarm(n: number): Fleck[] {
     const angle = rnd(-Math.PI * 0.95, Math.PI * 0.05);
     const reach = rnd(90, 230);
     return {
-      glyph: i % 7 === 0 ? "👑" : "🐝",
+      glyph: (i % 7 === 0 ? "crown" : "bee") as SymbolId,
       dx: `${Math.cos(angle) * reach}px`,
       dy: `${Math.sin(angle) * reach}px`,
       spin: `${rnd(-160, 160)}deg`,
@@ -104,13 +106,13 @@ export default function Coronation({ yours }: { yours: boolean }) {
           * otherwise overwrite the centring translate — the crown landed
           * below and to the right of the queen it was meant to sit on, which
           * is exactly the kind of thing only a screenshot catches. */}
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: "var(--color-wax)" }}>
           <span
             className="bk-crown block select-none"
-            style={{ fontSize: yours ? "clamp(34px, 7vmin, 88px)" : "clamp(20px, 4vmin, 48px)" }}
+            style={{ width: yours ? "clamp(40px, 8vmin, 96px)" : "clamp(24px, 5vmin, 56px)", filter: "drop-shadow(0 4px 8px rgba(0,0,0,.4))" }}
             aria-hidden="true"
           >
-            👑
+            <svg viewBox="0 0 64 64" className="block h-auto w-full"><use href="#bk-crown" width="64" height="64" /></svg>
           </span>
         </span>
 
@@ -126,8 +128,7 @@ export default function Coronation({ yours }: { yours: boolean }) {
               aria-hidden="true"
               style={
                 {
-                  fontSize: f.size,
-                  lineHeight: 1,
+                  color: "var(--color-wax)",
                   "--dx": f.dx,
                   "--dy": f.dy,
                   "--spin": f.spin,
@@ -136,7 +137,7 @@ export default function Coronation({ yours }: { yours: boolean }) {
                 } as React.CSSProperties
               }
             >
-              {f.glyph}
+              <Art id={f.glyph} size={f.size} rotate={-70} />
             </span>
           ))}
         </div>

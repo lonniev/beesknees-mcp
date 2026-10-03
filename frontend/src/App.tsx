@@ -11,6 +11,7 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { Avatar, useSession } from "@tollbooth-dpyc/web/react";
 import { avatarFor } from "@tollbooth-dpyc/web";
+import { Art, ArtSymbols } from "./art/svg.tsx";
 import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useOperator } from "./lib/useOperator";
@@ -87,12 +88,15 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Every mark on the site, once, for every <use> below. */}
+      <ArtSymbols />
       <nav className="flex shrink-0 items-center gap-1 border-b border-ink/14 px-2 py-1.5">
         {/* The wordmark goes on a phone; the bee stays. Five labelled
           * destinations and a brand do not fit 390px, and the bar was the one
           * thing on the board screen allowed to steal height from the board. */}
-        <span className="shrink-0 px-2 text-sm font-semibold tracking-tight">
-          🐝<span className="hidden sm:inline"> The Bee&rsquo;s Knees</span>
+        <span className="flex shrink-0 items-center gap-1.5 px-2 text-sm font-semibold tracking-tight">
+          <Art id="bee" size={24} rotate={-20} title="The Bee's Knees" />
+          <span className="hidden sm:inline">The Bee&rsquo;s Knees</span>
         </span>
         {/* Spread, rather than huddled at the right-hand end. `justify-evenly`
           * in a flexible middle gives each destination the same room and lets
@@ -140,7 +144,7 @@ export default function App() {
       {/* A lapsed proof is routine — an hour with the tab open does it — so it
        * is a calm strip above the page, not a redirect that loses your place. */}
       {session.notice && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-[var(--color-wax-ink)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-wax)]/40 bg-[var(--color-wax)]/12 px-3 py-1.5 text-xs text-[var(--color-wax-ink)]">
           <span className="flex-1">{session.notice}</span>
           <NavLink to="/signin" className="font-semibold underline">
             Sign in

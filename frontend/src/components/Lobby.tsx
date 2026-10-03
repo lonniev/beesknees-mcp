@@ -31,6 +31,7 @@ import type { Session } from "@tollbooth-dpyc/web/react";
 import { QuoteScroller } from "@tollbooth-dpyc/web/react";
 import { QUOTES } from "../lib/quotes.ts";
 import { quoteStyles } from "../lib/quoteStyles.ts";
+import { Art } from "../art/svg.tsx";
 
 /** Mirrors board_store.QUORUM — bees in ONE hive, which is what starts a match.
  *
@@ -248,7 +249,7 @@ export default function Lobby({
                         className="bk-pulse absolute left-1/2 top-1/2 h-[14px] w-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-you)]"
                       />
                     )}
-                    <span className="relative">🐝</span>
+                    <span className="relative inline-flex"><Art id="bee" size={15} rotate={-90} /></span>
                   </span>
                 ) : (
                   // An empty seat is an absence, but it is still a comb cell somebody
@@ -304,7 +305,7 @@ export default function Lobby({
         />
       )}
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--color-hot-ink)]">{error}</p>}
 
       {/* The one thing a waiting player can do about the wait. A bot will fill
         * the seat eventually; a friend is a better game. */}

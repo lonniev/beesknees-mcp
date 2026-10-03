@@ -122,7 +122,7 @@ always check where it went.
 | `frontend/src/game/` | The same rules in TypeScript — the client's engine |
 | `frontend/src/lib/polar.ts` | Cell ⇄ wedge, and the tap hit test |
 | `frontend/src/lib/stageMath.ts` | What changed between two looks at a hive — the WebGL board's diff |
-| `frontend/src/lib/beeArt.ts` | The bee, the daisy, the crown: one painter for the board and the page |
+| `frontend/src/art/` | The bee, the daisy, the crown as shapes — painted for the board, `<symbol>`s for the page |
 | `frontend/src/stage/` | The focused hive in WebGL (PixiJS). Reached only by dynamic import |
 | `sim/run.ts` | Batch runner: is this a game or a lottery? |
 
