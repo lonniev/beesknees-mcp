@@ -171,10 +171,8 @@ export function easeOut(t: number): number {
  *
  * A fraction of the gap between frames, so the bee is at rest before its next
  * move arrives and never visibly lags the game — but never so quick that it
- * teleports, which is the thing this renderer exists to stop. Reduced motion
- * snaps: the setting asks for less movement, and a bee that glides is movement.
+ * teleports, which is the thing this renderer exists to stop.
  */
-export function tweenMs(gapMs: number, reduced: boolean): number {
-  if (reduced) return 0;
+export function tweenMs(gapMs: number): number {
   return Math.min(900, Math.max(250, gapMs * 0.7));
 }

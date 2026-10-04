@@ -13,12 +13,9 @@
  * own units, so it lands on the wall on every screen.
  *
  * Yours gets a lap and a half in gold; a rival's one lap in red — it is still
- * the end of the race, but it is not your wedding. Reduced motion CALMS it
- * rather than skipping it, as everything else on the board does: the same
- * procession at the same pace, without the bob, the wingbeat, the waves or
- * the petals. Jumping to the final tableau was tried, and with the card
- * arriving at the same moment the player who asked for stillness got no
- * wedding at all.
+ * the end of the race, but it is not your wedding. It does not answer the
+ * OS's reduce-motion setting: a game's motion is its content, and the owner
+ * won a round once and got no wedding because it did.
  */
 
 import { Container, Graphics, Sprite, type Texture } from "pixi.js";
@@ -85,7 +82,6 @@ export class Wedding {
   private readonly laps: number;
   private readonly start: number;
   private readonly spawn: Spawn;
-  private readonly reduced: boolean;
 
   constructor(opts: {
     g: Geometry;
@@ -95,7 +91,6 @@ export class Wedding {
     others: Dancer[];
     yours: boolean;
     spawn: Spawn;
-    reduced: boolean;
     now: number;
   }) {
     const { g, palette: P, tex } = opts;
@@ -105,7 +100,6 @@ export class Wedding {
     this.yours = opts.yours;
     this.winnerId = opts.winner.id;
     this.spawn = opts.spawn;
-    this.reduced = opts.reduced;
     this.t0 = opts.now;
 
     this.queen = new Sprite(tex.beeUp);
@@ -175,24 +169,24 @@ export class Wedding {
   tick(now: number): void {
     const { g, P, tex } = this;
     const t = (now - this.t0) / 1000;
-    const flap = !this.reduced && ((t * 24) | 0) % 2 ? tex.beeUp : tex.beeDown;
+    const flap = ((t * 24) | 0) % 2 ? tex.beeUp : tex.beeDown;
     const q1 = ringRadius(g, 1);
 
     // The crowning: waves out of the chamber as the queen rises.
     this.waves.forEach((wv, i) => {
       const k = Math.min(1, Math.max(0, (t - i * 0.25) / 1.4));
       wv.clear();
-      if (!this.reduced && k > 0 && k < 1) {
+      if (k > 0 && k < 1) {
         const r = q1 + (ringRadius(g, g.R + 1) + 8 - q1) * easeOut(k);
         wv.circle(0, 0, r).stroke({ width: 2.2, color: this.yours ? P.wax : P.hot, alpha: (1 - k) * 0.9 });
         if (i === 0) wv.circle(0, 0, r).fill({ color: 0xffcd5a, alpha: (1 - k) * 0.22 });
       }
     });
-    this.glow.alpha = this.reduced ? 0.4 : 0.35 + 0.25 * Math.sin(t * 4);
+    this.glow.alpha = 0.35 + 0.25 * Math.sin(t * 4);
 
     const place = (sp: Sprite, crown: Sprite, k: number, size: number) => {
       const [x, y, h] = this.circuit(k);
-      const bob = this.reduced ? 0 : 0.3 * Math.sin(t * 9 + size);
+      const bob = 0.3 * Math.sin(t * 9 + size);
       sp.position.set(x, y + bob);
       sp.rotation = h;
       sp.texture = flap;
@@ -240,7 +234,7 @@ export class Wedding {
         if (ka > 0 && ka < 1) a.sprite.texture = flap;
       });
       // Petals and gold in her wake.
-      if (kq < 1 && !this.reduced) {
+      if (kq < 1) {
         const [x, y] = this.circuit(kq);
         this.spawn(tex.grain, x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3, 1.4 + Math.random(), (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, 900, 0xfff1a8);
         if (Math.random() < 0.35) this.spawn(tex.full, x, y, 2.6, (Math.random() - 0.5) * 4, 1 + Math.random() * 2, 1400, 0xffd1e8);
@@ -263,7 +257,7 @@ export class Wedding {
     });
     if (t > BROOD_AT) {
       // Retired to the chamber: she at its heart, he at her side, both facing up the page.
-      const bob = this.reduced ? 0 : 0.25 * Math.sin(t * 5);
+      const bob = 0.25 * Math.sin(t * 5);
       this.queen.position.set(-2.2, bob);
       this.queen.rotation = -Math.PI / 2;
       this.crownOn(this.qCrown, -2.2, bob, -Math.PI / 2, 18);
@@ -271,7 +265,7 @@ export class Wedding {
       this.consort.rotation = -Math.PI / 2;
       this.crownOn(this.cCrown, 3.6, 1 + bob, -Math.PI / 2, 12);
       this.consortAt = [3.6, 1 + bob];
-      this.glow.alpha = this.reduced ? 0.5 : 0.45 + 0.1 * Math.sin(t * 3);
+      this.glow.alpha = 0.45 + 0.1 * Math.sin(t * 3);
     }
   }
 

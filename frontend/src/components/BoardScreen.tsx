@@ -278,12 +278,10 @@ export default function BoardScreen(p: BoardScreenProps) {
    */
   const [dismissed, setDismissed] = useState("");
   const won = p.winner ? `${p.winner.label}|${p.winner.detail}` : "";
-  // The card waits for the tap even for somebody who asked for stillness: the
-  // wedding plays calmly for them rather than not at all (see
-  // `stage/wedding.ts`), and the invitation to tap appears at once rather than
-  // after a fade. It used to show the card straight away, which covered the
-  // tableau in the same instant it appeared — the owner won a round and saw
-  // no wedding, only the words.
+  // The card waits for the tap, always. It used to come straight away under
+  // the OS's reduce-motion setting, which covered the wedding in the same
+  // instant it began — the owner won a round and saw only the words. The site
+  // does not answer that setting any more; a game's motion is its content.
   //
   // Nobody won it, so there is no tableau to interrupt: the hourglass IS the
   // result. Ceremony for a stalemate reads as mockery, and so does a wait.

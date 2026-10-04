@@ -124,7 +124,7 @@ export function spawn(n: number, hs: Hive[], keepColumnClear: boolean, rnd: Rnd)
 }
 
 export interface StepOpts {
-  /** 1 normally; 0.4 under reduced motion — calmer, never still. */
+  /** A dial on vigour: 1 is a nice room with the bees out. */
   calm: number;
   /** A page with no hives: keep out of the reading column. */
   wander: boolean;

@@ -60,7 +60,6 @@ export interface StageProps {
 }
 
 export interface StageOpts {
-  reduced: boolean;
   /** The WebGL context went away. The caller shows the SVG again. */
   onLost: () => void;
 }
@@ -508,7 +507,7 @@ export class HiveStage {
     }
     const gap = b.lastMoveAt ? now - b.lastMoveAt : 900;
     b.lastMoveAt = now;
-    const dur = tweenMs(gap, this.opts.reduced);
+    const dur = tweenMs(gap);
     b.tween = { points, marks, total: marks[marks.length - 1], t0: now, dur };
     if (dur === 0) this.settle(b);
   }
@@ -524,7 +523,7 @@ export class HiveStage {
   // ── Effects ───────────────────────────────────────────────────────────
 
   private particle(texture: Texture, x: number, y: number, size: number, vx: number, vy: number, life: number, tint: number): void {
-    if (this.opts.reduced || this.live.length > 400) return;
+    if (this.live.length > 400) return;
     const sprite = this.pool.pop() ?? new Sprite(texture);
     sprite.texture = texture;
     sprite.anchor.set(0.5);
@@ -547,7 +546,6 @@ export class HiveStage {
   }
 
   private sealCap(cell: number): void {
-    if (this.opts.reduced) return;
     const g = this.g!;
     const gfx = new Graphics();
     drawCell(gfx, cellArc(g, cell)).fill({ color: this.palette.wax, alpha: 0.95 });
@@ -667,7 +665,6 @@ export class HiveStage {
       others,
       yours: winner.id === this.youId,
       spawn: (texture, x, y, size, vx, vy, life, tint) => this.particle(texture, x, y, size, vx, vy, life, tint),
-      reduced: this.opts.reduced,
       now,
     });
     this.root.addChildAt(this.wedding.layer, this.root.getChildIndex(this.armedRing));
@@ -691,7 +688,6 @@ export class HiveStage {
     const now = performance.now();
     const dt = Math.min(this.app.ticker.deltaMS, 100);
     const t = now / 1000;
-    const reduced = this.opts.reduced;
     const P = this.palette;
 
     this.wedding?.tick(now);
@@ -725,12 +721,12 @@ export class HiveStage {
           );
         }
       }
-      const bob = reduced ? 0 : 0.25 * Math.sin(t * 7 + b.flap);
+      const bob = 0.25 * Math.sin(t * 7 + b.flap);
       b.sprite.position.set(b.x, b.y + bob);
       b.sprite.rotation = b.heading;
       b.crown.position.set(b.x, b.y - 1);
-      if (!reduced) b.sprite.texture = ((t * 24 + b.flap) | 0) % 2 ? this.tex.beeUp : this.tex.beeDown;
-      if (b.phase === "done") b.crown.rotation = reduced ? 0 : Math.sin(t * 3) * 0.15;
+      b.sprite.texture = ((t * 24 + b.flap) | 0) % 2 ? this.tex.beeUp : this.tex.beeDown;
+      if (b.phase === "done") b.crown.rotation = Math.sin(t * 3) * 0.15;
     }
 
     // You, last and loudest: the spoke from the queen that makes finding
@@ -746,14 +742,14 @@ export class HiveStage {
         const r1 = ringRadius(this.g, 1);
         this.halo.moveTo((you.x / len) * r1, (you.y / len) * r1).lineTo(you.x, you.y).stroke({ width: 0.5, color: P.you, alpha: 0.45 });
       }
-      const pulse = reduced ? 0.22 : 0.22 + 0.2 * (0.5 + 0.5 * Math.sin(t * 2.6));
+      const pulse = 0.22 + 0.2 * (0.5 + 0.5 * Math.sin(t * 2.6));
       this.halo.circle(you.x, you.y, 6.2).fill({ color: P.you, alpha: pulse });
       this.halo.circle(you.x, you.y, 6.2).stroke({ width: 1.0, color: P.you, alpha: 0.95 });
     }
 
-    this.queenGlow.alpha = reduced ? 0.3 : 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(t * 2));
-    this.wallGlow.alpha = this.hot && !reduced ? 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * 5)) : 1;
-    if (!reduced) {
+    this.queenGlow.alpha = 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(t * 2));
+    this.wallGlow.alpha = this.hot ? 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * 5)) : 1;
+    {
       for (const sp of this.flowers.values()) sp.rotation = 0.08 * Math.sin(t * 0.9 + (sp as Sprite & { sway: number }).sway);
     }
 
