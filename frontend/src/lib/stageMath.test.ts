@@ -139,9 +139,8 @@ test("a pointer on the drawn square lands on the cell under it", () => {
   }
 });
 
-test("a step draws in a fraction of the gap, never a snap, unless asked to", () => {
-  assert.equal(tweenMs(100, false), 250);
-  assert.equal(tweenMs(1200, false), 840);
-  assert.equal(tweenMs(5000, false), 900);
-  assert.equal(tweenMs(1200, true), 0);
+test("a step draws in a fraction of the gap, never a snap", () => {
+  assert.equal(tweenMs(100), 250);
+  assert.equal(tweenMs(1200), 840);
+  assert.equal(tweenMs(5000), 900);
 });

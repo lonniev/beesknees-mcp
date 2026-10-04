@@ -266,27 +266,19 @@ canvas.hive {
   75%      { transform: translate(0.5px, 0.6px) rotate(3deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* Somebody who has asked for stillness gets a seated bee, not a shivering
-     one. It still stacks, and it still counts. */
-  .bk-thrum {
-    animation: none;
-  }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .bk-pulse {
-    animation: none;
-    opacity: 0.22;
-  }
-}
 
 /* ── After the wedding ───────────────────────────────────────────────────
  *
  * The wedding is drawn on the board by the stage and runs about seven
  * seconds. The invitation to tap arrives after it has had its moment, so it
  * never competes with the thing it is inviting you to watch; the result card
- * is held back by the PERSON, so `bk-reveal` is only the fade from their tap. */
+ * is held back by the PERSON, so `bk-reveal` is only the fade from their tap.
+ *
+ * Nothing here, or anywhere on the site, answers `prefers-reduced-motion`.
+ * This is a game: its motion IS the content, and the owner's ruling is that
+ * the OS setting is for the OS. What the layout answers is width and
+ * orientation, and it must not twitch doing it. */
 @keyframes bk-reveal {
   from {
     opacity: 0;
@@ -314,12 +306,4 @@ canvas.hive {
   animation: bk-hint 0.6s ease-out 6.8s both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* Stillness was asked for: the wedding plays calmly on the stage, and the
-     invitation to tap is simply there rather than fading in after it. */
-  .bk-reveal,
-  .bk-hint {
-    animation: none;
-  }
-}
 

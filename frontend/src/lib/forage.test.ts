@@ -76,7 +76,7 @@ test("a rally sends every bee to the focused hive's doors, once per call", () =>
   assert.deepEqual(bees.map((b) => [b.tx, b.ty]), targets, "the same call must not re-aim");
 });
 
-test("reduced motion calms the flight rather than stopping it", () => {
+test("a lower vigour dial calms the flight rather than stopping it", () => {
   const a = spawn(1, [hive], false, seeded(5));
   const b = spawn(1, [hive], false, seeded(5));
   run(a, 8, calm, seeded(6));

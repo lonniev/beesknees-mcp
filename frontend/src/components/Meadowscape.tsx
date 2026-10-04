@@ -24,9 +24,6 @@
  *   * It never sits behind text. The band is anchored to the bottom of the
  *     viewport and the cards on these pages are opaque; the drifting bees are
  *     kept to the outer margins, where the column is not.
- *   * It does not move for somebody who asked for stillness. The drift is one
- *     keyframe, and `prefers-reduced-motion` stops it in `index.css` rather
- *     than here.
  *
  * Positions are a fixed table rather than `Math.random`, for the reason
  * `Sprigs` learned first: this renders on the server for the route check and

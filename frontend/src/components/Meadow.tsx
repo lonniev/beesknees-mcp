@@ -154,11 +154,9 @@ export default function Meadow({
     const host = layer.current;
     if (!host || !count) return;
 
-    // Reduced motion CALMS the flight rather than stopping it. The setting asks
-    // for less movement, not for a still life, and a frozen bee on a board that
-    // is still animating reads as a bug.
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const calm = reduced ? 0.4 : 1;
+    // The flight does not answer the OS's reduce-motion setting: this is a
+    // game, and its motion is the content. `calm` stays as the one dial.
+    const calm = 1;
 
     const wander = over === "page";
     let field = measure(host);
@@ -214,7 +212,7 @@ export default function Meadow({
 
       const t = now / 1000;
       // The wingbeat: ~20 flaps a second, each bee on its own clock so a row
-      // of them does not beat in step. Reduced motion holds the wings still.
+      // of them does not beat in step.
       bees.forEach((b, i) => {
         const at = pose(b, t, calm);
         // Face the flight path. Top-down, so heading is the whole of it —
@@ -222,7 +220,7 @@ export default function Meadow({
         nodes[i].el.style.transform =
           `translate(${at.x * field.w}px, ${at.y * field.h}px) rotate(${at.tilt}deg)`;
         const flying = b.phase !== "resting";
-        const wingsUp = !reduced && flying ? (((t * 20 + b.buzz) | 0) & 1) === 0 : true;
+        const wingsUp = flying ? (((t * 20 + b.buzz) | 0) & 1) === 0 : true;
         nodes[i].up.style.visibility = wingsUp ? "" : "hidden";
         nodes[i].down.style.visibility = wingsUp ? "hidden" : "";
       });

@@ -64,8 +64,7 @@ export default function HiveStage(p: Props) {
       try {
         const { HiveStage: Impl } = await import("../stage/HiveStage.ts");
         if (cancelled) return;
-        const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-        const s = await Impl.create(el, { reduced, onLost: fallBack });
+        const s = await Impl.create(el, { onLost: fallBack });
         // StrictMode mounts twice and HMR remounts; a stage that resolves
         // after its effect was torn down would be a leaked WebGL context.
         if (cancelled) {

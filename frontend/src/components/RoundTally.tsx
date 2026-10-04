@@ -48,7 +48,7 @@ function Reels({ value, size }: { value: number; size: "big" | "small" }) {
       {digits.map((d, i) => (
         <span key={`${digits.length}-${i}`} className={`relative inline-block overflow-hidden ${cell}`}>
           <span
-            className="absolute inset-x-0 top-0 flex flex-col transition-transform duration-500 ease-out motion-reduce:transition-none"
+            className="absolute inset-x-0 top-0 flex flex-col transition-transform duration-500 ease-out"
             style={{ transform: `translateY(-${d * 10}%)`, height: "1000%" }}
           >
             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
