@@ -315,8 +315,8 @@ canvas.hive {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Stillness was asked for: the stage shows the final tableau at once and
-     the card comes straight away, because a blank pause is not a kindness. */
+  /* Stillness was asked for: the wedding plays calmly on the stage, and the
+     invitation to tap is simply there rather than fading in after it. */
   .bk-reveal,
   .bk-hint {
     animation: none;

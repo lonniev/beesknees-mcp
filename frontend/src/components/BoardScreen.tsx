@@ -278,16 +278,16 @@ export default function BoardScreen(p: BoardScreenProps) {
    */
   const [dismissed, setDismissed] = useState("");
   const won = p.winner ? `${p.winner.label}|${p.winner.detail}` : "";
-  // A flourish is motion, and somebody who asked for stillness gets none — so
-  // there is nothing to hold, and holding a blank board would be the opposite
-  // of a kindness. They get the card straight away.
-  const still =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The card waits for the tap even for somebody who asked for stillness: the
+  // wedding plays calmly for them rather than not at all (see
+  // `stage/wedding.ts`), and the invitation to tap appears at once rather than
+  // after a fade. It used to show the card straight away, which covered the
+  // tableau in the same instant it appeared — the owner won a round and saw
+  // no wedding, only the words.
+  //
   // Nobody won it, so there is no tableau to interrupt: the hourglass IS the
   // result. Ceremony for a stalemate reads as mockery, and so does a wait.
-  const showCard = Boolean(p.winner) && (p.winner!.unwon || still || dismissed === won);
+  const showCard = Boolean(p.winner) && (p.winner!.unwon || dismissed === won);
   const immersive = !wide && zoomed;
 
   /**
