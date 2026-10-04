@@ -8,6 +8,15 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.3.2] — 2026-10-04
+
+### Changed
+
+- **The game no longer answers the OS's Reduce Motion setting.** A video
+  game's motion is its content: the foragers, the tweens, the pulses and the
+  wedding all play the same for everybody. Layout still answers width and
+  orientation, and only those.
+
 ## [0.3.1] — 2026-10-03
 
 ### Fixed
