@@ -1,10 +1,11 @@
 # Unreleased changes live here, one file each
 
-`CHANGELOG.md` was the single most conflict-prone file in this repository, and
-not because anybody was careless. Every pull request appended to the same
+`CHANGELOG.md` was the single most conflict-prone file in the fleet, and not
+because anybody was careless. Every pull request appended to the same
 `### Added` / `### Changed` / `### Fixed` anchors of the same `## [Unreleased]`
 section, so **any two concurrent PRs collided there even when their code did
-not touch a single file in common**. Six of them did, in one day.
+not touch a single file in common**. Six of them did in `beesknees-mcp` in one
+day, which is what finally cost enough to fix.
 
 That is a property of the format, not of the changes. If A and B are
 independent, it must not matter whether they land A-then-B or B-then-A — and a
@@ -39,3 +40,10 @@ runs it; nobody has to remember.
 Fragments are folded in filename order, which is stable and says nothing about
 when they were written — because the order two independent changes landed in is
 not information anybody needs.
+
+## Where this comes from
+
+This convention is shared, not local. Its canonical copy lives in
+`dpyc-community/scripts/changelog-fragments/`, and
+`scripts/sync-changelog-fragments.sh` fans it out. Improve it THERE — a fix
+made in one repo helps one repo.

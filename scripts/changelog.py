@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Fold the unreleased fragments into CHANGELOG.md.
 
+Canonical copy: `dpyc-community/scripts/changelog-fragments/changelog.py`,
+fanned out by `scripts/sync-changelog-fragments.sh`. Fix it THERE.
+
 `CHANGELOG.md` is what the release workflow reads — it publishes the body of
 the `## [X.Y.Z]` section as the GitHub Release notes — so the fragments have to
 become that section before the tag is pushed. This is the step that does it.
@@ -20,8 +23,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 FRAGMENTS = ROOT / "changelog.d"
 CHANGELOG = ROOT / "CHANGELOG.md"
 
-#: Keep a Changelog's own order, plus `notes` — which this repository already
-#: uses for the reasoning behind a change, and which belongs last because it is
+#: Keep a Changelog's own order, plus `notes` — for the reasoning behind a
+#: change, which this fleet writes down and which belongs last because it is
 #: the part a reader consults rather than scans.
 #:
 #: A fragment whose kind is not one of these is a typo in a filename, and is
