@@ -102,6 +102,50 @@ export async function claimPrize(matchId: string, choice?: "keep" | "donate") {
   return callTool("claim_prize", choice ? { match_id: matchId, choice } : { match_id: matchId });
 }
 
+export interface HoneySeller {
+  name: string;
+  kind: string;
+  address: string;
+  postcode: string;
+  website: string;
+  phone: string;
+  lat: number;
+  lon: number;
+  distance_km: number;
+  /** A compass point — "NW" — not a number; the number is `bearing_deg`. */
+  bearing: string;
+  bearing_deg: number;
+  honey_evidence: "explicit" | "strong" | "weak";
+  sources: string[];
+  fields_from: Record<string, string>;
+  observed: string;
+  /** What to check before driving: a dead link, a missing field. */
+  verify: string[];
+}
+
+export interface HoneyAnswer {
+  success: boolean;
+  error?: string;
+  error_code?: "no_location" | "none_within_radius" | "search_failed" | string;
+  near?: string;
+  origin?: { lat: number; lon: number; label: string };
+  radius_used_km?: number | null;
+  coarse?: boolean;
+  sellers?: HoneySeller[];
+  /** Per directory: "ok (n)", "cached", "skipped: no key", "timed out", "failed: …". */
+  sources?: Record<string, string>;
+  attribution?: string[];
+}
+
+/**
+ * Honey sellers near a place. `near` is what the person typed or the position
+ * the browser gave with consent — never anything guessed. A refusal comes back
+ * as `success: false` with its reason, and costs nothing.
+ */
+export async function findHoney(near: string, count = 3): Promise<HoneyAnswer> {
+  return callTool<HoneyAnswer>("find_honey", { near, count });
+}
+
 export interface Charity {
   success: boolean;
   name: string;

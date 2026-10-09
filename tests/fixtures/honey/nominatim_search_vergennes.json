@@ -1,0 +1,15 @@
+[
+  {
+    "place_id": 365000001,
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "osm_type": "relation",
+    "osm_id": 1,
+    "lat": "44.1681052",
+    "lon": "-73.2518037",
+    "category": "boundary",
+    "type": "administrative",
+    "addresstype": "city",
+    "name": "Vergennes",
+    "display_name": "Vergennes, Addison County, Vermont, United States"
+  }
+]

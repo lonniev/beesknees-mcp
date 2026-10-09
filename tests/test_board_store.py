@@ -1800,6 +1800,10 @@ def test_a_refund_gives_back_only_what_was_taken(vault, monkeypatch) -> None:
         await server._refund("join_match", "npub1human", 3)
         assert len(given) == 1
 
+        # The honey finder answers a refusal the same way, and gives back the same.
+        await server._refund("find_honey", "npub1human", 2)
+        assert given[-1] == ("npub1human", 2)
+
     asyncio.run(go())
 
 

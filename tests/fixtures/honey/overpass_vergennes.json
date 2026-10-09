@@ -1,0 +1,45 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-09T02:19:18Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 14166799501,
+  "lat": 44.5035642,
+  "lon": -72.3319769,
+  "tags": {
+    "craft": "beekeeper",
+    "name": "Ground Behive"
+  }
+},
+{
+  "type": "way",
+  "id": 378160075,
+  "center": {
+    "lat": 44.0212518,
+    "lon": -73.1534711
+  },
+  "tags": {
+    "addr:city": "Middlebury",
+    "addr:country": "US",
+    "addr:housenumber": "504",
+    "addr:postcode": "05753",
+    "addr:state": "VT",
+    "addr:street": "Washington Street Extension",
+    "building": "garage",
+    "name": "Champlain Valley Honey",
+    "opening_hours": "Mo-Fr 08:00-16:00",
+    "phone": "+1-802-388-7724",
+    "ref:vcgi:esiteid": "154321",
+    "shop": "honey",
+    "website": "https://www.champlainvalleyhoney.com/"
+  }
+}
+
+  ]
+}

@@ -44,6 +44,9 @@ const ROUTES = [
   // appear is the REFUSAL — proof that the gate is drawn before the page is.
   ["/operator", /belongs to whoever runs the hive|Asking the hive/],
   ["/profile", /not signed in/i], // signed out is the server's view of it
+  // The honey finder asks a paid question, so with nobody signed in it sends
+  // the reader to the gate — which is what must render, not a blank map.
+  ["/honey", /Sign in to (<!-- -->)?The Bee(&#x27;|')s Knees/],
 ];
 
 const server = await createServer({

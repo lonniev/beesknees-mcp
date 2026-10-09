@@ -1,0 +1,32 @@
+{
+  "_note": "Hand-written in the field names the Local Food Portal's data-sharing page documents (listing_name, location_address, location_x/y) — no key was available to record a live reply. The reader is tolerant of the export spelling (market_name, latitude, longitude) too.",
+  "data": [
+    {
+      "listing_id": "300001",
+      "listing_name": "Swaying Daisies Honeybee Farm Market",
+      "listing_desc": "Raw honey, beeswax candles, seasonal vegetables.",
+      "location_address": "5075 Ethan Allen Hwy",
+      "location_city": "Ferrisburgh",
+      "location_state": "VT",
+      "location_zipcode": "05456",
+      "location_x": "-73.2240",
+      "location_y": "44.2103",
+      "media_website": "https://swayingdaisies.example/",
+      "contact_phone": "802-555-0101",
+      "update_time": "2025-06-30 14:02:11"
+    },
+    {
+      "listing_id": "300002",
+      "listing_name": "Lewis Creek Vegetable Stand",
+      "listing_desc": "Sweet corn, tomatoes and squash in season.",
+      "location_address": "22 Lewis Creek Rd",
+      "location_city": "Charlotte",
+      "location_state": "VT",
+      "location_zipcode": "05445",
+      "location_x": "-73.2400",
+      "location_y": "44.3000",
+      "media_website": "",
+      "update_time": "2025-07-12 09:00:00"
+    }
+  ]
+}
