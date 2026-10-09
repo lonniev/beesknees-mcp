@@ -12,6 +12,7 @@
 
 import { ExternalLink } from "lucide-react";
 import { useCharity } from "./CharityNote";
+import HoneyChiclet from "./HoneyChiclet";
 
 function Card({
   href,
@@ -50,6 +51,8 @@ export default function Elsewhere() {
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
+      {/* The real thing, first: the one card that leads somewhere on this site. */}
+      <HoneyChiclet />
       {charity && (
         <Card
           href={charity.website || "#"}

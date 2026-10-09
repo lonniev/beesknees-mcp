@@ -89,6 +89,18 @@ Playing a round:
   move. The cooldown is real: acting sooner is refused, not queued.
 - `beesknees_fly` / `beesknees_dig` / `beesknees_seal` — one cell at a time.
 
+Finding honey to buy (one metered call):
+
+- `beesknees_find_honey(near, count=3, radius_km)` — three honey sellers near a
+  place, each with a postal address and a website that still answers. `near` is
+  a place name, a postal code or `lat,lon` — what the patron told you, never a
+  guess from an address on the wire. It combines the USDA local-food directories,
+  OpenStreetMap, Google Places and sellers' own Nostr listings (NIP-99, kind
+  30402 tagged `honey`), merges what agrees and ranks by evidence, completeness,
+  agreement and distance. A place that does not resolve, or nothing within 100 km,
+  is refused and the fare returned. `sources` in the answer says which
+  directories answered; `verify` on a seller says what to check before driving.
+
 Reading and being paid (all free unless noted):
 
 - `beesknees_guide` — this document.

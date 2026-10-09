@@ -26,7 +26,7 @@ from tollbooth.credential_validators import validate_btcpay_creds
 from tollbooth.runtime import OperatorRuntime, register_standard_tools
 from tollbooth.tool_identity import STANDARD_IDENTITIES, ToolIdentity
 
-from beesknees_mcp import __version__, board_store, geometry, match_flow
+from beesknees_mcp import __version__, board_store, geometry, honey, match_flow
 from beesknees_mcp import payouts as payouts_mod
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,12 @@ mcp = FastMCP(
         "## Reading the board\n"
         "beesknees_match_state carries every hive since a sequence number and "
         "tells you when to ask again. Poll it rather than guessing a cadence.\n\n"
+        "## Honey to buy\n"
+        "beesknees_find_honey(near) names three honey sellers near a place, "
+        "each with an address and a website that answers. `near` is what the "
+        "patron told you — a place, a postal code or 'lat,lon' — never a guess "
+        "from where the request came from. A place that does not resolve, or "
+        "nothing within 100 km, is refused at no charge.\n\n"
         "## Onboarding\n"
         "Call beesknees_get_operator_onboarding_status to check readiness.\n"
         "1. Register with an Authority (provides a Neon database automatically)\n"
@@ -114,6 +120,7 @@ PAYOUT_HISTORY_UUID = "a60cc83e-8fe8-561b-ae4c-15747876c318"
 PAY_CHARITY_UUID = "530a2e01-5fc6-5e7f-a744-5499c5eaed7b"
 CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
 GUIDE_UUID = "39b4d680-001d-5989-97e5-f47fce0d8fb5"
+FIND_HONEY_UUID = "9417a1cc-ecdc-554c-a185-410b03ef81aa"
 
 _DOMAIN_TOOLS = [
     ToolIdentity(
@@ -269,6 +276,12 @@ _DOMAIN_TOOLS = [
         category="write",
         intent="Say what should happen to your winnings",
     ),
+    ToolIdentity(
+        tool_id=FIND_HONEY_UUID,
+        capability="find_honey",
+        category="read",
+        intent="Honey sellers near a place, each with an address and a website that answers",
+    ),
 ]
 
 TOOL_REGISTRY: dict[str, ToolIdentity] = {ti.tool_id: ti for ti in _DOMAIN_TOOLS}
@@ -298,6 +311,24 @@ runtime = OperatorRuntime(
                 required=True,
                 sensitive=True,
                 description="Your BTCPay Store ID. Find it under Stores > Settings > General.",
+            ),
+            # The honey finder's two keyed sources. Optional: without them it
+            # searches OpenStreetMap and Nostr and says so in every answer.
+            "google_places_key": FieldSpec(
+                required=False,
+                sensitive=True,
+                description=(
+                    "A Google Maps Platform API key with Places API (New) enabled, for "
+                    "beesknees_find_honey. Optional; billed by Google per search."
+                ),
+            ),
+            "usda_api_key": FieldSpec(
+                required=False,
+                sensitive=True,
+                description=(
+                    "A USDA Local Food Portal data-sharing key, for beesknees_find_honey. "
+                    "Optional; applied for by email to the AMS."
+                ),
             ),
         },
     ),
@@ -653,6 +684,9 @@ async def join_match(
 
 #: The motion tools, by capability name, so a refund can name its own tool.
 _MOTION_UUIDS = {"fly": FLY_UUID, "dig": DIG_UUID, "seal": SEAL_UUID}
+#: The tools that answer a refusal with a situation rather than an exception,
+#: and so give the fare back themselves. See `_refund`.
+_REFUNDABLE = {**_MOTION_UUIDS, "find_honey": FIND_HONEY_UUID}
 
 
 #: How long a finished round keeps answering its own players, so the result can
@@ -715,11 +749,12 @@ async def _refund(tool_name: str, npub: str, sats: int) -> None:
     Not `runtime.rollback_debit`, which credits `pricing.compute(...)` — the
     BASE price, before any constraint. A bee playing on a 100%-off coupon paid
     nothing, and a refused move handed it a sat it never spent: a refund that
-    MINTS. Refusals are ordinary here — a rival in the cell, the stagger — so
-    that is not a rounding error, it is a slow leak with a coupon on the end of
-    it. Nothing was taken when the fare was zero, so nothing goes back.
+    MINTS. Refusals are ordinary here — a rival in the cell, the stagger, a
+    place the map does not know — so that is not a rounding error, it is a
+    slow leak with a coupon on the end of it. Nothing was taken when the fare
+    was zero, so nothing goes back.
     """
-    if sats <= 0 or tool_name not in _MOTION_UUIDS:
+    if sats <= 0 or tool_name not in _REFUNDABLE:
         return
     with contextlib.suppress(Exception):
         cache = await runtime.ledger_cache()
@@ -1135,6 +1170,66 @@ async def set_payout(
         return {"success": True, **await board_store.set_payout(npub, address, donate)}
     except (OSError, RuntimeError) as exc:
         return _upstream(exc, "set_payout")
+
+
+# ── Honey to buy ─────────────────────────────────────────────────────────
+
+
+@tool
+@runtime.paid_tool(FIND_HONEY_UUID)
+async def find_honey(
+    near: Annotated[
+        str,
+        Field(description=(
+            "Where to look: a place name, a postal code, or 'lat,lon'. What the "
+            "patron told you — never a guess from where the request came from."
+        )),
+    ],
+    count: Annotated[int, Field(description="How many sellers to name. 1–10; three by default.")] = 3,
+    radius_km: Annotated[
+        float | None,
+        Field(description="How far to look, to 100 km. Omitted means as far as it takes, to 100."),
+    ] = None,
+    npub: NPUB_FIELD = "",
+    dpop_token: str = "",
+) -> dict[str, Any]:
+    """Three honey sellers near a place, each with an address and a website.
+
+    Four directories hold a corner of the answer each — the USDA's local-food
+    listings, OpenStreetMap, Google Places and sellers' own Nostr listings — so
+    this asks all four at once, merges what agrees, checks that each website
+    still answers and ranks by evidence, completeness, agreement and distance.
+    `sources` says who answered; `verify` on a seller says what to check first.
+
+    A place that does not resolve, or a radius with nothing in it, is a
+    refusal and the fare goes back. The game is a race for honey; this is
+    where the real thing is.
+
+    Args:
+        near: A place name, a postal code, or 'lat,lon'.
+        count: How many sellers to name.
+        radius_km: How far to look, to 100 km.
+    """
+    fare = fare_just_charged()  # FIRST. See `fare_just_charged`.
+    # Every argument is an agent's and is cut to size here, not trusted.
+    near = (near or "").strip()[:120]
+    count = max(1, min(10, int(count)))
+    radius = None if radius_km is None else max(1.0, min(float(honey.MAX_RADIUS_KM), float(radius_km)))
+    keys = await runtime.load_credentials(["google_places_key", "usda_api_key"])
+    try:
+        result = await honey.find(
+            near, count, radius,
+            google_key=keys.get("google_places_key", ""),
+            usda_key=keys.get("usda_api_key", ""),
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        await _refund("find_honey", npub, fare)
+        logger.exception("find_honey failed")
+        return {"success": False, "error": f"The search did not finish: {type(exc).__name__}: {exc}",
+                "error_code": "search_failed"}
+    if not result.get("success"):
+        await _refund("find_honey", npub, fare)
+    return result
 
 
 def main() -> None:

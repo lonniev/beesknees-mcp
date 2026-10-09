@@ -1,0 +1,38 @@
+[
+  {
+    "_note": "Recorded from relay.damus.io on 2026-10-08: a shipped-goods honey listing with no location, which cannot be placed and is dropped.",
+    "id": "a1",
+    "kind": 30402,
+    "pubkey": "00",
+    "created_at": 1791400270,
+    "content": "Sourced directly from Crete through our family in Greece, this Cretan wildflower honey captures the rich, distinctive flavor of the island's diverse blossoms.",
+    "tags": [["d", "cretan-10oz"], ["title", "Cretan Wildflower Honey 10 oz"], ["price", "15000", "SATS"], ["t", "food"], ["t", "honey"]]
+  },
+  {
+    "_note": "Hand-written: a seller who publishes their own stand with a geohash, which places it without a geocoder.",
+    "id": "a2",
+    "kind": 30402,
+    "pubkey": "01",
+    "created_at": 1791300000,
+    "content": "Raw wildflower honey from our hives in Monkton. Farm stand open weekends. https://monktonhoney.example/",
+    "tags": [["d", "monkton-stand"], ["title", "Monkton Hollow Honey"], ["t", "honey"], ["location", "Monkton, Vermont"], ["g", "drggx"], ["price", "12", "USD"]]
+  },
+  {
+    "_note": "Hand-written: sold out, so it is not a place to go.",
+    "id": "a3",
+    "kind": 30402,
+    "pubkey": "02",
+    "created_at": 1791200000,
+    "content": "All gone until spring.",
+    "tags": [["d", "gone"], ["title", "Last Jars of Fall Honey"], ["t", "honey"], ["g", "drggx"], ["status", "sold"]]
+  },
+  {
+    "_note": "Hand-written: a listing with only a location text, which the caller geocodes.",
+    "id": "a4",
+    "kind": 30402,
+    "pubkey": "03",
+    "created_at": 1791100000,
+    "content": "Creamed honey and comb, Saturdays at the stand.",
+    "tags": [["d", "bristol-comb"], ["title", "Bristol Comb & Creamed Honey"], ["t", "localhoney"], ["location", "Bristol, Vermont"]]
+  }
+]

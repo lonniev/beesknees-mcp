@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@tollbooth-dpyc/web/theme.css";
+@import "leaflet/dist/leaflet.css";
 @source "../node_modules/@tollbooth-dpyc/web/dist";
 
 /* This app is LIGHT. Not "light if your laptop is".
@@ -307,3 +308,35 @@ canvas.hive {
 }
 
 
+
+/* ── The honey finder's pins ──────────────────────────────────────────────
+ *
+ * One numbered wax drop on the map and the same number beside the seller in
+ * the list, so the two can be read against each other without a legend. */
+.honey-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-wax);
+  border: 2px solid var(--color-wax-ink);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-ink) 35%, transparent);
+}
+.honey-pin > span {
+  transform: rotate(45deg);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-wax-ink);
+}
+.honey-pin-inline {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+}
+.honey-pin-inline > span {
+  font-size: 12px;
+}

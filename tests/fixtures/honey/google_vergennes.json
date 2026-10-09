@@ -1,0 +1,47 @@
+{
+  "_note": "Hand-written in the documented shape of Places API (New) places:searchText — no key was available to record a live reply. Names follow the hand run of 2026-10-08 in the Brain note; coordinates and phone numbers are approximate.",
+  "places": [
+    {
+      "id": "ChIJswaying-daisies",
+      "displayName": {"text": "Swaying Daisies Honeybee Farm Market", "languageCode": "en"},
+      "formattedAddress": "5075 Ethan Allen Hwy, Ferrisburgh, VT 05456, USA",
+      "location": {"latitude": 44.2105, "longitude": -73.2238},
+      "types": ["farm", "store", "food_store"],
+      "websiteUri": "https://swayingdaisies.example/",
+      "nationalPhoneNumber": "(802) 555-0101"
+    },
+    {
+      "id": "ChIJchamplain-valley-apiaries",
+      "displayName": {"text": "Champlain Valley Apiaries", "languageCode": "en"},
+      "formattedAddress": "504 Washington St Ext, Middlebury, VT 05753, USA",
+      "location": {"latitude": 44.0212, "longitude": -73.1534},
+      "types": ["store", "food_store"],
+      "websiteUri": "https://www.champlainvalleyhoney.com/",
+      "nationalPhoneNumber": "(802) 388-7724"
+    },
+    {
+      "id": "ChIJdancing-bee-gardens",
+      "displayName": {"text": "Dancing Bee Gardens", "languageCode": "en"},
+      "formattedAddress": "P.O. Box 443, Middlebury, VT 05753, USA",
+      "location": {"latitude": 44.0153, "longitude": -73.1673},
+      "types": ["store"],
+      "websiteUri": "https://dancingbeegardens.example/"
+    },
+    {
+      "id": "ChIJbirdseye-bees-poultry",
+      "displayName": {"text": "Birdseye Bee's & Poultry", "languageCode": "en"},
+      "formattedAddress": "1 Birdseye Rd, Brandon, VT 05733, USA",
+      "location": {"latitude": 43.7980, "longitude": -73.0870},
+      "types": ["store", "pet_store"],
+      "websiteUri": "https://birdseye.example/"
+    },
+    {
+      "id": "ChIJsome-grocer",
+      "displayName": {"text": "Hannaford Supermarket", "languageCode": "en"},
+      "formattedAddress": "160 Court St, Middlebury, VT 05753, USA",
+      "location": {"latitude": 44.0101, "longitude": -73.1690},
+      "types": ["grocery_store", "store"],
+      "websiteUri": "https://www.hannaford.com/"
+    }
+  ]
+}

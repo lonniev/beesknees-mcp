@@ -24,6 +24,7 @@ import { Bot, Zap } from "lucide-react";
 import LiveBoard from "../LiveBoard.tsx";
 import SoloBoard from "../SoloBoard.tsx";
 import FirstTime from "../components/FirstTime.tsx";
+import HoneyChiclet from "../components/HoneyChiclet.tsx";
 import { PageBees } from "../components/Meadow.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
 import { checkBalance } from "@tollbooth-dpyc/web";
@@ -161,6 +162,10 @@ export default function Play() {
             )}
           </span>
         </button>
+
+        {/* Under the two doors, not between them: it leads off the board, to
+          * where the honey the game is named for is actually sold. */}
+        <HoneyChiclet />
 
         {!session.signedIn ? (
           <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">

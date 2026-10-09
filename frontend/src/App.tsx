@@ -16,6 +16,7 @@ import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useOperator } from "./lib/useOperator";
 import About from "./pages/About.tsx";
+import Honey from "./pages/Honey.tsx";
 import Ledger from "./pages/Ledger.tsx";
 import Play from "./pages/Play.tsx";
 import Operator from "./pages/Operator.tsx";
@@ -178,6 +179,9 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/signin" element={<SignIn session={session} />} />
           <Route path="/profile" element={<Profile session={session} />} />
+          {/* Reached from the 🍯 card, not the bar: five labelled tabs and a
+            * brand do not fit a phone, and this is a side trip off the game. */}
+          <Route path="/honey" element={<Honey session={session} />} />
           {/* Always routed, never always linked. The page gates itself, and the
             * service gates it again — a route that only exists for some people
             * is a route that 404s confusingly for the rest. */}
