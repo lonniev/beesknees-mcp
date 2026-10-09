@@ -32,6 +32,7 @@
 import { useEffect, useRef, useState } from "react";
 import { paintShape, paintedCanvas } from "../art/canvas.ts";
 import { bee } from "../art/shapes.ts";
+import { aimBee, easeHeading } from "../lib/beeAim.ts";
 import { drawnHive } from "../lib/beeFlight.ts";
 import { pose, spawn, step, type Field } from "../lib/forage.ts";
 
@@ -67,8 +68,15 @@ function measure(host: HTMLElement): Field {
  * The static SVG bees this replaces drifted on one CSS keyframe: the same arc,
  * for ever, four times over. These are the foragers from the playfield — real
  * steering, real acceleration, the stop-start of something working a patch —
- * and using them means the life on a reading page and the life on the board are
- * one piece of code rather than two that will come to differ.
+ * so the life on a reading page and the life on the board are one flight.
+ *
+ * They are not the same DRAWING. The board's bee is the painted racer seen
+ * from above, legs out, wings strobing — right on a dark comb at board size,
+ * and on a pale page at sixteen pixels it read as something crawling. The
+ * page bees are the 🐝 Good Earth flies: a side view that banks and mirrors
+ * to face its way, with a heading that eases round rather than snapping on
+ * every hop. The owner put it plainly: those are pretty nice, these were
+ * cockroaches.
  *
  * Mounted rather than hidden below 1024px, because hidden is not unmounted and
  * a still animation loop is a still animation loop. Below that the reading
@@ -162,19 +170,28 @@ export default function Meadow({
     let field = measure(host);
     const bees = spawn(count, field.hives, wander, Math.random);
 
-    // The same painted bee as the board's racers, seen from above, so the
-    // scenery and the game are one species. Two canvases per bee — wings up,
-    // wings down — and the flap is which one is showing. The canvas sits
-    // centred on the bee's point so the rotation turns it about its thorax.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     host.replaceChildren();
     const nodes = bees.map((b) => {
       const el = document.createElement("div");
+      el.setAttribute("aria-hidden", "true");
+      if (wander) {
+        // The page bee: the glyph, faint, as Good Earth draws it.
+        el.style.cssText =
+          "position:absolute;left:0;top:0;pointer-events:none;will-change:transform;" +
+          `font-size:${11 + b.scale * 4}px;line-height:1;user-select:none;opacity:.55;`;
+        el.textContent = "🐝";
+        host.appendChild(el);
+        return { el, up: null, down: null, heading: 0 };
+      }
+      // The board bee: the same painted racer as the game's, seen from above,
+      // so the scenery and the game are one species. Two canvases — wings up,
+      // wings down — and the flap is which one is showing. The canvas sits
+      // centred on the bee's point so the rotation turns it about its thorax.
       const px = Math.round(16 + b.scale * 6);
       el.style.cssText =
         "position:absolute;left:0;top:0;pointer-events:none;will-change:transform;" +
         `width:${px}px;height:${px}px;margin:${-px / 2}px 0 0 ${-px / 2}px;opacity:.78;`;
-      el.setAttribute("aria-hidden", "true");
       const up = paintedCanvas(px, dpr, (ctx, size) => paintShape(ctx, size, bee("up")));
       const down = paintedCanvas(px, dpr, (ctx, size) => paintShape(ctx, size, bee("down")));
       for (const c of [up, down]) {
@@ -184,7 +201,7 @@ export default function Meadow({
       }
       down.style.visibility = "hidden";
       host.appendChild(el);
-      return { el, up, down };
+      return { el, up, down, heading: 0 };
     });
 
     // The hives move: the gutters collapse below `md`, the focus changes, the
@@ -215,14 +232,25 @@ export default function Meadow({
       // of them does not beat in step.
       bees.forEach((b, i) => {
         const at = pose(b, t, calm);
-        // Face the flight path. Top-down, so heading is the whole of it —
-        // no mirror, nothing upside down.
-        nodes[i].el.style.transform =
+        const node = nodes[i];
+        if (!node.up || !node.down) {
+          // The glyph: it banks towards where it is going, the short way
+          // round and a little each frame, and is mirrored to face east.
+          node.heading = easeHeading(node.heading, at.tilt, dt);
+          const aim = aimBee(node.heading);
+          node.el.style.transform =
+            `translate(${at.x * field.w}px, ${at.y * field.h}px) ` +
+            `rotate(${aim.rotate}deg) scale(${aim.mirror ? -b.scale : b.scale}, ${b.scale})`;
+          return;
+        }
+        // The racer: face the flight path. Top-down, so heading is the whole
+        // of it — no mirror, nothing upside down.
+        node.el.style.transform =
           `translate(${at.x * field.w}px, ${at.y * field.h}px) rotate(${at.tilt}deg)`;
         const flying = b.phase !== "resting";
         const wingsUp = flying ? (((t * 20 + b.buzz) | 0) & 1) === 0 : true;
-        nodes[i].up.style.visibility = wingsUp ? "" : "hidden";
-        nodes[i].down.style.visibility = wingsUp ? "hidden" : "";
+        node.up.style.visibility = wingsUp ? "" : "hidden";
+        node.down.style.visibility = wingsUp ? "hidden" : "";
       });
 
       raf.current = requestAnimationFrame(frame);
