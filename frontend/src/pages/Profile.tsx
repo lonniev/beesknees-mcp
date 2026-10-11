@@ -19,6 +19,9 @@ import {
 } from "@tollbooth-dpyc/web/react";
 import { checkBalance } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
+import { useTour } from "@tollbooth-dpyc/web/react";
+import TutorialSwitch from "../components/TutorialSwitch.tsx";
+import { tour } from "../lib/tour.ts";
 
 /** A dash, not a zero. See the note at the top of this file. */
 function sats(n: number | null): string {
@@ -57,6 +60,7 @@ function toolName(tool: string): string {
 }
 
 export default function Profile({ session }: { session: Session }) {
+  useTour("account", { ready: session.signedIn });
   const [balance, setBalance] = useState<number | null>(null);
   const [reachable, setReachable] = useState(true);
   // Returns the read, so the refresh button spins until it lands.
@@ -99,7 +103,7 @@ export default function Profile({ session }: { session: Session }) {
 
   /** The balance and its top-up: the hive's own card, right after the key it pays with. */
   const balanceCard = (
-    <section className="rounded-xl border border-ink/14 p-4">
+    <section className="rounded-xl border border-ink/14 p-4" {...tour("account.balance")}>
       <div className="flex items-center justify-between">
         <span className="text-sm text-ink/78">Balance</span>
         <RefreshButton
@@ -123,7 +127,7 @@ export default function Profile({ session }: { session: Session }) {
       )}
 
       {!invoice ? (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2" {...tour("account.topup")}>
           {TOP_UPS.map((n) => (
             <button
               key={n}
@@ -191,7 +195,7 @@ export default function Profile({ session }: { session: Session }) {
       heading={null}
       between={{
         sessionKey: balanceCard,
-        usage: <Winnings npub={session.npub} />,
+        usage: <div {...tour("account.winnings")}><Winnings npub={session.npub} /></div>,
       }}
       usage={{
         figures: MONTH,
@@ -224,6 +228,8 @@ export default function Profile({ session }: { session: Session }) {
       coupons={false}
       build={false}
       after={
+        <>
+        <TutorialSwitch />
         <div className="flex items-center gap-3 px-1 pb-2">
           <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
             {session.canSign
@@ -232,11 +238,13 @@ export default function Profile({ session }: { session: Session }) {
           </span>
           <button
             onClick={session.signOut}
+            {...tour("account.signout")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/7"
           >
             <LogOut size={14} /> Sign out
           </button>
         </div>
+        </>
       }
       classNames={{
         root: "mx-auto max-w-lg space-y-6 px-4 py-6",

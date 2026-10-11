@@ -14,7 +14,7 @@
 
 import { useLocation, useNavigate } from "react-router-dom";
 import Meadowscape from "../components/Meadowscape.tsx";
-import { NpubGate, type Session } from "@tollbooth-dpyc/web/react";
+import { NpubGate, useTour, type Session } from "@tollbooth-dpyc/web/react";
 
 /** The site's own words above the sign-in card. */
 const WELCOME = "A race to the queen. Five hives, twelve seats each, one winner a round, and a share of every round retained for charity.";
@@ -24,6 +24,8 @@ export default function SignIn({ session }: { session: Session }) {
   const loc = useLocation();
   const nav_state = loc.state as { from?: string; generate?: boolean } | null;
   const back = nav_state?.from ?? "/profile";
+  // The gate's tour is the package's: its field, its buttons, its strips.
+  useTour("signin");
 
   return (
     <>

@@ -1,0 +1,1 @@
+- A guided tour, offered when a page sits quiet: the chooser, the lobby, the board (hive, tactic, the Now button, the hint, the other hives), Honey near you, signing in and the profile each walk themselves through on Yes. Live tutorial on the profile turns it off or on again. The mechanics are `@tollbooth-dpyc/web` 1.8.0's; the words are the hive's.

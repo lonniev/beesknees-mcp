@@ -20,6 +20,8 @@ import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { NpubGate, type Session } from "@tollbooth-dpyc/web/react";
 import { findHoney, type HoneyAnswer } from "../lib/mcp";
 import { distanceLabel, locateMe, sellerGlyph, usesMiles } from "../lib/honey";
+import { useTour } from "@tollbooth-dpyc/web/react";
+import { tour } from "../lib/tour.ts";
 
 const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_CREDIT = "© OpenStreetMap contributors";
@@ -27,6 +29,7 @@ const TILE_CREDIT = "© OpenStreetMap contributors";
 const WELCOME = "Where the honey is sold, near you. Sign in to ask.";
 
 export default function Honey({ session }: { session: Session }) {
+  useTour("honey", { ready: session.signedIn });
   const [near, setNear] = useState("");
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<HoneyAnswer | null>(null);
@@ -146,6 +149,7 @@ export default function Honey({ session }: { session: Session }) {
           disabled={busy}
           aria-label="Use my position"
           title="Use my position"
+          {...tour("honey.locate")}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/14 text-ink/78 hover:bg-ink/4 disabled:opacity-40"
         >
           <LocateFixed size={20} />
@@ -155,6 +159,7 @@ export default function Honey({ session }: { session: Session }) {
           onChange={(e) => setNear(e.target.value)}
           placeholder="Town, postal code, or lat,lon"
           aria-label="Where"
+          {...tour("honey.where")}
           autoComplete="off"
           maxLength={120}
           className="h-11 min-w-0 flex-1 rounded-xl border border-ink/14 bg-white/60 px-3 text-[15px] text-ink placeholder:text-ink/50 focus:border-ink/40 focus:outline-none"
@@ -164,6 +169,7 @@ export default function Honey({ session }: { session: Session }) {
           disabled={busy || !near.trim()}
           aria-label="Find honey"
           title="Find honey"
+          {...tour("honey.find")}
           className="bk-act flex h-11 w-11 shrink-0 items-center justify-center rounded-xl disabled:opacity-40"
         >
           <Search size={20} />
@@ -174,7 +180,7 @@ export default function Honey({ session }: { session: Session }) {
         <p className="text-sm text-[var(--color-wax-ink)]">{note || refusal}</p>
       )}
 
-      <div className="relative h-[40vh] min-h-[260px] overflow-hidden rounded-xl border border-ink/14">
+      <div className="relative h-[40vh] min-h-[260px] overflow-hidden rounded-xl border border-ink/14" {...tour("honey.map")}>
         {/* Sized by the frame; its own classes never change (see the header). */}
         <div ref={host} className="h-full w-full bg-[var(--color-far)]" />
         {busy && (
@@ -185,7 +191,7 @@ export default function Honey({ session }: { session: Session }) {
       </div>
 
       {sellers.length > 0 && (
-        <ol className="flex flex-col gap-2">
+        <ol className="flex flex-col gap-2" {...tour("honey.sellers")}>
           {sellers.map((s, i) => (
             <li key={`${s.name}-${i}`} className="flex items-start gap-3 rounded-xl border border-ink/14 p-3">
               <span className="honey-pin honey-pin-inline shrink-0" aria-hidden="true">

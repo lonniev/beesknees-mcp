@@ -25,6 +25,8 @@ import Meadow from "./Meadow.tsx";
 import Scoreboard from "./Scoreboard.tsx";
 import type { Board } from "../game/rules.ts";
 import { useWide } from "../lib/useWide.ts";
+import { useTour } from "@tollbooth-dpyc/web/react";
+import { tour } from "../lib/tour.ts";
 
 export interface ScreenHive {
   id: number;
@@ -128,6 +130,7 @@ function RivalTile({
     <button
       onClick={() => onPick(hive.id)}
       title={yours ? `${hive.name} — your hive` : hive.name}
+      {...tour("board.rival")}
       /* Where the foragers in `Meadow` think this hive is. Read from the
        * rendered element rather than assumed: the gutters collapse below `md`
        * and the tiles move with them. */
@@ -245,8 +248,9 @@ export default function BoardScreen(p: BoardScreenProps) {
    * and then wrapped to four lines in a column beside the tactic buttons. A
    * sentence needs the width of a sentence.
    */
+  useTour("board");
   const hintLine = (
-    <span className="block px-2 text-center text-[13px] font-semibold leading-snug text-ink/90">
+    <span className="block px-2 text-center text-[13px] font-semibold leading-snug text-ink/90" {...tour("board.hint")}>
       <span className="font-normal text-ink/65">Hint: </span>
       {p.prompt}
     </span>
@@ -321,7 +325,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             {String(Math.floor(p.elapsedSec / 60))}:{String(p.elapsedSec % 60).padStart(2, "0")}
           </span>
           {p.onNewMatch && (
-            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-ink/7" title="New match">
+            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-ink/7" title="New match" {...tour("board.new")}>
               <RotateCcw size={16} />
             </button>
           )}
@@ -394,7 +398,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             * viewBox or the WebGL canvas — which is what `drawnHive` corrects
             * for so a bee homes to the hive rather than to the empty band
             * beside it. */}
-          <div ref={boardBox} className="relative min-h-0 flex-1" data-hive="focus">
+          <div ref={boardBox} className="relative min-h-0 flex-1" data-hive="focus" {...tour("board.hive")}>
             {shown && (
               <HiveStage
                 board={shown.board}
@@ -546,7 +550,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             * and purple, reads as the cell that is lit. The marks are the board's
             * own, in the button's ink: a selected tactic and an idle one differ in
             * their ground, not in their glyph. */}
-          <div className="bk-tray flex gap-1.5 rounded-2xl p-1.5">
+          <div className="bk-tray flex gap-1.5 rounded-2xl p-1.5" {...tour("board.tactics")}>
             {/* The icon with its name in teeny print beneath, in the same
               * cell: the screen has the pixels for it now, and a word that
               * small is a caption on the mark, not a sentence about it. */}
@@ -589,6 +593,7 @@ export default function BoardScreen(p: BoardScreenProps) {
         <button
           onClick={p.onAct}
           disabled={!p.actionEnabled}
+          {...tour("board.act")}
           className="bk-act relative min-w-28 shrink-0 overflow-hidden rounded-2xl px-4 py-3 font-semibold transition sm:min-w-40 sm:px-6"
         >
           {/* The rest, drawn ON the button it gates: lime wax rising across it

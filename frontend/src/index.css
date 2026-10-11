@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@tollbooth-dpyc/web/theme.css";
+@import "@tollbooth-dpyc/web/tour.css";
 @import "leaflet/dist/leaflet.css";
 @source "../node_modules/@tollbooth-dpyc/web/dist";
 
