@@ -8,11 +8,13 @@
 
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
+import { tour } from "../lib/tour.ts";
 
 export default function HoneyChiclet() {
   return (
     <Link
       to="/honey"
+      {...tour("play.honey")}
       className="group flex flex-1 items-start gap-3 rounded-xl border border-ink/14 p-3 text-left transition hover:border-ink/32 hover:bg-ink/4"
     >
       <span className="select-none text-lg leading-none" aria-hidden="true">

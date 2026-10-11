@@ -32,6 +32,8 @@ import { QuoteScroller } from "@tollbooth-dpyc/web/react";
 import { QUOTES } from "../lib/quotes.ts";
 import { quoteStyles } from "../lib/quoteStyles.ts";
 import { Art } from "../art/svg.tsx";
+import { useTour } from "@tollbooth-dpyc/web/react";
+import { tour } from "../lib/tour.ts";
 
 /** Mirrors board_store.QUORUM — bees in ONE hive, which is what starts a match.
  *
@@ -51,6 +53,7 @@ export default function Lobby({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useTour("lobby");
   const [waited, setWaited] = useState(0);
   const [shared, setShared] = useState(false);
   const [explaining, setExplaining] = useState(false);
@@ -209,7 +212,7 @@ export default function Lobby({
         * a skep over it rather than an anonymous bar: seats are dealt
         * round-robin now, so all five fill together and the row reads as five
         * hives in a meadow instead of a chart with one tall column. */}
-      <div className="relative flex justify-center gap-3 sm:gap-8 lg:gap-14">
+      <div className="relative flex justify-center gap-3 sm:gap-8 lg:gap-14" {...tour("lobby.hives")}>
         {perHive.map((n, h) => (
           <div key={h} className="flex w-14 flex-col items-center gap-1.5 sm:w-20">
             <Skep filling={n / QUORUM} yours={mine?.hive === h} className="max-w-[44px] sm:max-w-[64px]" />
@@ -291,6 +294,7 @@ export default function Lobby({
         <button
           onClick={fund}
           disabled={busy}
+          {...tour("lobby.fund")}
           className="mx-auto flex items-center gap-2 rounded-xl bg-[var(--color-you)] px-6 py-3 font-semibold text-black disabled:opacity-40"
         >
           <Zap size={16} /> {busy ? "Funding your bee…" : "Fund a Bee"}
@@ -311,6 +315,7 @@ export default function Lobby({
         * the seat eventually; a friend is a better game. */}
       <button
         onClick={share}
+        {...tour("lobby.share")}
         className="mx-auto flex items-center gap-2 rounded-xl border border-ink/20 px-4 py-2.5 text-sm text-ink/85 hover:bg-ink/4"
       >
         {shared ? <Check size={15} className="text-[var(--color-you-ink)]" /> : <Share2 size={15} />}

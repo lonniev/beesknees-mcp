@@ -28,7 +28,8 @@ import HoneyChiclet from "../components/HoneyChiclet.tsx";
 import { PageBees } from "../components/Meadow.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
 import { checkBalance } from "@tollbooth-dpyc/web";
-import { useSession } from "@tollbooth-dpyc/web/react";
+import { useSession, useTour } from "@tollbooth-dpyc/web/react";
+import { tour } from "../lib/tour.ts";
 
 type Mode = "choosing" | "solo" | "live";
 
@@ -39,6 +40,8 @@ export default function Play() {
   const [mode, setMode] = useState<Mode>("choosing");
   const [explaining, setExplaining] = useState(false);
   const nav = useNavigate();
+  // The chooser's tour, while the chooser is what is on screen.
+  useTour("play", { ready: mode === "choosing" });
 
   const load = useCallback(() => {
     if (!session.signedIn) {
@@ -114,6 +117,7 @@ export default function Play() {
 
         <button
           onClick={() => setMode("solo")}
+          {...tour("play.practice")}
           className="flex items-start gap-3 rounded-xl border border-ink/14 p-4 text-left hover:bg-ink/4"
         >
           <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
@@ -137,6 +141,7 @@ export default function Play() {
             else if (canPlayLive) setMode("live");
           }}
           disabled={!canPlayLive && !needsOnboarding}
+          {...tour("play.real")}
           // The SAME border as Practice. A green rim on this one and a grey rim
           // on the other read as a recommendation, and these are two doors
           // rather than a default and an alternative. What still separates them
@@ -168,7 +173,7 @@ export default function Play() {
         <HoneyChiclet />
 
         {!session.signedIn ? (
-          <Link to="/signin" state={{ from: "/play" }} className="text-center text-sm underline text-ink/78">
+          <Link to="/signin" state={{ from: "/play" }} {...tour("play.signin")} className="text-center text-sm underline text-ink/78">
             I already have an npub — sign in
           </Link>
         ) : balance === 0 ? (
