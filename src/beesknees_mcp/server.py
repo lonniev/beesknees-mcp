@@ -162,9 +162,9 @@ _DOMAIN_TOOLS = [
         # Studio, ever.
         category="free",
         title="The live board",
-        # A write, though it reads like a read: with no match live it opens the
-        # next lobby (`match_flow.ensure_forming`), once.
-        behavior=WRITES,
+        # Only reads. Opening the next lobby belongs to the clock and to
+        # join_match, so the most-polled tool never changes anything.
+        behavior=READS,
         intent="The live board — every hive and every bee, since a sequence number",
     ),
     ToolIdentity(
@@ -513,7 +513,17 @@ async def match_state(
                 m = mine
         if not m:
             live = await board_store.live_matches()
-            m = live[0] if live else await match_flow.ensure_forming()
+            if not live:
+                # Nothing taking seats yet. Reading the board never opens one:
+                # the clock (`tick` / `check_now`, run by the cron and by the
+                # lobby every few seconds) and `join_match` do that. The client
+                # keeps polling, and the next answer carries the new lobby.
+                return {"success": True, "match_id": "", "state": "no_match",
+                        "unchanged": True, "poll_after_ms": 4000,
+                        "pot": match_flow.split_pot(0),
+                        "message": "No match is taking seats yet; one opens "
+                                   "within a minute, or as soon as someone joins."}
+            m = live[0]
         mid = str(m["match_id"])
         seq = int(m.get("seq") or 0)
 
