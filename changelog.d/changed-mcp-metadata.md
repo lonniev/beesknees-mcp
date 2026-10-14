@@ -1,0 +1,1 @@
+- Every Bee's Knees tool carries a title and its behaviour (what it reads, what it changes, and which ones reach Lightning or the web); `npub` and `dpop_token` use the fleet's shared descriptions; the server reports its own version, website and icon.
