@@ -118,3 +118,25 @@ def test_the_gate_reads_both_conditions():
     src = inspect.getsource(getattr(server.match_state, "fn", server.match_state))
     assert "not next_round" in src
     assert "still_yours(" in src
+
+
+def test_match_state_only_reads_when_nothing_is_live(monkeypatch):
+    """With no match live, the board says so and opens nothing."""
+    import asyncio
+
+    from beesknees_mcp import board_store, match_flow, server
+
+    async def no_live():
+        return []
+
+    async def must_not_open():
+        raise AssertionError("match_state opened a lobby")
+
+    monkeypatch.setattr(board_store, "live_matches", no_live)
+    monkeypatch.setattr(match_flow, "ensure_forming", must_not_open)
+    fn = getattr(server.match_state, "fn", server.match_state)
+    out = asyncio.run(fn())
+    assert out["success"] is True
+    assert out["state"] == "no_match"
+    assert out["match_id"] == ""
+    assert out["poll_after_ms"] > 0

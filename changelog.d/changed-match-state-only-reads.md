@@ -1,0 +1,1 @@
+- The live board (`match_state`) only reads. When no match is taking seats it says so and asks the player to check back; the clock and `join_match` open the next lobby.
