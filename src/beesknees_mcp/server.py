@@ -20,11 +20,21 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
+from mcp.types import Icon
 from pydantic import Field
 from tollbooth.credential_templates import CredentialTemplate, FieldSpec
 from tollbooth.credential_validators import validate_btcpay_creds
+from tollbooth.params import DpopToken, PatronNpub
 from tollbooth.runtime import OperatorRuntime, register_standard_tools
-from tollbooth.tool_identity import STANDARD_IDENTITIES, ToolIdentity
+from tollbooth.tool_identity import (
+    READS,
+    READS_REMOTE,
+    REPLACES,
+    STANDARD_IDENTITIES,
+    WRITES,
+    ToolBehavior,
+    ToolIdentity,
+)
 
 from beesknees_mcp import __version__, board_store, geometry, honey, match_flow
 from beesknees_mcp import payouts as payouts_mod
@@ -49,6 +59,9 @@ _GUIDE = (Path(__file__).parent / "llms.txt").read_text(encoding="utf-8")
 
 mcp = FastMCP(
     "beesknees-mcp",
+    version=__version__,
+    website_url=SITE,
+    icons=[Icon(src="https://tollbooth-dpyc.com/dpyc-logo.png", mimeType="image/png")],
     instructions=(
         "The Bee's Knees — a race to the queen, monetized via Tollbooth DPYC "
         "Bitcoin Lightning micropayments.\n\n"
@@ -122,6 +135,20 @@ CHARITY_UUID = "1ce08d38-d548-5c4b-aeea-5a3b564d8117"
 GUIDE_UUID = "39b4d680-001d-5989-97e5-f47fce0d8fb5"
 FIND_HONEY_UUID = "9417a1cc-ecdc-554c-a185-410b03ef81aa"
 
+#: A move on the board: the bee's own square changes, and fly and dig both
+#: leave the board changed for the next call.
+MOVES = ToolBehavior(read_only=False, destructive=False, idempotent=False, open_world=False)
+#: Seal brings down a cell somebody cut, so it removes what was there.
+BURIES = ToolBehavior(read_only=False, destructive=True, idempotent=False, open_world=False)
+#: Starts, ends and settles matches; settling rolls the round's fare rows up
+#: into its settlement. A second call at the same moment finds nothing due.
+ADVANCES = ToolBehavior(read_only=False, destructive=True, idempotent=True, open_world=False)
+#: Sends real sats over Lightning; a repeat reports the payment already made.
+PAYS = ToolBehavior(read_only=False, destructive=True, idempotent=True, open_world=True)
+#: Pays whatever the charity is owed at the moment of the call, so a later call
+#: pays whatever has accrued since.
+PAYS_ARREARS = ToolBehavior(read_only=False, destructive=True, idempotent=False, open_world=True)
+
 _DOMAIN_TOOLS = [
     ToolIdentity(
         tool_id=MATCH_STATE_UUID,
@@ -134,48 +161,66 @@ _DOMAIN_TOOLS = [
         # people watch. The trade is real: a free tool has no dial in Pricing
         # Studio, ever.
         category="free",
+        title="The live board",
+        # A write, though it reads like a read: with no match live it opens the
+        # next lobby (`match_flow.ensure_forming`), once.
+        behavior=WRITES,
         intent="The live board — every hive and every bee, since a sequence number",
     ),
     ToolIdentity(
         tool_id=MY_BEE_UUID,
         category="free",
         capability="my_bee",
+        title="My bee",
+        behavior=READS,
         intent="Where your bee stands, what it is carrying, and when it may move again",
     ),
     ToolIdentity(
         tool_id=MATCH_LIST_UUID,
         category="free",
         capability="match_list",
+        title="Open matches",
+        behavior=READS,
         intent="Matches forming or running, and how many seats are left in each hive",
     ),
     ToolIdentity(
         tool_id=JOIN_MATCH_UUID,
         capability="join_match",
         category="write",
+        title="Join a match",
+        behavior=WRITES,
         intent="Buy a drone a seat in the next match",
     ),
     ToolIdentity(
         tool_id=FLY_UUID,
         capability="fly",
         category="write",
+        title="Fly one cell",
+        behavior=MOVES,
         intent="Move one cell through open air or an open tunnel",
     ),
     ToolIdentity(
         tool_id=DIG_UUID,
         capability="dig",
         category="write",
+        title="Dig one cell",
+        behavior=MOVES,
         intent="Cut one fresh cell of comb — slower than flying, and it opens the way for everyone",
     ),
     ToolIdentity(
         tool_id=SEAL_UUID,
         capability="seal",
         category="write",
+        title="Seal a cell",
+        behavior=BURIES,
         intent="Bring down an open tunnel cell, so the bees behind you must cut it again",
     ),
     ToolIdentity(
         tool_id=CLAIM_PRIZE_UUID,
         capability="claim_prize",
         category="write",
+        title="Claim a prize",
+        behavior=WRITES,
         intent="Take the winner's share as credit, or send it on to the charity",
     ),
     ToolIdentity(
@@ -185,6 +230,8 @@ _DOMAIN_TOOLS = [
         # anybody should believe.
         category="free",
         capability="settlement_history",
+        title="Settlement history",
+        behavior=READS,
         intent="What every settled round paid, and to whom",
     ),
     ToolIdentity(
@@ -195,6 +242,8 @@ _DOMAIN_TOOLS = [
         # import and held in memory.
         category="free",
         capability="guide",
+        title="Service guide",
+        behavior=READS,
         intent="What this service is and how to play it, in prose — the same text the site serves at /llms.txt",
     ),
     ToolIdentity(
@@ -204,6 +253,8 @@ _DOMAIN_TOOLS = [
         # exactly one person who should not have been stopped.
         category="free",
         capability="check_now",
+        title="Advance the hives",
+        behavior=ADVANCES,
         intent="Ask the hives to advance now rather than at the next tick",
     ),
     ToolIdentity(
@@ -212,6 +263,8 @@ _DOMAIN_TOOLS = [
         # `restricted` is enforced by the runtime: the caller must be the
         # operator, proven. This is the cron entry point.
         category="restricted",
+        title="Run the match clock",
+        behavior=ADVANCES,
         intent="Operator: open, close and settle matches",
     ),
     ToolIdentity(
@@ -219,6 +272,8 @@ _DOMAIN_TOOLS = [
         capability="set_charity",
         # Who the money goes to is the operator's to name, and nobody else's.
         category="restricted",
+        title="Set the charity",
+        behavior=REPLACES,
         intent="Operator: name the beneficiary, its site and its wallet",
     ),
     ToolIdentity(
@@ -228,6 +283,8 @@ _DOMAIN_TOOLS = [
         # a screen that has to buy the setting it is about to show would show a
         # dash to anybody out of credit.
         category="free",
+        title="My payout choice",
+        behavior=READS,
         intent="What you have said should happen to your winnings",
     ),
     ToolIdentity(
@@ -236,6 +293,8 @@ _DOMAIN_TOOLS = [
         # Restricted: what the operator holds is the operator's business, and
         # the figure includes other patrons' float.
         category="restricted",
+        title="Treasury",
+        behavior=READS_REMOTE,
         intent="Operator: what is held, what is owed, and what may be sent",
     ),
     ToolIdentity(
@@ -244,6 +303,8 @@ _DOMAIN_TOOLS = [
         # The only tool in this service that moves real sats. Restricted, and
         # the runtime proves the caller is the operator before it runs.
         category="restricted",
+        title="Pay out a match",
+        behavior=PAYS,
         intent="Operator: send a settled match's charity or winner share",
     ),
     ToolIdentity(
@@ -251,6 +312,8 @@ _DOMAIN_TOOLS = [
         capability="pay_charity",
         # Restricted: it sends the operator's sats.
         category="restricted",
+        title="Pay the charity",
+        behavior=PAYS_ARREARS,
         intent="Operator: pay everything owed to the charity, in one payment",
     ),
     ToolIdentity(
@@ -260,6 +323,8 @@ _DOMAIN_TOOLS = [
         # should let anybody check that sats actually left, not just that a
         # row was written saying they were owed.
         category="free",
+        title="Payout history",
+        behavior=READS,
         intent="Every payment attempted, and how it went",
     ),
     ToolIdentity(
@@ -268,18 +333,24 @@ _DOMAIN_TOOLS = [
         # Free, deliberately. Where the money goes is a claim players should be
         # able to check without paying to check it.
         category="free",
+        title="The charity",
+        behavior=READS,
         intent="Who the charity share goes to",
     ),
     ToolIdentity(
         tool_id=SET_PAYOUT_UUID,
         capability="set_payout",
         category="write",
+        title="Set my payout choice",
+        behavior=REPLACES,
         intent="Say what should happen to your winnings",
     ),
     ToolIdentity(
         tool_id=FIND_HONEY_UUID,
         capability="find_honey",
         category="read",
+        title="Find honey sellers",
+        behavior=READS_REMOTE,
         intent="Honey sellers near a place, each with an address and a website that answers",
     ),
 ]
@@ -352,11 +423,6 @@ tool = register_standard_tools(
 # Domain tools
 # ---------------------------------------------------------------------------
 
-NPUB_FIELD = Annotated[
-    str, Field(description="Required. Your Nostr public key (npub1...) for credit billing.")
-]
-
-
 def fare_just_charged() -> int:
     """What the runtime ACTUALLY debited for the call now running.
 
@@ -412,8 +478,8 @@ async def match_state(
             ),
         ),
     ] = False,
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """The live board — every hive, every bee, and when to ask again.
 
@@ -532,8 +598,8 @@ async def match_state(
 @runtime.paid_tool(MY_BEE_UUID)
 async def my_bee(
     match_id: Annotated[str, Field(description="The match to look in. Omit for the live one.")] = "",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Where your bee stands, what it is carrying, and when it may move again.
 
@@ -559,7 +625,7 @@ async def my_bee(
 
 @tool
 @runtime.paid_tool(MATCH_LIST_UUID)
-async def match_list(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def match_list(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Matches forming or running, and how many seats are left in each hive."""
     try:
         out = []
@@ -588,8 +654,8 @@ async def settlement_history(
         Field(description="settled | match | raised | charity | winner."),
     ] = "settled",
     sort_dir: Annotated[str, Field(description="asc or desc.")] = "desc",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """What every settled match paid, and to whom.
 
@@ -624,7 +690,7 @@ async def settlement_history(
 
 @tool
 @runtime.paid_tool(GUIDE_UUID)
-async def guide(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def guide(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """What this service is and how to play it, in prose.
 
     The same text the website serves at ``/llms.txt`` — one file, published on
@@ -645,7 +711,7 @@ async def guide(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
 
 @tool
 @runtime.paid_tool(CHECK_NOW_UUID)
-async def check_now(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def check_now(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Ask the hives to advance now rather than at the next tick.
 
     Carries no authority: it can only cause work that was already due — start a
@@ -664,8 +730,8 @@ async def check_now(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, An
 @runtime.paid_tool(JOIN_MATCH_UUID)
 async def join_match(
     label: Annotated[str, Field(description="The name your bee flies under.")] = "",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Buy a drone a seat in the next match.
 
@@ -814,8 +880,8 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
 @runtime.paid_tool(FLY_UUID)
 async def fly(
     to_cell: Annotated[int, Field(description="The neighbouring cell to move into.")],
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Move one cell through open air or an open tunnel.
 
@@ -836,8 +902,8 @@ async def fly(
 @runtime.paid_tool(DIG_UUID)
 async def dig(
     to_cell: Annotated[int, Field(description="The neighbouring cell of comb to cut.")],
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Cut one fresh cell of comb — slower than flying, and open to everyone after.
 
@@ -851,8 +917,8 @@ async def dig(
 @runtime.paid_tool(SEAL_UUID)
 async def seal(
     at_cell: Annotated[int, Field(description="The open tunnel cell to bring down.")],
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Bring down an open tunnel cell, so the bees behind you must cut it again.
 
@@ -870,8 +936,8 @@ async def seal(
 async def claim_prize(
     match_id: Annotated[str, Field(description="The match you won.")],
     choice: Annotated[str, Field(description="'donate' to pass it to the charity, or 'keep'.")] = "keep",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Take the winner's share as credit, or send it on to the charity.
 
@@ -923,7 +989,7 @@ async def claim_prize(
 
 @tool
 @runtime.paid_tool(TICK_UUID)
-async def tick(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def tick(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Operator: open, close and settle matches.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -937,7 +1003,7 @@ async def tick(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
 
 @tool
 @runtime.paid_tool(CHARITY_UUID)
-async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Who the charity share goes to, and where to check them.
 
     Free on purpose. A claim about where somebody's money goes that costs money
@@ -955,7 +1021,7 @@ async def charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]
 
 @tool
 @runtime.paid_tool(TREASURY_UUID)
-async def treasury(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def treasury(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Operator: what the wallet can send, and what is owed out of it.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -987,8 +1053,8 @@ async def treasury(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any
 async def pay_out(
     match_id: Annotated[str, Field(description="The settled match to pay out.")],
     kind: Annotated[str, Field(description="'charity' or 'winner'.")] = "charity",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Operator: send a settled match's charity or winner share over Lightning.
 
@@ -1023,7 +1089,7 @@ async def pay_out(
 
 @tool
 @runtime.paid_tool(PAY_CHARITY_UUID)
-async def pay_charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def pay_charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """Operator: pay everything owed to the charity, in one Lightning payment.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -1053,8 +1119,8 @@ async def pay_charity(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, 
 @runtime.paid_tool(PAYOUT_HISTORY_UUID)
 async def payout_history(
     limit: Annotated[int, Field(description="How many payments to return.")] = 25,
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Every payment attempted, and how it went.
 
@@ -1086,8 +1152,8 @@ async def set_charity(
     lightning_address: Annotated[
         str, Field(description="Where the charity share is actually sent, e.g. name@wallet.com")
     ] = "",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Operator: name the beneficiary, its website and its Lightning address.
 
@@ -1119,7 +1185,7 @@ async def set_charity(
 
 @tool
 @runtime.paid_tool(PAYOUT_UUID)
-async def payout(npub: NPUB_FIELD = "", dpop_token: str = "") -> dict[str, Any]:
+async def payout(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
     """What you have said should happen to your winnings.
 
     `set` is False for a patron who has never said — which still reads as
@@ -1141,8 +1207,8 @@ async def set_payout(
     lightning_address: Annotated[
         str, Field(description="Where to send your share if you are keeping it.")
     ] = "",
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Say now what should happen if you win.
 
@@ -1190,8 +1256,8 @@ async def find_honey(
         float | None,
         Field(description="How far to look, to 100 km. Omitted means as far as it takes, to 100."),
     ] = None,
-    npub: NPUB_FIELD = "",
-    dpop_token: str = "",
+    npub: PatronNpub = "",
+    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Three honey sellers near a place, each with an address and a website.
 
