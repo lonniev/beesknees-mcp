@@ -9,7 +9,7 @@
  */
 
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { Avatar, useSession } from "@tollbooth-dpyc/web/react";
+import { Avatar, DebugPanel, useSession } from "@tollbooth-dpyc/web/react";
 import { avatarFor } from "@tollbooth-dpyc/web";
 import { Art, ArtSymbols } from "./art/svg.tsx";
 import { PageBees } from "./components/Meadow.tsx";
@@ -200,6 +200,11 @@ export default function App() {
           * A block child of the scroller is exactly as wide as the scroller. */}
         {reading && <Meadowscape anchor="foot" />}
       </div>
+
+      {/* Every call to the hive, its answer or why it never arrived — so "can't
+        * reach the operator" can be read and pasted, not guessed at. Last, so
+        * the room it keeps while open comes out of the scroller above. */}
+      <DebugPanel />
     </div>
   );
 }

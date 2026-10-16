@@ -120,6 +120,11 @@
   --tb-err-bg: var(--color-sky);
   --tb-err-line: var(--color-hot);
   --tb-err-ink: var(--color-hot-ink);
+  /* A player's next step in the debug log (sign in, top up): not a fault, so
+     the meadow's violet rather than the hot red. */
+  --tb-notice-bg: var(--color-sky);
+  --tb-notice-line: var(--color-flower);
+  --tb-notice-ink: var(--color-meadow);
 }
 
 html,
