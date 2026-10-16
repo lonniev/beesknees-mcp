@@ -1,0 +1,1 @@
+- A patron whose proof grant has expired is now signed out and asked to sign in again, instead of staying "signed in" while every call fails (`@tollbooth-dpyc/web` 1.8.1).
