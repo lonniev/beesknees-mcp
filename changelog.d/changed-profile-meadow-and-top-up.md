@@ -1,0 +1,1 @@
+- The Profile page stands on the meadow, as sign-in does, with its cards drawn solid over it. Topping up is three honey-wax tiles (1,000 · 5,000 · 20,000 sats), each with one more bee than the last, and a wax Pay button. A settled payment reads "N sats in the hive."

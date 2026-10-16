@@ -7,7 +7,7 @@ import { tour } from "../lib/tour.ts";
 export default function TutorialSwitch() {
   const tutorial = useTourSwitch();
   return (
-    <section className="rounded-xl border border-ink/14 p-4" {...tour("account.tutorial")}>
+    <section className="rounded-xl border border-ink/14 bg-[var(--color-sky)] p-4" {...tour("account.tutorial")}>
       <label className="flex items-center gap-3">
         <input
           type="checkbox"
