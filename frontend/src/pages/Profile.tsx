@@ -19,6 +19,8 @@ import {
 } from "@tollbooth-dpyc/web/react";
 import { checkBalance } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
+import Meadowscape from "../components/Meadowscape.tsx";
+import { Art } from "../art/svg.tsx";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import TutorialSwitch from "../components/TutorialSwitch.tsx";
 import { tour } from "../lib/tour.ts";
@@ -32,13 +34,17 @@ function sats(n: number | null): string {
  *  round numbers to pay in, and never guesses what a round of play will cost. */
 const TOP_UPS = [1_000, 5_000, 20_000];
 
+/** A card on this page. Solid sky, because the meadow runs behind the page
+ *  and text never sits on grass. */
+const CARD = "rounded-xl border border-ink/14 bg-[var(--color-sky)] p-4";
+
 /** The month only: the balance has its own card above, and lifetime totals
  *  under a "Last 30 days" heading would read as the month's. */
 const MONTH: readonly UsageFigure[] = ["spent", "calls", "credited"];
 
 /** The page's card, chip and ink ladder — the package draws, the hive dresses. */
 const MONTH_LOOK: UsageSummaryClassNames = {
-  root: "rounded-xl border border-ink/14 p-4",
+  root: CARD,
   header: "flex items-center justify-between",
   heading: "text-sm text-ink/78",
   chip: "rounded-lg border border-ink/20 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/7 disabled:opacity-40",
@@ -92,7 +98,7 @@ export default function Profile({ session }: { session: Session }) {
   // is "not yet", and saying so is more use than a spinner.
   const msg =
     state.phase === "settled"
-      ? `Paid. ${sats(state.credited)} sats added.`
+      ? `${sats(state.credited)} sats in the hive.`
       : state.phase === "failed"
         ? state.message
         : state.phase === "awaiting" && state.status
@@ -103,7 +109,7 @@ export default function Profile({ session }: { session: Session }) {
 
   /** The balance and its top-up: the hive's own card, right after the key it pays with. */
   const balanceCard = (
-    <section className="rounded-xl border border-ink/14 p-4" {...tour("account.balance")}>
+    <section className={CARD} {...tour("account.balance")}>
       <div className="flex items-center justify-between">
         <span className="text-sm text-ink/78">Balance</span>
         <RefreshButton
@@ -127,17 +133,30 @@ export default function Profile({ session }: { session: Session }) {
       )}
 
       {!invoice ? (
-        <div className="mt-4 flex gap-2" {...tour("account.topup")}>
-          {TOP_UPS.map((n) => (
-            <button
-              key={n}
-              disabled={busy}
-              onClick={() => create(n)}
-              className="flex-1 rounded-lg border border-ink/20 py-2 text-sm hover:bg-ink/7 disabled:opacity-40"
-            >
-              +{n.toLocaleString("en-US")}
-            </button>
-          ))}
+        <div className="mt-4" {...tour("account.topup")}>
+          <div className="mb-2 flex items-center gap-1.5 text-sm text-ink/78">
+            <Zap size={14} /> Top up
+          </div>
+          {/* Honey wax, the hive's colour for money, and a swarm that grows
+            * with the jar. */}
+          <div className="grid grid-cols-3 gap-2">
+            {TOP_UPS.map((n, i) => (
+              <button
+                key={n}
+                disabled={busy}
+                onClick={() => create(n)}
+                className="bk-wax flex flex-col items-center rounded-xl px-1 pb-2.5 pt-3 transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40"
+              >
+                <span className="flex h-10 items-center">
+                  {Array.from({ length: i + 1 }, (_, k) => (
+                    <Art key={k} id="bee" size={34} rotate={-20 + k * 20} className="-mx-1" />
+                  ))}
+                </span>
+                <span className="mt-1 text-xl font-bold tabular-nums">{n.toLocaleString("en-US")}</span>
+                <span className="text-[11px] font-semibold opacity-75">sats</span>
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="mt-4 space-y-2">
@@ -145,9 +164,9 @@ export default function Profile({ session }: { session: Session }) {
             href={invoice.checkoutLink ?? (invoice.bolt11 ? `lightning:${invoice.bolt11}` : "#")}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center justify-center gap-2 rounded-lg bg-[var(--color-you)] py-2.5 font-semibold text-black"
+            className="bk-wax flex items-center justify-center gap-2 rounded-xl py-3 text-lg font-bold"
           >
-            <Zap size={16} /> Pay {invoice.sats.toLocaleString("en-US")} sats
+            <Zap size={18} /> Pay {invoice.sats.toLocaleString("en-US")} sats
           </a>
           <div className="flex gap-2">
             <button
@@ -166,7 +185,14 @@ export default function Profile({ session }: { session: Session }) {
           </div>
         </div>
       )}
-      {msg && <p className="mt-3 text-xs text-ink/78">{msg}</p>}
+      {msg &&
+        (state.phase === "settled" ? (
+          <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--color-wax-ink)]">
+            <Art id="bee" size={18} rotate={-20} /> {msg}
+          </p>
+        ) : (
+          <p className="mt-3 text-xs text-ink/78">{msg}</p>
+        ))}
     </section>
   );
 
@@ -186,6 +212,10 @@ export default function Profile({ session }: { session: Session }) {
   }
 
   return (
+    <>
+    {/* The ground under the page, as on sign-in: one column of cards in a lot
+      * of sky. */}
+    <Meadowscape />
     <AccountPage
       npub={session.npub}
       /* Identity first, and it is the panel's job: the avatar you can pick, the
@@ -230,7 +260,7 @@ export default function Profile({ session }: { session: Session }) {
       after={
         <>
         <TutorialSwitch />
-        <div className="flex items-center gap-3 px-1 pb-2">
+        <div className={`${CARD} flex items-center gap-3 py-3`}>
           <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
             {session.canSign
               ? "Signing with a session key held in this tab."
@@ -248,9 +278,10 @@ export default function Profile({ session }: { session: Session }) {
       }
       classNames={{
         root: "mx-auto max-w-lg space-y-6 px-4 py-6",
-        section: "rounded-xl border border-ink/14 p-4",
+        section: CARD,
         sectionNote: "mt-2 text-xs text-ink/65",
       }}
     />
+    </>
   );
 }

@@ -89,7 +89,7 @@ export default function Winnings({ npub }: { npub: string }) {
   const needsAddress = !donate && !address.trim();
 
   return (
-    <section className="rounded-xl border border-ink/14 p-4">
+    <section className="rounded-xl border border-ink/14 bg-[var(--color-sky)] p-4">
       <div className="flex items-center gap-2">
         <HeartHandshake size={15} className="text-[var(--color-wax-ink)]" />
         <h2 className="text-sm font-semibold text-ink/90">If you win</h2>
