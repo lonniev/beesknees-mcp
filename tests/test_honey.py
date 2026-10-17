@@ -213,7 +213,7 @@ class _Fakes:
             return f"{a['house_number']} {a['road']}, {a['town']}, {a['state']}", a["postcode"]
 
         async def visit_website(url: str, client: Any) -> h.Visit:
-            terms = frozenset() if url in self.no_bees_at else frozenset({"apiary", "kind of honey"})
+            terms = frozenset() if url in self.no_bees_at else frozenset({"apiary"})
             return h.Visit(alive=self.websites_alive, bee_terms=terms if self.websites_alive else frozenset())
 
         monkeypatch.setattr(h, "fetch_osm", fetch_osm)
@@ -437,3 +437,26 @@ def test_with_no_website_to_read_a_google_lead_is_not_listed(fakes: _Fakes) -> N
     fakes.websites_alive = False
     out = asyncio.run(h.find("Vergennes, VT", 10, None, google_key="k"))
     assert all(s["confirmed_by"] in ("osm", "usda", "nostr") for s in out["sellers"]), out["sellers"]
+
+
+def test_one_bee_product_on_its_own_website_is_enough() -> None:
+    assert h.Visit(alive=True, bee_terms=frozenset({"apiary"})).shows_bee_products
+    assert not h.Visit(alive=True).shows_bee_products
+
+
+def test_a_business_full_of_bee_words_that_sells_no_honey_is_not_listed() -> None:
+    for name in ("Green Mountain Bee Removal", "Champlain Pest Solutions", "Vermont Beekeepers Association",
+                 "Addison County Beekeeping Supply", "Swarm Rescue VT", "Bee Club of Vergennes"):
+        assert h._BEES_BUT_NOT_HONEY.search(name), name
+    for name in ("Coyote Ridge Apiary", "Bee Happy Vermont", "Champlain Valley Honey", "Singing Cedars Apiaries"):
+        assert not h._BEES_BUT_NOT_HONEY.search(name), name
+
+
+def test_a_bee_remover_whose_pages_say_honeybees_is_dropped(fakes: _Fakes, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fetch_google(origin: Any, key: str, client: Any) -> list[h.Seller]:
+        return [h.Seller(name="Green Mountain Bee Removal", lat=44.17, lon=-73.25, source="google",
+                         kind="beekeeper", evidence="strong", address="1 Main St, Vergennes, VT",
+                         website="https://beeremoval.example/")]
+    monkeypatch.setattr(h, "fetch_google", fetch_google)
+    out = asyncio.run(h.find("Vergennes, VT", 10, None, google_key="k"))
+    assert "Green Mountain Bee Removal" not in [s["name"] for s in out["sellers"]]

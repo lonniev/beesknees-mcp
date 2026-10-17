@@ -287,9 +287,15 @@ BEE_PRODUCT_TERMS = {
     "royal jelly": r"\broyal jelly\b",
 }
 _BEE_PRODUCTS = {k: re.compile(v, re.IGNORECASE) for k, v in BEE_PRODUCT_TERMS.items()}
-#: How many different bee-product terms a seller's own website must use. One
-#: could be a passing mention; a beekeeper's homepage uses several.
-WEBSITE_BEE_TERMS_NEEDED = 2
+#: Businesses whose pages are full of bees and honey and who sell neither:
+#: they take swarms away, kill pests, sell hive kit, or teach and gather.
+_BEES_BUT_NOT_HONEY = re.compile(
+    r"\b(?:bee|swarm|hive|wasp|hornet)s? (?:removal|rescue|control)\b|\bpest\b|\bextermin\w*|"
+    r"\bwildlife (?:control|removal)\b|\b(?:beekeeping|bee) (?:supply|supplies|equipment)\b|"
+    r"\b(?:associations?|club|society|guild|council|federation|school|museum|laborator(?:y|ies)|"
+    r"research|extension|inspectors?)\b",
+    re.IGNORECASE,
+)
 #: How much of a homepage is read for them.
 WEBSITE_READ_BYTES = 300_000
 
@@ -906,7 +912,7 @@ class Visit:
 
     @property
     def shows_bee_products(self) -> bool:
-        return len(self.bee_terms) >= WEBSITE_BEE_TERMS_NEEDED
+        return bool(self.bee_terms)
 
 
 _SCRIPT_OR_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
@@ -1073,11 +1079,15 @@ async def find(
         visits = dict(await asyncio.gather(*(_visit(u) for u in urls)))
 
     # A name is never proof. A seller stays only when a source's product field
-    # or tag says honey, or its own website names bee products.
+    # or tag says honey, or its own website names a bee product — and a bee
+    # remover, a hive-kit shop or a beekeepers' club is not one, however many
+    # bee words its pages hold.
     sellers = [
         s if s.confirmed_by else replace(s, confirmed_by="website")
         for s in sellers
-        if s.confirmed_by or (s.website and visits[s.website].shows_bee_products)
+        if s.confirmed_by or (
+            s.website and visits[s.website].shows_bee_products and not _BEES_BUT_NOT_HONEY.search(s.name)
+        )
     ]
     alive = {u: v.alive for u, v in visits.items()}
 
