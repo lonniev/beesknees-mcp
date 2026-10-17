@@ -18,7 +18,8 @@
  * a test; anything they win is won by a key that exists only in this process.
  */
 
-import { finalizeEvent, generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
+import { signRequest } from "@tollbooth-dpyc/web";
+import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
 import { chooseAction } from "../src/game/bots.ts";
 import { hydrate, hiveSeed } from "../src/game/live.ts";
 import {
@@ -49,33 +50,23 @@ interface Bot {
   label: string;
 }
 
-/** A fresh kind-27235 proof per call, scoped to the tool. What the wheel wants. */
-function proof(sk: Uint8Array, tool: string): string {
-  return JSON.stringify(
-    finalizeEvent(
-      { kind: 27235, created_at: Math.floor(Date.now() / 1000), tags: [["u", `beesknees_${tool}`]], content: "" },
-      sk,
-    ),
-  );
-}
-
 let calls = 0;
 let totalMs = 0;
 let slowest = 0;
 
 async function call(bot: Bot | null, tool: string, args: Record<string, unknown> = {}) {
-  const id = { npub: bot?.npub, dpop_token: bot ? proof(bot.sk, tool) : undefined };
-  const t0 = Date.now();
-  const r = await fetch(URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: `beesknees_${tool}`, arguments: { ...id, ...args } },
-    }),
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name: `beesknees_${tool}`, arguments: bot ? { npub: bot.npub, ...args } : args },
   });
+  // A bot signs the whole request with its own key (NIP-98); the site's proxy
+  // marks an unsigned one anonymous.
+  const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
+  if (bot) headers.Authorization = await signRequest("POST", URL, body, bot.sk);
+  const t0 = Date.now();
+  const r = await fetch(URL, { method: "POST", headers, body });
   const text = await r.text();
   const ms = Date.now() - t0;
   calls++;
