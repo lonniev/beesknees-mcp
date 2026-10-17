@@ -398,7 +398,8 @@ runtime = OperatorRuntime(
                 sensitive=True,
                 description=(
                     "A USDA Local Food Portal data-sharing key, for beesknees_find_honey. "
-                    "Optional; applied for by email to the AMS."
+                    "Optional. The portal issues its own keys, at "
+                    "https://www.usdalocalfoodportal.com/fe/fregisterpublicapi/ ."
                 ),
             ),
         },

@@ -1,0 +1,1 @@
+- The operator's `usda_api_key` prompt names where the Local Food Portal issues its keys. A FoodData Central (api.data.gov) key is a different USDA key, and the portal refuses it.
