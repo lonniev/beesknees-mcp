@@ -38,6 +38,19 @@ export function sellerGlyph(kind: string): string {
   }
 }
 
+/** How each directory is named on a seller's badge. */
+const SOURCE_LABELS: Record<string, string> = {
+  usda: "USDA",
+  google: "Google",
+  osm: "OpenStreetMap",
+  nostr: "Nostr",
+};
+
+/** A seller's directories as badge words, each once, in the order they came. */
+export function sourceBadges(sources: readonly string[]): string[] {
+  return [...new Set(sources)].map((s) => SOURCE_LABELS[s] ?? s);
+}
+
 /** The `near` the service takes, from a position. Five decimals is a metre. */
 export function nearFromPosition(lat: number, lon: number): string {
   return `${lat.toFixed(5)},${lon.toFixed(5)}`;

@@ -142,7 +142,7 @@ export interface HoneyAnswer {
  * the browser gave with consent — never anything guessed. A refusal comes back
  * as `success: false` with its reason, and costs nothing.
  */
-export async function findHoney(near: string, count = 3): Promise<HoneyAnswer> {
+export async function findHoney(near: string, count = 5): Promise<HoneyAnswer> {
   return callTool<HoneyAnswer>("find_honey", { near, count });
 }
 

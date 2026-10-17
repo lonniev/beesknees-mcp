@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { distanceLabel, nearFromPosition, sellerGlyph, usesMiles } from "./honey.ts";
+import { distanceLabel, nearFromPosition, sellerGlyph, sourceBadges, usesMiles } from "./honey.ts";
 
 test("miles where the road signs say so, kilometres everywhere else", () => {
   assert.equal(usesMiles("en-US"), true);
@@ -24,4 +24,10 @@ test("every kind has a mark and the unknown one is a flower", () => {
   assert.equal(sellerGlyph("honey"), "🍯");
   assert.equal(sellerGlyph("beekeeper"), "🐝");
   assert.equal(sellerGlyph("anything else"), "🌻");
+});
+
+test("a seller's badges name each directory once, in the order they came", () => {
+  assert.deepEqual(sourceBadges(["google", "usda", "google"]), ["Google", "USDA"]);
+  assert.deepEqual(sourceBadges(["osm", "nostr"]), ["OpenStreetMap", "Nostr"]);
+  assert.deepEqual(sourceBadges(["somewhere"]), ["somewhere"]);
 });
