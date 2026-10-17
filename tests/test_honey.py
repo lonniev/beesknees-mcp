@@ -187,6 +187,8 @@ class _Fakes:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.osm_delay = 0.0
         self.websites_alive = True
+        #: Websites that answer but name no bee products.
+        self.no_bees_at: set[str] = set()
 
         async def fetch_osm(origin: Any, radius_km: float, client: Any) -> list[h.Seller]:
             await asyncio.sleep(self.osm_delay)
@@ -210,8 +212,9 @@ class _Fakes:
             a = fixture("nominatim_reverse_middlebury.json")["address"]
             return f"{a['house_number']} {a['road']}, {a['town']}, {a['state']}", a["postcode"]
 
-        async def check_website(url: str, client: Any) -> bool:
-            return self.websites_alive
+        async def visit_website(url: str, client: Any) -> h.Visit:
+            terms = frozenset() if url in self.no_bees_at else frozenset({"apiary"})
+            return h.Visit(alive=self.websites_alive, bee_terms=terms if self.websites_alive else frozenset())
 
         monkeypatch.setattr(h, "fetch_osm", fetch_osm)
         monkeypatch.setattr(h, "fetch_google", fetch_google)
@@ -219,7 +222,7 @@ class _Fakes:
         monkeypatch.setattr(h, "fetch_nostr_events", lambda: fixture("nostr_listings.json"))
         monkeypatch.setattr(h, "geocode", geocode)
         monkeypatch.setattr(h, "reverse", reverse)
-        monkeypatch.setattr(h, "check_website", check_website)
+        monkeypatch.setattr(h, "visit_website", visit_website)
 
 
 @pytest.fixture
@@ -369,3 +372,91 @@ def test_google_drops_places_whose_types_say_honey_is_only_their_name() -> None:
     assert list(got) == ["Bee Happy Vermont", "Lady Grantham Apiary", "1000 Stone Farm Honey",
                          "Saratoga Tea & Honey Company", "Hunt's Honey Fields Farmstand"]
     assert got["Hunt's Honey Fields Farmstand"] == "market"
+
+
+# ── A sure sign of honey, never a name ───────────────────────────────────
+
+
+def test_honey_in_a_name_or_a_turn_of_phrase_is_not_a_bee_product() -> None:
+    assert not h.bee_products("Honey-Do Handyman Services: sinks, doors and decks")
+    assert not h.bee_products("Lace that feels sweet as honey. Lingerie for every occasion.")
+    assert not h.bee_products("Honey Hollow trailhead, Honey Road restaurant")
+
+
+def test_a_beekeeper_s_words_are() -> None:
+    text = "Raw honey from our hives in Starksboro. Beeswax candles, comb honey and bee pollen."
+    assert h.bee_products(text) >= {"kind of honey", "hives", "beeswax", "honeycomb", "bee pollen"}
+
+
+def test_a_page_is_read_for_its_words_not_its_scripts() -> None:
+    html = '<script>var x = "raw honey beeswax"</script><style>.apiary{}</style><p>Fresh eggs</p>'
+    assert h.bee_products(h.page_text(html)) == frozenset()
+
+
+def _usda(name: str, **fields: str) -> dict:
+    return {"listing_name": name, "location_x": "-73.2", "location_y": "44.1", **fields}
+
+
+def test_usda_confirms_honey_only_from_what_a_row_says_it_sells() -> None:
+    rows = [
+        _usda("The Farm of Milk and Honey", listing_desc="Milk and cheese from our Jerseys.",
+              media_website="www.farmofmilkandhoney.com"),
+        _usda("Echo Farm", listing_desc="We raise milk, poultry, maple, honey, berries and fruit."),
+        _usda("Burlington Farmers Market",
+              brief_desc="Open: June to October; <br>Available Products: Fresh fruits;Baked goods;Honey;Maple syrup"),
+        _usda("Honey Brook Market", brief_desc="Open: May; <br>Available Products: Fresh fruits;Baked goods"),
+    ]
+    got = {s.name: s.confirmed_by for s in h.from_usda(rows, "onfarmmarket")}
+    assert got == {"The Farm of Milk and Honey": "", "Echo Farm": "usda",
+                   "Burlington Farmers Market": "usda", "Honey Brook Market": ""}
+
+
+def test_a_nostr_listing_with_no_honey_tag_needs_bee_products_named() -> None:
+    def listing(title: str, content: str, *tags: str) -> dict:
+        return {"kind": 30402, "content": content, "created_at": 1_790_000_000,
+                "tags": [["title", title], ["g", "drsj"], *[["t", t] for t in tags]]}
+    placed, _ = h.from_nostr([
+        listing("Sweet as Honey lace set", "Lingerie, sizes S–XL."),
+        listing("Fall harvest", "Raw honey, 1 lb jars, from our hives in Monkton."),
+        listing("Jars", "Pick up Saturdays.", "honey"),
+    ])
+    assert [s.name for s in placed] == ["Fall harvest", "Jars"]
+    assert all(s.confirmed_by == "nostr" for s in placed)
+
+
+def test_a_google_lead_whose_website_names_no_bee_products_is_dropped(fakes: _Fakes) -> None:
+    fakes.no_bees_at = {"https://dancingbeegardens.example/"}
+    out = asyncio.run(h.find("Vergennes, VT", 10, None, google_key="k", usda_key="k"))
+    names = [s["name"] for s in out["sellers"]]
+    assert "Dancing Bee Gardens" not in names, "a bee in the name, nothing on the page"
+    by = {s["name"]: s["confirmed_by"] for s in out["sellers"]}
+    assert by["Champlain Valley Honey"] == "osm", "shop=honey is a sure sign on its own"
+
+
+def test_with_no_website_to_read_a_google_lead_is_not_listed(fakes: _Fakes) -> None:
+    fakes.websites_alive = False
+    out = asyncio.run(h.find("Vergennes, VT", 10, None, google_key="k"))
+    assert all(s["confirmed_by"] in ("osm", "usda", "nostr") for s in out["sellers"]), out["sellers"]
+
+
+def test_one_bee_product_on_its_own_website_is_enough() -> None:
+    assert h.Visit(alive=True, bee_terms=frozenset({"apiary"})).shows_bee_products
+    assert not h.Visit(alive=True).shows_bee_products
+
+
+def test_a_business_full_of_bee_words_that_sells_no_honey_is_not_listed() -> None:
+    for name in ("Green Mountain Bee Removal", "Champlain Pest Solutions", "Vermont Beekeepers Association",
+                 "Addison County Beekeeping Supply", "Swarm Rescue VT", "Bee Club of Vergennes"):
+        assert h._BEES_BUT_NOT_HONEY.search(name), name
+    for name in ("Coyote Ridge Apiary", "Bee Happy Vermont", "Champlain Valley Honey", "Singing Cedars Apiaries"):
+        assert not h._BEES_BUT_NOT_HONEY.search(name), name
+
+
+def test_a_bee_remover_whose_pages_say_honeybees_is_dropped(fakes: _Fakes, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fetch_google(origin: Any, key: str, client: Any) -> list[h.Seller]:
+        return [h.Seller(name="Green Mountain Bee Removal", lat=44.17, lon=-73.25, source="google",
+                         kind="beekeeper", evidence="strong", address="1 Main St, Vergennes, VT",
+                         website="https://beeremoval.example/")]
+    monkeypatch.setattr(h, "fetch_google", fetch_google)
+    out = asyncio.run(h.find("Vergennes, VT", 10, None, google_key="k"))
+    assert "Green Mountain Bee Removal" not in [s["name"] for s in out["sellers"]]
