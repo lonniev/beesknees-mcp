@@ -1,7 +1,7 @@
 """How a sim bee talks to the hive: as a patron, over MCP, like anybody else.
 
 No privileged path and no back door into the board. Each bee has its own key,
-signs its own kind-27235 proof per call, and is charged the same fares as a
+signs every request with it (NIP-98), and is charged the same fares as a
 person — it simply holds a coupon that discounts them to nothing.
 
 The coupon is a CODE, not a secret. Minting one needs the operator's proof and
@@ -18,6 +18,7 @@ from typing import Any
 
 import httpx
 from tollbooth.mcp_client import JSONRPC_POST_HEADERS
+from tollbooth.nostr_auth import NostrRequestAuth
 
 logger = logging.getLogger(__name__)
 
@@ -39,32 +40,26 @@ class Hive:
         self.url = url
         self.nsec = nsec
         self.npub = npub
-        self._client = httpx.AsyncClient(timeout=timeout)
+        self._client = httpx.AsyncClient(timeout=timeout, auth=NostrRequestAuth(nsec))
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
     async def call(self, tool: str, **args: Any) -> dict[str, Any]:
-        """One tool call, with a fresh proof. Never raises for a game refusal.
+        """One tool call, signed by this bee. Never raises for a game refusal.
 
         A refusal is an answer — "another bee is standing there" is the board
         working — so it comes back as data. Only a transport failure is an
         exception, and even that is returned rather than thrown, because one bee
         losing its connection must not stop the other seven playing.
         """
-        from tollbooth.identity_proof import create_proof
-
         body = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
             "params": {
                 "name": f"{SLUG}_{tool}",
-                "arguments": {
-                    "npub": self.npub,
-                    "dpop_token": create_proof(self.nsec, f"{SLUG}_{tool}"),
-                    **args,
-                },
+                "arguments": {"npub": self.npub, **args},
             },
         }
         try:
