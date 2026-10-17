@@ -13,4 +13,5 @@ configureTollbooth({
   slug: "beesknees",
   appName: "The Bee's Knees",
   mcpUrl: import.meta.env.VITE_MCP_URL as string,
+  operatorUrl: "https://beesknees-mcp.fastmcp.app",
 });
