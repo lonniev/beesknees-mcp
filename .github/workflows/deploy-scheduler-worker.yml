@@ -1,0 +1,28 @@
+# The scheduler worker deploys from main like the frontend does, so a change to
+# how it calls the MCP reaches Cloudflare with the change that needs it instead
+# of waiting for someone to run wrangler by hand.
+name: Deploy scheduler worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scheduler-worker/**"
+      - ".github/workflows/deploy-scheduler-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: scheduler-worker
+          command: deploy
