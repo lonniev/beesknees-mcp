@@ -19,7 +19,7 @@ import { ExternalLink, LocateFixed, Phone, Search } from "lucide-react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { NpubGate, type Session } from "@tollbooth-dpyc/web/react";
 import { findHoney, type HoneyAnswer } from "../lib/mcp";
-import { distanceLabel, locateMe, sellerGlyph, usesMiles } from "../lib/honey";
+import { distanceLabel, locateMe, sellerGlyph, sourceBadges, usesMiles } from "../lib/honey";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
 
@@ -211,6 +211,16 @@ export default function Honey({ session }: { session: Session }) {
                   </span>
                 </span>
                 {s.address && <span className="mt-0.5 block text-sm text-ink/78">{s.address}</span>}
+                <span className="mt-1 flex flex-wrap gap-1" aria-label="Listed by">
+                  {sourceBadges(s.sources).map((b) => (
+                    <span
+                      key={b}
+                      className="rounded-full border border-ink/14 bg-ink/4 px-2 py-px text-[11px] font-medium text-ink/70"
+                    >
+                      {b}
+                    </span>
+                  ))}
+                </span>
                 <span className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   {s.website && (
                     <a

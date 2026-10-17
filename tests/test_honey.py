@@ -342,3 +342,30 @@ def test_the_overpass_query_asks_for_sellers_not_suppliers() -> None:
     q = h.overpass_query(44.168, -73.252, 100)
     assert '"shop"="honey"' in q and '"craft"="beekeeper"' in q and "around:100000" in q
     assert "beekeeping" not in q
+
+
+def _place(name: str, primary: str, *types: str) -> dict:
+    return {"displayName": {"text": name}, "location": {"latitude": 44.0, "longitude": -73.2},
+            "primaryType": primary, "types": [primary, *types]}
+
+
+def test_google_drops_places_whose_types_say_honey_is_only_their_name() -> None:
+    """Addison, 2026-10-17: a salon, a bakery, a restaurant, a florist, a hill
+    and a handyman came back for "honey" and outranked the beekeepers."""
+    payload = {"places": [
+        _place("Honey Wax Bar", "beauty_salon", "hair_care", "service"),
+        _place("Thistle And Honey Baking", "bakery", "dessert_shop", "food_store", "store"),
+        _place("Honey Road", "mediterranean_restaurant", "restaurant", "food"),
+        _place("Honey Flora", "florist", "store"),
+        _place("Honey Hollow", "natural_feature"),
+        _place("The Honey Do Team", "service", "electrician", "plumber", "general_contractor"),
+        _place("Bee Happy Vermont", "farm", "service"),
+        _place("Lady Grantham Apiary", "farm", "wholesaler", "general_contractor", "service"),
+        _place("1000 Stone Farm Honey", "food_store", "winery", "farm", "restaurant"),
+        _place("Saratoga Tea & Honey Company", "tea_store", "food_store", "store"),
+        _place("Hunt's Honey Fields Farmstand", "farmers_market", "market"),
+    ]}
+    got = {s.name: s.kind for s in h.from_google(payload)}
+    assert list(got) == ["Bee Happy Vermont", "Lady Grantham Apiary", "1000 Stone Farm Honey",
+                         "Saratoga Tea & Honey Company", "Hunt's Honey Fields Farmstand"]
+    assert got["Hunt's Honey Fields Farmstand"] == "market"

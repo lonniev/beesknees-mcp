@@ -1296,8 +1296,10 @@ async def find_honey(
     try:
         result = await honey.find(
             near, count, radius,
-            google_key=keys.get("google_places_key", ""),
-            usda_key=keys.get("usda_api_key", ""),
+            # A key pasted from a phone keeps its trailing line break, and a
+            # header with one in it never leaves the machine.
+            google_key=(keys.get("google_places_key") or "").strip(),
+            usda_key=(keys.get("usda_api_key") or "").strip(),
         )
     except (OSError, RuntimeError, ValueError) as exc:
         await _refund("find_honey", npub, fare)

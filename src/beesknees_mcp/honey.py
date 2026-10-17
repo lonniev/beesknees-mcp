@@ -326,19 +326,47 @@ def from_osm(payload: dict[str, Any]) -> list[Seller]:
     return out
 
 
+#: Google types that make a place somewhere honey is sold from, whatever else it is.
+GOOGLE_FARM_TYPES = frozenset({"farm", "ranch", "farmers_market"})
+#: What a place mainly is, when that is something honey is only a word in the
+#: name of: Honey Road cooks, Honey Wax Bar waxes, Honey Hollow is a hill.
+GOOGLE_NOT_A_SELLER = frozenset({
+    "restaurant", "bakery", "dessert_shop", "cafe", "coffee_shop", "bar", "pub",
+    "beauty_salon", "hair_care", "hair_salon", "nail_salon", "spa", "florist",
+    "hiking_area", "natural_feature", "park", "tourist_attraction", "lodging", "hotel",
+})
+#: Trades a "Honey Do" handyman lists; no farm is filed under them by mistake.
+GOOGLE_TRADES = frozenset({"electrician", "plumber", "general_contractor", "roofing_contractor", "painter"})
+
+
+def google_sells_honey(p: dict[str, Any]) -> bool:
+    """Whether a place's Google types allow it to be a honey stop. A farm
+    always may; otherwise its main type must not be a kitchen, a salon or
+    a landmark, and none of its types a trade."""
+    types = set(p.get("types") or [])
+    if types & GOOGLE_FARM_TYPES:
+        return True
+    primary = p.get("primaryType") or ""
+    if primary in GOOGLE_NOT_A_SELLER or primary.endswith("_restaurant"):
+        return False
+    return not types & GOOGLE_TRADES
+
+
 def from_google(payload: dict[str, Any]) -> list[Seller]:
     """Places (New) Text Search → sellers. A place that never mentions honey or
-    bees in its name is a grocer the search ranked for the word, and is dropped."""
+    bees in its name is a grocer the search ranked for the word, and is dropped;
+    so is one whose types say it is a restaurant, a salon or a hill."""
     out: list[Seller] = []
     for p in payload.get("places", []):
         name = ((p.get("displayName") or {}).get("text") or "").strip()
         loc = p.get("location") or {}
-        if not name or "latitude" not in loc:
+        if not name or "latitude" not in loc or not google_sells_honey(p):
             continue
         evidence = _evidence_from_words(name)
         if evidence is None:
             continue
-        kind = "honey" if evidence == "explicit" else "beekeeper"
+        kind = ("market" if "farmers_market" in (p.get("types") or [])
+                else "honey" if evidence == "explicit" else "beekeeper")
         if sells_bees_not_honey(name, " ".join(p.get("types") or []), evidence):
             continue
         out.append(Seller(
@@ -718,7 +746,8 @@ async def fetch_osm(origin: tuple[float, float], radius_km: float, client: httpx
 
 GOOGLE_QUERIES = ("honey", "apiary", "honey farm stand")
 GOOGLE_FIELDS = ",".join(f"places.{f}" for f in (
-    "id", "displayName", "formattedAddress", "location", "types", "websiteUri", "nationalPhoneNumber",
+    "id", "displayName", "formattedAddress", "location", "types", "primaryType", "websiteUri",
+    "nationalPhoneNumber",
 ))
 
 
