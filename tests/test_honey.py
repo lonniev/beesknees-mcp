@@ -305,7 +305,7 @@ def test_when_the_map_does_not_answer_the_refusal_says_so_and_is_not_kept(
     fakes.osm_delay = 1.0
     out = asyncio.run(h.find("Vergennes, VT", 3, None))
     assert out["success"] is False and out["error_code"] == "sources_unavailable", out
-    assert "OpenStreetMap" in out["error"] and "Nothing was charged" in out["error"]
+    assert "OpenStreetMap timed out" in out["error"] and "Nothing was charged" in out["error"]
     assert out["origin"]["label"].startswith("Vergennes")
 
     fakes.osm_delay = 0.0

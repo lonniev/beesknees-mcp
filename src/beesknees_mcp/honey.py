@@ -748,8 +748,8 @@ class SourceRefused(RuntimeError):
 async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, client: httpx.AsyncClient) -> list[Seller]:
     """Both directories in one radius; the portal counts in miles, to 100."""
     miles = min(100, max(1, round(radius_km / 1.609344)))
-    found: list[Seller] = []
-    for d in USDA_DIRECTORIES:
+
+    async def one(d: str) -> list[Seller]:
         r = await client.get(
             f"{USDA_PORTAL}/{d}/",
             params={"apikey": key, "x": origin[1], "y": origin[0], "radius": miles},
@@ -761,8 +761,10 @@ async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, cl
         # which would otherwise read as a directory with nothing in it.
         if isinstance(payload, str):
             raise SourceRefused("key refused" if "apikey" in payload.lower() else payload[:60])
-        found.extend(from_usda(payload, d))
-    return found
+        return from_usda(payload, d)
+
+    # Both directories at once: one after the other, they shared one budget.
+    return [s for part in await asyncio.gather(*(one(d) for d in USDA_DIRECTORIES)) for s in part]
 
 
 def _nostr_fetch_one(relay_url: str, sub_filter: dict[str, Any]) -> list[dict[str, Any]]:
@@ -924,7 +926,7 @@ async def find(
         if not sellers and unreached:
             return {"success": False, "error_code": "sources_unavailable",
                     "error": f"The honey listings for {label} did not answer this time "
-                             f"({', '.join(SOURCE_NAMES.get(n, n) for n in unreached)}). "
+                             f"({'; '.join(f'{SOURCE_NAMES.get(n, n)} {sources[n]}' for n in unreached)}). "
                              "Nothing was charged; try again in a few minutes.",
                     "origin": {"lat": origin[0], "lon": origin[1], "label": label}, "sources": sources}
         if not sellers:
