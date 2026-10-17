@@ -17,6 +17,7 @@ import secrets
 from typing import Any
 
 import httpx
+from tollbooth.mcp_client import JSONRPC_POST_HEADERS
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class Hive:
             r = await self._client.post(
                 self.url,
                 json=body,
-                headers={"Accept": "application/json, text/event-stream"},
+                headers=JSONRPC_POST_HEADERS,
             )
         except httpx.HTTPError as exc:
             logger.warning("%s: transport failed: %s", tool, exc)

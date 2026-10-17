@@ -15,6 +15,8 @@
 const JSON_HEADERS = {
   "content-type": "application/json",
   accept: "application/json, text/event-stream",
+  // The MCP refuses a request with no bearer; the tick is an anonymous caller.
+  authorization: "Bearer anonymous",
 };
 
 async function rpc(url, sessionId, body) {
