@@ -122,6 +122,9 @@ class Seller:
     bearing: float = 0.0
     #: What a patron should check before driving: a dead link, a missing field.
     verify: tuple[str, ...] = ()
+    #: Who showed it sells bee products: a source's product field or tag, or
+    #: "website" — the seller's own pages. Empty: a name that only sounds like it.
+    confirmed_by: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -141,6 +144,7 @@ class Seller:
             "fields_from": dict(self.fields_from),
             "observed": self.observed,
             "verify": list(self.verify),
+            "confirmed_by": self.confirmed_by,
         }
 
 
@@ -266,6 +270,35 @@ _PO_BOX = re.compile(r"\bP\.?\s*O\.?\s*Box\b", re.IGNORECASE)
 _URL = re.compile(r"https?://[^\s)\]>\"']+", re.IGNORECASE)
 
 
+#: Words only bee products make. "Honey" alone is never one: Honey-Do fixes
+#: sinks, and lingerie is sold "sweet as honey".
+BEE_PRODUCT_TERMS = {
+    "beeswax": r"\bbees ?wax\b",
+    "apiary": r"\bapiar(?:y|ies|ists?)\b",
+    "beekeeping": r"\bbee ?keep(?:er|ers|ing)\b",
+    "honeybees": r"\bhoney ?bees?\b",
+    "honeycomb": r"\b(?:honey ?comb|comb honey)\b",
+    "hives": r"\b(?:bee ?hives?|our hives?)\b",
+    "kind of honey": r"\b(?:raw|local|wildflower|clover|creamed|whipped|spun|buckwheat|unfiltered|"
+                     r"unpasteurized|varietal|organic|pure) honey\b",
+    "honey for sale": r"\bhoney (?:jars?|for sale|harvest|from our)\b",
+    "bee pollen": r"\bbee pollen\b",
+    "propolis": r"\bpropolis\b",
+    "royal jelly": r"\broyal jelly\b",
+}
+_BEE_PRODUCTS = {k: re.compile(v, re.IGNORECASE) for k, v in BEE_PRODUCT_TERMS.items()}
+#: How many different bee-product terms a seller's own website must use. One
+#: could be a passing mention; a beekeeper's homepage uses several.
+WEBSITE_BEE_TERMS_NEEDED = 2
+#: How much of a homepage is read for them.
+WEBSITE_READ_BYTES = 300_000
+
+
+def bee_products(text: str) -> frozenset[str]:
+    """The distinct bee-product terms a text uses."""
+    return frozenset(k for k, rx in _BEE_PRODUCTS.items() if rx.search(text))
+
+
 def sells_bees_not_honey(name: str, text: str = "", evidence: str = "weak") -> bool:
     """Birdseye Bee's & Poultry sells nucs and queens; it is not a honey stop."""
     if evidence == "explicit":
@@ -301,6 +334,7 @@ def from_osm(payload: dict[str, Any]) -> list[Seller]:
         if "lat" not in c or "lon" not in c:
             continue
         shop, craft, produce = t.get("shop", ""), t.get("craft", ""), t.get("produce", "")
+        confirmed_by = "osm"
         if shop == "honey" or _HONEY.search(produce):
             kind, evidence = ("honey" if shop == "honey" else "farm"), "explicit"
         elif craft == "beekeeper":
@@ -308,10 +342,12 @@ def from_osm(payload: dict[str, Any]) -> list[Seller]:
         elif shop == "beekeeping":
             continue
         else:
+            # Only a name or a description: a lead its website must confirm.
             words = _evidence_from_words(f"{name} {t.get('description', '')}")
             if words is None:
                 continue
             kind, evidence = "farm", ("weak" if words == "explicit" else words)
+            confirmed_by = "osm" if bee_products(t.get("description", "")) else ""
         if sells_bees_not_honey(name, t.get("description", ""), evidence):
             continue
         address, postcode = _osm_address(t)
@@ -321,7 +357,7 @@ def from_osm(payload: dict[str, Any]) -> list[Seller]:
         out.append(Seller(
             name=name, lat=float(c["lat"]), lon=float(c["lon"]), source="osm", kind=kind,
             evidence=evidence, address=address, postcode=postcode, website=website,
-            phone=phone, observed=observed,
+            phone=phone, observed=observed, confirmed_by=confirmed_by,
         ))
     return out
 
@@ -355,7 +391,8 @@ def google_sells_honey(p: dict[str, Any]) -> bool:
 def from_google(payload: dict[str, Any]) -> list[Seller]:
     """Places (New) Text Search → sellers. A place that never mentions honey or
     bees in its name is a grocer the search ranked for the word, and is dropped;
-    so is one whose types say it is a restaurant, a salon or a hill."""
+    so is one whose types say it is a restaurant, a salon or a hill. A name is
+    never proof: what is kept is a lead its own website must confirm."""
     out: list[Seller] = []
     for p in payload.get("places", []):
         name = ((p.get("displayName") or {}).get("text") or "").strip()
@@ -386,8 +423,25 @@ def _first(row: dict[str, Any], *keys: str) -> str:
     return ""
 
 
+#: Where a USDA row describes what is sold. Its name, address, e-mail and links
+#: are not: "The Farm of Milk and Honey" says honey only in its name.
+USDA_PRODUCT_FIELDS = ("brief_desc", "listing_desc", "mydesc")
+
+
+def usda_lists_honey(row: dict[str, Any]) -> bool:
+    """A market's "Available Products" list holds Honey, or a farm describes
+    honey among what it sells."""
+    text = " ".join(str(row.get(f) or "") for f in USDA_PRODUCT_FIELDS)
+    if "Available Products:" in text:
+        products = text.split("Available Products:", 1)[1].split("<br>")[0].split(";")
+        return any(_HONEY.search(p) for p in products)
+    return bool(_HONEY.search(text))
+
+
 def from_usda(payload: Any, directory: str) -> list[Seller]:
     """Local Food Portal rows → sellers, keeping only rows that mention honey.
+    A row whose product description holds it is confirmed; one that says honey
+    only in its name or links is a lead its website must confirm.
 
     Field names are read tolerantly: the portal's documentation names
     `listing_name` / `location_x` / `location_y`, its exports say `market_name`
@@ -418,6 +472,7 @@ def from_usda(payload: Any, directory: str) -> list[Seller]:
             address = ", ".join(x for x in (address, town) if x)
         out.append(Seller(
             name=name, lat=la, lon=lo, source="usda", kind=kind, evidence="explicit",
+            confirmed_by="usda" if usda_lists_honey(row) else "",
             address=address, postcode=_first(row, "location_zipcode", "zipcode", "zip"),
             website=_first(row, "media_website", "website"),
             phone=_first(row, "contact_phone", "phone"),
@@ -454,7 +509,8 @@ def from_nostr(events: list[dict[str, Any]]) -> tuple[list[Seller], list[tuple[s
         if not title:
             continue
         content = ev.get("content") or ""
-        if not any(h in NOSTR_HONEY_TAGS for h in hashtags) and _evidence_from_words(f"{title} {content}") != "explicit":
+        # The seller's own listing for sale: a honey tag, or bee products named.
+        if not any(h in NOSTR_HONEY_TAGS for h in hashtags) and not bee_products(f"{title} {content}"):
             continue
         url = tags.get("r", [""])[0] or tags.get("website", [""])[0] or ""
         if not url:
@@ -462,6 +518,7 @@ def from_nostr(events: list[dict[str, Any]]) -> tuple[list[Seller], list[tuple[s
             url = m.group(0) if m else ""
         seller = Seller(
             name=title, lat=0.0, lon=0.0, source="nostr", kind="listing", evidence="explicit",
+            confirmed_by="nostr",
             address=tags.get("location", [""])[0], website=url,
             observed=datetime.fromtimestamp(int(ev.get("created_at", 0) or 0), tz=UTC).date().isoformat(),
         )
@@ -547,7 +604,8 @@ def _fold(a: Seller, b: Seller) -> Seller:
     evidence = a.evidence if _RANK[a.evidence] >= _RANK[b.evidence] else b.evidence
     kind = a.kind if _RANK[a.evidence] >= _RANK[b.evidence] else b.kind
     sources = tuple(dict.fromkeys((*(a.sources or (a.source,)), *(b.sources or (b.source,)))))
-    return replace(a, evidence=evidence, kind=kind, sources=sources, fields_from=fields_from, **chosen)
+    return replace(a, evidence=evidence, kind=kind, sources=sources, fields_from=fields_from,
+                   confirmed_by=a.confirmed_by or b.confirmed_by, **chosen)
 
 
 def merge(rows: list[Seller]) -> list[Seller]:
@@ -838,22 +896,49 @@ def fetch_nostr_events() -> list[dict[str, Any]]:
     return list(seen.values())
 
 
-async def check_website(url: str, client: httpx.AsyncClient) -> bool:
-    """Does the site still answer? HEAD, then GET for hosts that refuse HEAD.
-    The verdict is kept a week either way."""
+@dataclass(frozen=True)
+class Visit:
+    """What a seller's homepage showed: whether it answered, and which
+    bee-product terms it uses."""
+
+    alive: bool
+    bee_terms: frozenset[str] = frozenset()
+
+    @property
+    def shows_bee_products(self) -> bool:
+        return len(self.bee_terms) >= WEBSITE_BEE_TERMS_NEEDED
+
+
+_SCRIPT_OR_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
+_TAG = re.compile(r"<[^>]+>")
+
+
+def page_text(html: str) -> str:
+    """The words a visitor reads, near enough: scripts, styles and tags gone."""
+    return _TAG.sub(" ", _SCRIPT_OR_STYLE.sub(" ", html))
+
+
+async def visit_website(url: str, client: httpx.AsyncClient) -> Visit:
+    """Read the start of a seller's homepage: does it answer, and does it name
+    bee products? The verdict is kept a week either way."""
     key = f"web:{url}"
     if (hit := _recall(key, WEBSITE_TTL_S)) is not None:
         return hit
     target = url if "://" in url else f"https://{url}"
-    alive = False
+    visit = Visit(alive=False)
     try:
-        r = await client.head(target, timeout=WEBSITE_TIMEOUT_S)
-        if r.status_code in (403, 404, 405, 501) or r.status_code >= 500:
-            r = await client.get(target, timeout=WEBSITE_TIMEOUT_S)
-        alive = r.status_code < 400
+        async with client.stream("GET", target, timeout=WEBSITE_TIMEOUT_S) as r:
+            if r.status_code < 400:
+                body = b""
+                async for chunk in r.aiter_bytes():
+                    body += chunk
+                    if len(body) >= WEBSITE_READ_BYTES:
+                        break
+                text = page_text(body[:WEBSITE_READ_BYTES].decode(r.encoding or "utf-8", errors="replace"))
+                visit = Visit(alive=True, bee_terms=bee_products(text))
     except (httpx.HTTPError, ValueError) as exc:
         logger.debug("website %s did not answer: %s", url, exc)
-    return _remember(key, alive)
+    return _remember(key, visit)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -981,11 +1066,20 @@ async def find(
         urls = sorted({s.website for s in sellers if s.website})
         sem = asyncio.Semaphore(8)
 
-        async def _check(u: str) -> tuple[str, bool]:
+        async def _visit(u: str) -> tuple[str, Visit]:
             async with sem:
-                return u, await check_website(u, client)
+                return u, await visit_website(u, client)
 
-        alive = dict(await asyncio.gather(*(_check(u) for u in urls)))
+        visits = dict(await asyncio.gather(*(_visit(u) for u in urls)))
+
+    # A name is never proof. A seller stays only when a source's product field
+    # or tag says honey, or its own website names bee products.
+    sellers = [
+        s if s.confirmed_by else replace(s, confirmed_by="website")
+        for s in sellers
+        if s.confirmed_by or (s.website and visits[s.website].shows_bee_products)
+    ]
+    alive = {u: v.alive for u, v in visits.items()}
 
     # Outward until enough QUALIFY — an address and a website that answers —
     # and only if nothing qualifies anywhere does the ring widen on leads alone.
@@ -994,7 +1088,7 @@ async def find(
     chosen = pick([s for s in sellers if ring is None or s.distance_km <= ring], count, alive)
     if not chosen:
         return {"success": False, "error_code": "none_within_radius",
-                "error": f"No honey seller with an address is known within {int(edge)} km of {label}.",
+                "error": f"No seller with a sure sign of honey and an address is known within {int(edge)} km of {label}.",
                 "origin": {"lat": origin[0], "lon": origin[1], "label": label}, "sources": sources}
     attribution = [OSM_ATTRIBUTION]
     if any("google" in (s.sources or ()) for s in chosen):

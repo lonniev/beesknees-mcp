@@ -121,6 +121,8 @@ export interface HoneySeller {
   observed: string;
   /** What to check before driving: a dead link, a missing field. */
   verify: string[];
+  /** Who showed it sells bee products: "osm", "usda", "nostr", or "website" — its own pages. */
+  confirmed_by: string;
 }
 
 export interface HoneyAnswer {
