@@ -71,6 +71,9 @@ USDA_ATTRIBUTION = "USDA Agricultural Marketing Service, Local Food Directories"
 GOOGLE_ATTRIBUTION = "Place data © Google"
 NOSTR_ATTRIBUTION = "Listings published by their sellers on Nostr (NIP-99)"
 
+#: How each source is named to a patron.
+SOURCE_NAMES = {"osm": "OpenStreetMap", "usda": "USDA", "nostr": "Nostr", "google": "Google"}
+
 NOMINATIM = "https://nominatim.openstreetmap.org"
 #: Asked together; the first to answer wins. Two, not every mirror there is —
 #: these are volunteer machines and this tool is not a crawler.
@@ -898,11 +901,20 @@ async def find(
                     for r in rows]
         rows = [r for r in rows if r.lat or r.lon]
 
-        if cached is None:
+        # A source that timed out or failed said nothing about this ground, so
+        # a day of "nothing here" must not be kept on its silence.
+        unreached = [n for n, v in sources.items() if v == "timed out" or v.startswith("failed")]
+        if cached is None and not unreached:
             _remember(f"cell:{cell}:{int(edge)}", [r for r in rows if r.source != "google"])
 
         sellers = [with_distance(s, origin) for s in merge(rows)]
         sellers = [s for s in sellers if s.distance_km <= edge]
+        if not sellers and unreached:
+            return {"success": False, "error_code": "sources_unavailable",
+                    "error": f"The honey listings for {label} did not answer this time "
+                             f"({', '.join(SOURCE_NAMES.get(n, n) for n in unreached)}). "
+                             "Nothing was charged; try again in a few minutes.",
+                    "origin": {"lat": origin[0], "lon": origin[1], "label": label}, "sources": sources}
         if not sellers:
             return {"success": False, "error_code": "none_within_radius",
                     "error": f"No honey seller is known within {int(edge)} km of {label}.",

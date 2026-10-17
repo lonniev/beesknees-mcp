@@ -126,7 +126,7 @@ export interface HoneySeller {
 export interface HoneyAnswer {
   success: boolean;
   error?: string;
-  error_code?: "no_location" | "none_within_radius" | "search_failed" | string;
+  error_code?: "no_location" | "none_within_radius" | "sources_unavailable" | "search_failed" | string;
   near?: string;
   origin?: { lat: number; lon: number; label: string };
   radius_used_km?: number | null;

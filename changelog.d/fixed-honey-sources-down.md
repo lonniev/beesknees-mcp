@@ -1,0 +1,1 @@
+- When the honey listings don't answer (OpenStreetMap's Overpass timing out, with no USDA or Google key to fall back on), `beesknees_find_honey` says so as `sources_unavailable` instead of claiming no seller is known within 100 km, and it no longer keeps that empty answer for a day. The Honey page centres its map on the place searched even when nothing is found.

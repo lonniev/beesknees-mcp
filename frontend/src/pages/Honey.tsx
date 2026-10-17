@@ -62,7 +62,7 @@ export default function Honey({ session }: { session: Session }) {
   useEffect(() => {
     const m = map.current;
     const g = drawn.current;
-    const origin = answer?.success ? answer.origin : undefined;
+    const origin = answer?.origin;
     const found = answer?.success ? (answer.sellers ?? []) : [];
     if (!m || !g) return;
     if (!origin) {
@@ -70,6 +70,8 @@ export default function Honey({ session }: { session: Session }) {
       g.clearLayers();
       return;
     }
+    // A refusal that found the place still shows it: the ground that was
+    // searched, not the whole world.
     import("leaflet").then(({ default: L }) => {
       g.clearLayers();
       const you = L.latLng(origin.lat, origin.lon);
@@ -94,7 +96,8 @@ export default function Honey({ session }: { session: Session }) {
           .bindTooltip(s.name, { direction: "top", offset: [0, -26] })
           .addTo(g);
       });
-      m.fitBounds(L.latLngBounds(points), { padding: [28, 28], maxZoom: 13 });
+      if (found.length) m.fitBounds(L.latLngBounds(points), { padding: [28, 28], maxZoom: 13 });
+      else m.setView(you, 9);
     });
   }, [answer]);
 

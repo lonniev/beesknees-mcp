@@ -295,6 +295,25 @@ def test_the_middle_of_the_ocean_is_refused_as_empty(fakes: _Fakes) -> None:
     assert out["sources"]["osm"] == "ok (2)", "the sources answered; nothing they hold is near"
 
 
+def test_when_the_map_does_not_answer_the_refusal_says_so_and_is_not_kept(
+    fakes: _Fakes, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Addison, 2026-10-16: Overpass hung, no keys, no Nostr listings — and the
+    answer was "no honey seller is known within 100 km", kept for a day."""
+    monkeypatch.setattr(h, "OSM_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(h, "fetch_nostr_events", list)
+    fakes.osm_delay = 1.0
+    out = asyncio.run(h.find("Vergennes, VT", 3, None))
+    assert out["success"] is False and out["error_code"] == "sources_unavailable", out
+    assert "OpenStreetMap" in out["error"] and "Nothing was charged" in out["error"]
+    assert out["origin"]["label"].startswith("Vergennes")
+
+    fakes.osm_delay = 0.0
+    again = asyncio.run(h.find("Vergennes, VT", 3, None))
+    assert again["sources"]["osm"] == "ok (2)", "the silence was not cached"
+    assert again["success"]
+
+
 def test_a_source_that_raises_is_named_not_raised(fakes: _Fakes, monkeypatch: pytest.MonkeyPatch) -> None:
     async def boom(origin: Any, key: str, client: Any) -> list[h.Seller]:
         raise httpx.ConnectError("no route")
