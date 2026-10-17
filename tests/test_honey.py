@@ -314,6 +314,21 @@ def test_when_the_map_does_not_answer_the_refusal_says_so_and_is_not_kept(
     assert again["success"]
 
 
+def test_a_refused_usda_key_is_named_not_read_as_an_empty_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The portal answers a bad key 200 "apikey error" — that is not zero farms."""
+    class _R:
+        def raise_for_status(self) -> None: ...
+        def json(self) -> Any:
+            return "apikey error"
+
+    class _C:
+        async def get(self, *a: Any, **k: Any) -> _R:
+            return _R()
+
+    out = asyncio.run(h._timed("usda", h.fetch_usda(VERGENNES, 100, "bad", _C())))
+    assert out == ("usda", "failed: key refused")
+
+
 def test_a_source_that_raises_is_named_not_raised(fakes: _Fakes, monkeypatch: pytest.MonkeyPatch) -> None:
     async def boom(origin: Any, key: str, client: Any) -> list[h.Seller]:
         raise httpx.ConnectError("no route")

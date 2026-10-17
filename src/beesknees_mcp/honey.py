@@ -741,6 +741,10 @@ async def fetch_google(origin: tuple[float, float], key: str, client: httpx.Asyn
 USDA_DIRECTORIES = ("onfarmmarket", "farmersmarket")
 
 
+class SourceRefused(RuntimeError):
+    """A source answered, and the answer was no — named as it was given."""
+
+
 async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, client: httpx.AsyncClient) -> list[Seller]:
     """Both directories in one radius; the portal counts in miles, to 100."""
     miles = min(100, max(1, round(radius_km / 1.609344)))
@@ -752,7 +756,12 @@ async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, cl
             headers={"User-Agent": USDA_USER_AGENT},
         )
         r.raise_for_status()
-        found.extend(from_usda(r.json(), d))
+        payload = r.json()
+        # A refused key comes back 200 with the bare string "apikey error",
+        # which would otherwise read as a directory with nothing in it.
+        if isinstance(payload, str):
+            raise SourceRefused("key refused" if "apikey" in payload.lower() else payload[:60])
+        found.extend(from_usda(payload, d))
     return found
 
 
@@ -830,6 +839,9 @@ async def _timed(name: str, coro: Any) -> tuple[str, list[Seller] | str]:
         return name, await asyncio.wait_for(coro, budget)
     except TimeoutError:
         return name, "timed out"
+    except SourceRefused as exc:
+        logger.warning("honey source %s refused: %s", name, exc)
+        return name, f"failed: {exc}"
     except Exception as exc:  # noqa: BLE001 — named in the answer, never raised
         logger.warning("honey source %s failed: %r", name, exc)
         return name, f"failed: {type(exc).__name__}"
