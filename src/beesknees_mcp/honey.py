@@ -71,6 +71,9 @@ USDA_ATTRIBUTION = "USDA Agricultural Marketing Service, Local Food Directories"
 GOOGLE_ATTRIBUTION = "Place data © Google"
 NOSTR_ATTRIBUTION = "Listings published by their sellers on Nostr (NIP-99)"
 
+#: How each source is named to a patron.
+SOURCE_NAMES = {"osm": "OpenStreetMap", "usda": "USDA", "nostr": "Nostr", "google": "Google"}
+
 NOMINATIM = "https://nominatim.openstreetmap.org"
 #: Asked together; the first to answer wins. Two, not every mirror there is —
 #: these are volunteer machines and this tool is not a crawler.
@@ -738,6 +741,10 @@ async def fetch_google(origin: tuple[float, float], key: str, client: httpx.Asyn
 USDA_DIRECTORIES = ("onfarmmarket", "farmersmarket")
 
 
+class SourceRefused(RuntimeError):
+    """A source answered, and the answer was no — named as it was given."""
+
+
 async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, client: httpx.AsyncClient) -> list[Seller]:
     """Both directories in one radius; the portal counts in miles, to 100."""
     miles = min(100, max(1, round(radius_km / 1.609344)))
@@ -749,7 +756,12 @@ async def fetch_usda(origin: tuple[float, float], radius_km: float, key: str, cl
             headers={"User-Agent": USDA_USER_AGENT},
         )
         r.raise_for_status()
-        found.extend(from_usda(r.json(), d))
+        payload = r.json()
+        # A refused key comes back 200 with the bare string "apikey error",
+        # which would otherwise read as a directory with nothing in it.
+        if isinstance(payload, str):
+            raise SourceRefused("key refused" if "apikey" in payload.lower() else payload[:60])
+        found.extend(from_usda(payload, d))
     return found
 
 
@@ -827,6 +839,9 @@ async def _timed(name: str, coro: Any) -> tuple[str, list[Seller] | str]:
         return name, await asyncio.wait_for(coro, budget)
     except TimeoutError:
         return name, "timed out"
+    except SourceRefused as exc:
+        logger.warning("honey source %s refused: %s", name, exc)
+        return name, f"failed: {exc}"
     except Exception as exc:  # noqa: BLE001 — named in the answer, never raised
         logger.warning("honey source %s failed: %r", name, exc)
         return name, f"failed: {type(exc).__name__}"
@@ -898,11 +913,20 @@ async def find(
                     for r in rows]
         rows = [r for r in rows if r.lat or r.lon]
 
-        if cached is None:
+        # A source that timed out or failed said nothing about this ground, so
+        # a day of "nothing here" must not be kept on its silence.
+        unreached = [n for n, v in sources.items() if v == "timed out" or v.startswith("failed")]
+        if cached is None and not unreached:
             _remember(f"cell:{cell}:{int(edge)}", [r for r in rows if r.source != "google"])
 
         sellers = [with_distance(s, origin) for s in merge(rows)]
         sellers = [s for s in sellers if s.distance_km <= edge]
+        if not sellers and unreached:
+            return {"success": False, "error_code": "sources_unavailable",
+                    "error": f"The honey listings for {label} did not answer this time "
+                             f"({', '.join(SOURCE_NAMES.get(n, n) for n in unreached)}). "
+                             "Nothing was charged; try again in a few minutes.",
+                    "origin": {"lat": origin[0], "lon": origin[1], "label": label}, "sources": sources}
         if not sellers:
             return {"success": False, "error_code": "none_within_radius",
                     "error": f"No honey seller is known within {int(edge)} km of {label}.",
