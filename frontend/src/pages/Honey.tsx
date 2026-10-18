@@ -22,11 +22,12 @@ import { findHoney, type HoneyAnswer } from "../lib/mcp";
 import { distanceLabel, locateMe, sellerGlyph, sourceBadges, usesMiles } from "../lib/honey";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
+import { Art } from "../art/svg.tsx";
 
 const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_CREDIT = "© OpenStreetMap contributors";
 /** Above the sign-in card, for somebody who arrived here first. */
-const WELCOME = "Where the honey is sold, near you. Sign in to ask.";
+const WELCOME = "Thank you for playing for the pollinators. Sign in to find honey sold near you.";
 
 export default function Honey({ session }: { session: Session }) {
   useTour("honey", { ready: session.signedIn });
@@ -145,6 +146,20 @@ export default function Honey({ session }: { session: Session }) {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <Art id="bee" size={26} rotate={-20} /> Thank you for playing for the pollinators
+        </h1>
+        <p className="text-[15px] leading-relaxed text-ink/85">
+          Every round of The Bee's Knees supports the bees that pollinate our gardens, orchards and
+          farms. And here's to you for enjoying honey, the sweetest thing they make.
+        </p>
+        <p className="text-[15px] leading-relaxed text-ink/85">
+          Find beekeepers and stores near you that sell honey, beeswax and other bee products: type a
+          town or postal code, or share your position.
+        </p>
+      </header>
+
       <form onSubmit={onSubmit} className="flex items-center gap-2">
         <button
           type="button"

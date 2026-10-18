@@ -1,0 +1,1 @@
+- The honey page thanks players for supporting pollinators, says what the page finds, and stands on the meadow.

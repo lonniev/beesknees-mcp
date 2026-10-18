@@ -82,7 +82,9 @@ export default function App() {
   /// The long reads. They get ground at the FOOT rather than pinned to the
   /// viewport — see `Meadowscape`'s note on the difference, and on why a hill
   /// under three screens of prose about colony loss argues with the argument.
-  const reading = ["/why", "/about", "/ledger"].includes(path);
+  /// The honey finder joins them: its list of sellers grows down the page, and
+  /// those rows have no card behind them to keep a hill out from under the text.
+  const reading = ["/why", "/about", "/ledger", "/honey"].includes(path);
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
   const { isOperator } = useOperator(session.npub, session.signedIn);
