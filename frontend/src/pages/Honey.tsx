@@ -27,7 +27,7 @@ import { Art } from "../art/svg.tsx";
 const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_CREDIT = "© OpenStreetMap contributors";
 /** Above the sign-in card, for somebody who arrived here first. */
-const WELCOME = "Thank you for playing for the pollinators. Sign in to find honey sold near you.";
+const WELCOME = "Thank you for playing for the pollinators.";
 
 export default function Honey({ session }: { session: Session }) {
   useTour("honey", { ready: session.signedIn });
