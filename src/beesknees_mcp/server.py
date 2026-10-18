@@ -24,7 +24,7 @@ from mcp.types import Icon
 from pydantic import Field
 from tollbooth.credential_templates import CredentialTemplate, FieldSpec
 from tollbooth.credential_validators import validate_btcpay_creds
-from tollbooth.params import DpopToken, PatronNpub
+from tollbooth.params import PatronNpub
 from tollbooth.runtime import OperatorRuntime, register_standard_tools
 from tollbooth.tool_identity import (
     READS,
@@ -483,7 +483,6 @@ async def match_state(
         ),
     ] = False,
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """The live board — every hive, every bee, and when to ask again.
 
@@ -613,7 +612,6 @@ async def match_state(
 async def my_bee(
     match_id: Annotated[str, Field(description="The match to look in. Omit for the live one.")] = "",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Where your bee stands, what it is carrying, and when it may move again.
 
@@ -639,7 +637,7 @@ async def my_bee(
 
 @tool
 @runtime.paid_tool(MATCH_LIST_UUID)
-async def match_list(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def match_list(npub: PatronNpub = "") -> dict[str, Any]:
     """Matches forming or running, and how many seats are left in each hive."""
     try:
         out = []
@@ -669,7 +667,6 @@ async def settlement_history(
     ] = "settled",
     sort_dir: Annotated[str, Field(description="asc or desc.")] = "desc",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """What every settled match paid, and to whom.
 
@@ -704,7 +701,7 @@ async def settlement_history(
 
 @tool
 @runtime.paid_tool(GUIDE_UUID)
-async def guide(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def guide(npub: PatronNpub = "") -> dict[str, Any]:
     """What this service is and how to play it, in prose.
 
     The same text the website serves at ``/llms.txt`` — one file, published on
@@ -725,7 +722,7 @@ async def guide(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, 
 
 @tool
 @runtime.paid_tool(CHECK_NOW_UUID)
-async def check_now(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def check_now(npub: PatronNpub = "") -> dict[str, Any]:
     """Ask the hives to advance now rather than at the next tick.
 
     Carries no authority: it can only cause work that was already due — start a
@@ -745,7 +742,6 @@ async def check_now(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[s
 async def join_match(
     label: Annotated[str, Field(description="The name your bee flies under.")] = "",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Buy a drone a seat in the next match.
 
@@ -895,7 +891,6 @@ async def _motion(npub: str, tool_name: str, run: Any) -> dict[str, Any]:
 async def fly(
     to_cell: Annotated[int, Field(description="The neighbouring cell to move into.")],
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Move one cell through open air or an open tunnel.
 
@@ -917,7 +912,6 @@ async def fly(
 async def dig(
     to_cell: Annotated[int, Field(description="The neighbouring cell of comb to cut.")],
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Cut one fresh cell of comb — slower than flying, and open to everyone after.
 
@@ -932,7 +926,6 @@ async def dig(
 async def seal(
     at_cell: Annotated[int, Field(description="The open tunnel cell to bring down.")],
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Bring down an open tunnel cell, so the bees behind you must cut it again.
 
@@ -951,7 +944,6 @@ async def claim_prize(
     match_id: Annotated[str, Field(description="The match you won.")],
     choice: Annotated[str, Field(description="'donate' to pass it to the charity, or 'keep'.")] = "keep",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Take the winner's share as credit, or send it on to the charity.
 
@@ -1003,7 +995,7 @@ async def claim_prize(
 
 @tool
 @runtime.paid_tool(TICK_UUID)
-async def tick(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def tick(npub: PatronNpub = "") -> dict[str, Any]:
     """Operator: open, close and settle matches.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -1017,7 +1009,7 @@ async def tick(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, A
 
 @tool
 @runtime.paid_tool(CHARITY_UUID)
-async def charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def charity(npub: PatronNpub = "") -> dict[str, Any]:
     """Who the charity share goes to, and where to check them.
 
     Free on purpose. A claim about where somebody's money goes that costs money
@@ -1035,7 +1027,7 @@ async def charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str
 
 @tool
 @runtime.paid_tool(TREASURY_UUID)
-async def treasury(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def treasury(npub: PatronNpub = "") -> dict[str, Any]:
     """Operator: what the wallet can send, and what is owed out of it.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -1068,7 +1060,6 @@ async def pay_out(
     match_id: Annotated[str, Field(description="The settled match to pay out.")],
     kind: Annotated[str, Field(description="'charity' or 'winner'.")] = "charity",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Operator: send a settled match's charity or winner share over Lightning.
 
@@ -1103,7 +1094,7 @@ async def pay_out(
 
 @tool
 @runtime.paid_tool(PAY_CHARITY_UUID)
-async def pay_charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def pay_charity(npub: PatronNpub = "") -> dict[str, Any]:
     """Operator: pay everything owed to the charity, in one Lightning payment.
 
     `restricted`, so the runtime requires the caller to be the operator, proven.
@@ -1134,7 +1125,6 @@ async def pay_charity(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict
 async def payout_history(
     limit: Annotated[int, Field(description="How many payments to return.")] = 25,
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Every payment attempted, and how it went.
 
@@ -1167,7 +1157,6 @@ async def set_charity(
         str, Field(description="Where the charity share is actually sent, e.g. name@wallet.com")
     ] = "",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Operator: name the beneficiary, its website and its Lightning address.
 
@@ -1199,7 +1188,7 @@ async def set_charity(
 
 @tool
 @runtime.paid_tool(PAYOUT_UUID)
-async def payout(npub: PatronNpub = "", dpop_token: DpopToken = "") -> dict[str, Any]:
+async def payout(npub: PatronNpub = "") -> dict[str, Any]:
     """What you have said should happen to your winnings.
 
     `set` is False for a patron who has never said — which still reads as
@@ -1222,7 +1211,6 @@ async def set_payout(
         str, Field(description="Where to send your share if you are keeping it.")
     ] = "",
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Say now what should happen if you win.
 
@@ -1271,7 +1259,6 @@ async def find_honey(
         Field(description="How far to look, to 100 km. Omitted means as far as it takes, to 100."),
     ] = None,
     npub: PatronNpub = "",
-    dpop_token: DpopToken = "",
 ) -> dict[str, Any]:
     """Three honey sellers near a place, each with an address and a website.
 
