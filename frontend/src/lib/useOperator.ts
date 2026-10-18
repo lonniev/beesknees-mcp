@@ -11,18 +11,11 @@
  * button the service refuses. The gate here spares people a link that is not
  * theirs; it is not what stops them using it.
  *
- * A **cached DM proof is a proof.** This hook used to insist on a session key
- * as well, on the stated grounds that "a restricted call needs a signature from
- * the operator's key". That is not what the runtime asks. `require_proof`
- * accepts two tactics and takes the cached `dpop_token` phrase FIRST — hashing
- * it and checking the proven-npub cache — before it ever looks for an inline
- * kind-27235 event. So an operator who answered the DM challenge, exactly as
- * the sign-in screen told them to, was locked out of their own console by a
- * rule the service does not have.
- *
- * It could not have secured anything either. Whoever holds the token can call
- * the tool directly; a gate the server does not enforce only stops the honest
- * person using the interface.
+ * A **DM sign-in is a proof.** The runtime accepts the operator's npub from a
+ * request signed with its key or from a connection that holds it after the DM
+ * challenge, so an operator who answered the DM, exactly as the sign-in screen
+ * told them to, may use their own console. This hook asks for nothing more
+ * than the service does.
  */
 
 import { useEffect, useState } from "react";
