@@ -12,10 +12,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { LogOut, Zap } from "lucide-react";
 import {
-  AccountPage, RefreshButton, useTopUp, type Session, type UsageFigure, type UsageSummaryClassNames,
+  AccountPage, NpubGate, RefreshButton, useTopUp, type Session, type UsageFigure, type UsageSummaryClassNames,
 } from "@tollbooth-dpyc/web/react";
 import { checkBalance } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
@@ -24,6 +23,7 @@ import { Art } from "../art/svg.tsx";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import TutorialSwitch from "../components/TutorialSwitch.tsx";
 import { tour } from "../lib/tour.ts";
+import { WELCOME } from "./SignIn.tsx";
 
 /** A dash, not a zero. See the note at the top of this file. */
 function sats(n: number | null): string {
@@ -196,18 +196,15 @@ export default function Profile({ session }: { session: Session }) {
     </section>
   );
 
+  // Signed out, the page is the sign-in itself, on the meadow, and signing in
+  // turns it into the profile in place. Drawn here rather than reached by
+  // redirect, as on the honey page: a server render of it shows a door.
   if (!session.signedIn) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center text-sm text-ink/78">
-        <p className="mb-4">You are not signed in.</p>
-        <Link
-          to="/signin"
-          state={{ from: "/profile" }}
-          className="rounded-lg bg-[var(--color-you)] px-4 py-2 font-semibold text-black"
-        >
-          Sign in
-        </Link>
-      </div>
+      <>
+        <Meadowscape />
+        <NpubGate welcome={WELCOME} notice={session.notice} onLogin={() => session.refresh()} />
+      </>
     );
   }
 
