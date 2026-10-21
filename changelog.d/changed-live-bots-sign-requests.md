@@ -1,1 +1,0 @@
-- `live-bots` signs each bot's request with its own key (NIP-98, via `@tollbooth-dpyc/web`'s `signRequest`) and passes only the npub; no proof rides in tool arguments.

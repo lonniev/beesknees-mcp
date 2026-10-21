@@ -1,2 +1,0 @@
-- When the honey listings don't answer (OpenStreetMap's Overpass timing out, with no USDA or Google key to fall back on), `beesknees_find_honey` says so as `sources_unavailable` instead of claiming no seller is known within 100 km, and it no longer keeps that empty answer for a day. The Honey page centres its map on the place searched even when nothing is found.
-- A refused USDA key (the portal answers `200 "apikey error"`) is reported as `usda: failed: key refused` instead of reading as a directory with nothing nearby.

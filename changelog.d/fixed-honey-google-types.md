@@ -1,3 +1,0 @@
-- Honey finder: Google places whose types say they are a restaurant, bakery, salon, florist, landmark or a trade are no longer listed just for having "honey" in the name; a farm always counts, and a farmers' market shows as a market.
-- Honey finder: a vaulted Google or USDA key with a stray line break or space at its end now works.
-- Honey page: shows five sellers, each with a badge for every directory that listed it.

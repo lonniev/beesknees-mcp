@@ -8,6 +8,67 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.4.0] — 2026-10-21
+
+### Added
+
+- A guided tour, offered when a page sits quiet: the chooser, the lobby, the board (hive, tactic, the Now button, the hint, the other hives), Honey near you, signing in and the profile each walk themselves through on Yes. Live tutorial on the profile turns it off or on again. The mechanics are `@tollbooth-dpyc/web` 1.8.0's; the words are the hive's.
+
+- The debug log is on screen: a tab at the foot of every page lists each call to the hive, its answer, or why it never arrived, with Copy for a bug report. Secrets are scrubbed before anything is kept.
+
+- `beesknees_find_honey` — three honey sellers near a place the patron names (a place, a postal code or `lat,lon`), each with an address and a website that still answers, from the USDA local-food directories, OpenStreetMap, Google Places and Nostr NIP-99 listings merged and ranked. A place that does not resolve, or nothing within 100 km, is refused at no charge. Google and USDA need the operator's keys (`google_places_key`, `usda_api_key`, delivered by Secure Courier); without them the search runs on OpenStreetMap and Nostr and says so. The web app gets a 🍯 card on the Play chooser and in the lobby that opens a locator at `/honey`: your position with consent or a typed place, the sellers on a map and in a list.
+
+### Changed
+
+- Connections authenticate as holders (tollbooth-dpyc 0.101.1 holder bearer): connecting from Claude.ai is an Authorization Code flow with no login page, each npub proven through a connection stays with it, and tool calls pass only `npub`. The web app reaches the MCP through the shared proxy (web 1.8.2) as an anonymous caller; the scheduler tick and the Modal sim bees send `Bearer anonymous`. The scheduler worker now deploys from main.
+
+- The honey page thanks players for supporting pollinators, says what the page finds, and stands on the meadow.
+
+- When the honey listings don't answer, the message now gives each source's reason, e.g. "OpenStreetMap timed out; USDA failed: key refused". The USDA's two directories are now asked at the same time instead of one after the other.
+
+- `live-bots` signs each bot's request with its own key (NIP-98, via `@tollbooth-dpyc/web`'s `signRequest`) and passes only the npub; no proof rides in tool arguments.
+
+- The live board (`match_state`) only reads. When no match is taking seats it says so and asks the player to check back; the clock and `join_match` open the next lobby.
+
+- Every Bee's Knees tool carries a title and its behaviour (what it reads, what it changes, and which ones reach Lightning or the web); `npub` and `dpop_token` use the fleet's shared descriptions; the server reports its own version, website and icon.
+
+- Pins tollbooth-dpyc 0.102.0: a request signed with an npub's own key (NIP-98) acts as that npub with no grant.
+
+- Pins tollbooth-dpyc 0.102.1: a request signed with an npub's own key (NIP-98) acts as that npub with no grant.
+
+- The Profile page stands on the meadow, as sign-in does, with its cards drawn solid over it. Topping up is three honey-wax tiles (1,000 · 5,000 · 20,000 sats), each with one more bee than the last, and a wax Pay button. A settled payment reads "N sats in the hive."
+
+- Profile signed out shows the sign-in form on the meadow, in place of a page that only linked to it.
+
+- The README matches the code: five hives of twelve, the current board (a 14-ring hive inside a square meadow, the stagger rule), charity and winner shares paid over Lightning by `pay_charity` / `pay_out` to a stored Lightning address, and the scheduler worker and sim bees in the layout.
+
+- Dependencies refreshed to current releases (mcp/fastmcp 2.1.1/4.0.3 → 2.3.0/4.1.0; frontend minor/patch). No service stays on old transitive versions.
+
+- Tools take only `npub`; the connection proves it (a request signed with the npub's key, or an OAuth connection that holds it after the DM). The `dpop_token` argument is gone, and the Courier phrase is `nonce`. Pins tollbooth-dpyc 0.103.0.
+
+- Sim bees sign every request with their own key (NIP-98) and pass only their npub; no proof rides in tool arguments.
+
+- The operator's `usda_api_key` prompt names where the Local Food Portal issues its keys. A FoodData Central (api.data.gov) key is a different USDA key, and the portal refuses it.
+
+- The web app moves to @tollbooth-dpyc/web 1.9.0: a tab that holds the signed-in key signs each request, and DM sign-in connects to the operator as a holder (one quick redirect, no login page) — no proof rides in tool arguments.
+
+### Fixed
+
+- DM sign-in works again: it comes back to the sign-in page instead of looping (web 2.0.1).
+
+- A patron whose proof grant has expired is now signed out and asked to sign in again, instead of staying "signed in" while every call fails (`@tollbooth-dpyc/web` 1.8.1).
+
+- Honey finder: Google places whose types say they are a restaurant, bakery, salon, florist, landmark or a trade are no longer listed just for having "honey" in the name; a farm always counts, and a farmers' market shows as a market.
+- Honey finder: a vaulted Google or USDA key with a stray line break or space at its end now works.
+- Honey page: shows five sellers, each with a badge for every directory that listed it.
+
+- Honey finder: a name is never proof. A seller is listed only when a directory's product field or tag says honey (OpenStreetMap `shop=honey`/`craft=beekeeper`/`produce`, a USDA product list or description, a Nostr listing tagged honey or naming bee products) or when its own homepage names a bee product — apiary, beeswax, raw or comb honey, honeybees and the like. "Honey-Do" handymen and "sweet as honey" shops no longer qualify, nor do bee removers, pest controllers, hive-kit suppliers or beekeepers' clubs however many bee words their pages hold. Each seller now says who confirmed it (`confirmed_by`).
+
+- When the honey listings don't answer (OpenStreetMap's Overpass timing out, with no USDA or Google key to fall back on), `beesknees_find_honey` says so as `sources_unavailable` instead of claiming no seller is known within 100 km, and it no longer keeps that empty answer for a day. The Honey page centres its map on the place searched even when nothing is found.
+- A refused USDA key (the portal answers `200 "apikey error"`) is reported as `usda: failed: key refused` instead of reading as a directory with nothing nearby.
+
+- The bees wandering the reading pages are the same 🐝 Good Earth flies — a side view that banks and mirrors to face its way, with a heading that eases round rather than snapping each hop — instead of the board's top-down painted racer, which at page size and with its wings strobing read as something crawling. The board's bees are unchanged: the racer is the game's own species and stays.
+
 ## [0.3.2] — 2026-10-04
 
 ### Changed

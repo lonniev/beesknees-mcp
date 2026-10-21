@@ -1,1 +1,0 @@
-- The README matches the code: five hives of twelve, the current board (a 14-ring hive inside a square meadow, the stagger rule), charity and winner shares paid over Lightning by `pay_charity` / `pay_out` to a stored Lightning address, and the scheduler worker and sim bees in the layout.
