@@ -1,1 +1,0 @@
-- The debug log is on screen: a tab at the foot of every page lists each call to the hive, its answer, or why it never arrived, with Copy for a bug report. Secrets are scrubbed before anything is kept.

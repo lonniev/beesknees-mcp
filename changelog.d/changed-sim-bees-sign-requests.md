@@ -1,1 +1,0 @@
-- Sim bees sign every request with their own key (NIP-98) and pass only their npub; no proof rides in tool arguments.

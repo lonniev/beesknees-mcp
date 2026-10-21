@@ -1,1 +1,0 @@
-- When the honey listings don't answer, the message now gives each source's reason, e.g. "OpenStreetMap timed out; USDA failed: key refused". The USDA's two directories are now asked at the same time instead of one after the other.
