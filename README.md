@@ -40,14 +40,20 @@ operator each take a small share.
 ## The board
 
 **A hive is round because the field has to narrow.** Ring 0 is the queen's
-chamber, ring 24 is the hive wall, and four open-air rings above it are meadow.
-Cells scale with circumference, so the wall holds about fifty and the last ring
-before the chamber holds six. Everyone starts spread out and converges into a
-scrum — 857 cells in all.
+chamber and ring 14 is the hive wall. Cells scale with circumference, so the
+wall holds 29 and the last ring before the chamber holds six. Everyone starts
+spread out and converges into a scrum — 226 cells of comb in all.
+
+Outside the wall the meadow is a square lattice, sixteen cells to a side less
+the squares the hive covers, and the wall's doors are the only way between the
+two. A bee crosses the meadow toward a hive it can see from anywhere; inside,
+the rings funnel every bee toward one cell.
 
 Movement is inward, outward, or sideways along a ring. Sideways is what makes it
 a maze rather than a set of lanes: it is how you slide onto somebody else's open
-shaft, or step out from under a collapse.
+shaft, or step out from under a collapse. A bee may not move inward twice in a
+row — it steps sideways between — so a straight radial shaft does not pay, and a
+small share of the comb is impassable.
 
 ## The one real choice
 
@@ -61,16 +67,17 @@ bees behind must cut it again.
 A bee acts once per cooldown, measured on the clock, so **no amount of spending
 buys a faster bee**. What spending buys is interference.
 
-## Why four hives and not one
+## Why five hives and not one
 
-Four hives of twelve, and a match starts the moment any hive holds eight.
+Five hives of twelve, and a match starts the moment any hive holds eight.
+Seats go into the emptiest hive, so the five fill evenly.
 
 That is a measured decision, not a taste one. Racing fifty near-identical bees
 to a single queen is close to a lottery: first-past-the-post among fifty is an
 extreme-value draw, and those are settled by variance rather than by skill. The
 batch runner in `sim/` puts a good strategy at **1.4x** uniform with fifty bees
 in one hive and **2.1x** with twelve. Winning your own hive is skill-weighted;
-which of the four leaders finishes first is a fair draw, so the signal survives.
+which of the five leaders finishes first is a fair draw, so the signal survives.
 
 ```bash
 node sim/run.ts --rounds 400 --bees 12    # re-measure before changing a rule
@@ -78,37 +85,39 @@ node sim/run.ts --rounds 400 --bees 12    # re-measure before changing a rule
 
 ## Where the money goes
 
-Most of what a round collects goes to pollinator conservation. The beneficiary is
-**[Pollinator Partnership](https://www.pollinator.org/)** — chosen over the
-honeybee-focused charities on purpose, because managed honeybees are livestock
+Most of what a round collects goes to pollinator conservation. The default
+beneficiary is **[Pollinator Partnership](https://www.pollinator.org/)** —
+chosen over the honeybee-focused charities on purpose, because managed honeybees are livestock
 and are not the ones in trouble; native and wild pollinators are, and they are
 what Pollinator Partnership covers.
 
-### The rail is deliberately not in the software
+### How the money leaves
 
-The system **computes and publishes the debt. The operator settles it and records
-the proof.** No automated payout to a third party, and that is a design decision
-rather than a shortcut:
+Each settled match records its split: 80% to the charity and 10% each to the
+winner and the operator, with any rounding going to the charity. The operator
+pays the shares out over **Lightning**, and nothing pays on a timer — a payment
+leaves when the operator asks for it.
 
-- A single round's share is small, and an on-chain network fee can exceed it. A
-  settlement that costs more than it delivers is worse than no settlement.
-- Donations route through The Giving Block, which issues a **fresh address per
-  donation** that **expires after 180 days unused** — there is no stable
-  destination to hold in config, and one minted early is wrong within six months.
-- The beneficiary takes **on-chain BTC only** ("Send only BTC to this address
-  using the Bitcoin blockchain"). Not Lightning. So the fares arrive on one rail
-  and the donation leaves on another, by their rules rather than by choice.
-- Fares arrive over **Lightning**, into channels. Paying out on chain is not the
-  same balance, and no amount of code makes it one.
+- `beesknees_pay_charity` sends everything owed to the charity in one payment
+  to its Lightning address. The share accrues match by match and settles as a
+  batch, because a single match's share can be smaller than the fee to route
+  it.
+- `beesknees_pay_out` pays one settled match's charity or winner share.
+- Every unpaid share is claimed in the database before the sats move, so a
+  retry or a second press cannot pay the same match twice.
+- `beesknees_treasury` shows what the wallet can send against what is owed.
+- A player says before the round what happens to a win
+  (`beesknees_set_payout`). Donating is the default; keeping it needs a
+  Lightning address.
 
-So the charity's share **accrues** per round and is settled in batches. Each
-settlement records the beneficiary, the amount, the date and the **transaction
-id** — and `beesknees_settlement_history` serves all of it free, because a claim
-about where the money went that costs money to check is not a claim anybody
-should believe. The txid is what makes it verifiable by someone who trusts
-nothing else here.
+`beesknees_settlement_history` serves what every settled match paid and to
+whom, and `beesknees_payout_history` lists every payment attempted, failures
+included. Both are free, because a claim about where the money went that costs
+money to check is not a claim anybody should believe.
 
-The beneficiary is stored, not compiled in, so it can change. Every settlement
+The beneficiary is stored, not compiled in, so it can change: the operator
+names it, its website and its Lightning address with `beesknees_set_charity`,
+and `beesknees_charity` shows it to anyone, free. Every settlement
 records the beneficiary it actually paid, so history stays true even when the
 current one changes — a patron who played because of where the money went can
 always check where it went.
@@ -119,6 +128,10 @@ always check where it went.
 |---|---|
 | `src/beesknees_mcp/geometry.py` | The board. Pure arithmetic, no identity, no billing |
 | `src/beesknees_mcp/server.py` | Frozen tool catalog + `OperatorRuntime` bootstrap |
+| `src/beesknees_mcp/board_store.py` | The shared board and the settlements, in Neon |
+| `src/beesknees_mcp/payouts.py` | Sending the charity and winner shares over Lightning |
+| `scheduler-worker/` | Cloudflare cron that asks the hives to advance every minute (`beesknees_check_now`, free, no secrets) |
+| `modal_app.py` | The sim bees: seats just enough ordinary, coupon-funded bees to start a thin hive |
 | `frontend/src/game/` | The same rules in TypeScript — the client's engine |
 | `frontend/src/lib/polar.ts` | Cell ⇄ wedge, and the tap hit test |
 | `frontend/src/lib/stageMath.ts` | What changed between two looks at a hive — the WebGL board's diff |
