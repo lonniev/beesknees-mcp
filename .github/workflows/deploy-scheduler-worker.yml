@@ -19,6 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # wrangler runs on Node. Without this step it ran on whatever Node the
+      # runner image shipped; check-latest takes the newest patched 24.x.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          check-latest: true
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
