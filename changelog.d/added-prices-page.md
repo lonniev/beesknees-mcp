@@ -1,0 +1,1 @@
+- A Prices page (`/prices`), linked from About: every tool with what it does and its live fare, read from the pricing model so a visitor sees it without signing in. It is the fleet's `PriceSheet` on the meadow palette, and needs `@tollbooth-dpyc/web` 2.4.1.

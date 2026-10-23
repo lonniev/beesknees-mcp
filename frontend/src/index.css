@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@tollbooth-dpyc/web/theme.css";
 @import "@tollbooth-dpyc/web/tour.css";
+@import "@tollbooth-dpyc/web/price-sheet.css";
 @import "leaflet/dist/leaflet.css";
 @source "../node_modules/@tollbooth-dpyc/web/dist";
 
@@ -345,4 +346,12 @@ canvas.hive {
 }
 .honey-pin-inline > span {
   font-size: 12px;
+}
+
+/* The price sheet on the meadow. Lime is the page's button colour, and as
+   text or a hairline on lavender it is barely 1.5:1 — so inside the sheet the
+   accent is lime's own deep green, and the header wash is a little wax. */
+.tb-ps {
+  --tb-accent: var(--color-you-ink);
+  --tb-ps-wash: color-mix(in srgb, var(--color-wax) 14%, var(--color-sky));
 }
