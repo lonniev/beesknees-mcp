@@ -19,6 +19,7 @@ import About from "./pages/About.tsx";
 import Honey from "./pages/Honey.tsx";
 import Ledger from "./pages/Ledger.tsx";
 import Play from "./pages/Play.tsx";
+import Prices from "./pages/Prices.tsx";
 import Operator from "./pages/Operator.tsx";
 import Profile from "./pages/Profile.tsx";
 import SignIn from "./pages/SignIn.tsx";
@@ -84,7 +85,7 @@ export default function App() {
   /// under three screens of prose about colony loss argues with the argument.
   /// The honey finder joins them: its list of sellers grows down the page, and
   /// those rows have no card behind them to keep a hill out from under the text.
-  const reading = ["/why", "/about", "/ledger", "/honey"].includes(path);
+  const reading = ["/why", "/about", "/ledger", "/honey", "/prices"].includes(path);
   // The operator gets one more tab. Drawn from what the service says its own
   // npub is, so a redeploy cannot leave a stale copy here disagreeing with it.
   const { isOperator } = useOperator(session.npub, session.signedIn);
@@ -179,6 +180,8 @@ export default function App() {
           <Route path="/why" element={<Welcome />} />
           <Route path="/ledger" element={<Ledger />} />
           <Route path="/about" element={<About />} />
+          {/* Linked from About, not the bar, for the same reason as /honey. */}
+          <Route path="/prices" element={<Prices />} />
           <Route path="/signin" element={<SignIn session={session} />} />
           <Route path="/profile" element={<Profile session={session} />} />
           {/* Reached from the 🍯 card, not the bar: five labelled tabs and a

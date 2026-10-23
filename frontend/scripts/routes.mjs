@@ -37,6 +37,9 @@ const ROUTES = [
   ["/why", /online worldwide game[\s\S]*drone[\s\S]*honey pot/],
   ["/ledger", /Pollinator|ledger|Ledger/i],
   ["/about", /./],
+  // The price sheet reads its fares in the browser, so the server render is
+  // the frame: the eyebrow and the title must be on it.
+  ["/prices", /Price sheet[\s\S]*The Bee(&#x27;|')s Knees/],
   // The gate is the package's and its heading interpolates the app name, which
   // React's server render joins with an empty comment: "Sign in to <!-- -->The…".
   ["/signin", /Sign in to (<!-- -->)?The Bee(&#x27;|')s Knees/],

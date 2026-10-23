@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { annotate } from "../lib/glossary.tsx";
 import {
   BeeMark, Crawl, DoorMark, Fly, Mound, PluckedFlower, PollenFlower, QueenMark, YouMark,
@@ -149,6 +150,11 @@ export default function About() {
           "an email address."
         }
       />
+      <p className="mt-2 text-[15px]">
+        <Link to="/prices" className={LINK}>
+          See every fare →
+        </Link>
+      </p>
 
       <P
         seen={seen}
