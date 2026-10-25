@@ -1,0 +1,1 @@
+- "Need a wallet?" on the Prices page now loads its list of wallets.
