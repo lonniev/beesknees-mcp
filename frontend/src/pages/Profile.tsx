@@ -16,7 +16,7 @@ import { LogOut, Zap } from "lucide-react";
 import {
   AccountPage, NpubGate, RefreshButton, useTopUp, type Session, type UsageFigure, type UsageSummaryClassNames,
 } from "@tollbooth-dpyc/web/react";
-import { checkBalance } from "@tollbooth-dpyc/web";
+import { awaitingWords, checkBalance, payLink } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
 import { Art } from "../art/svg.tsx";
@@ -90,8 +90,8 @@ export default function Profile({ session }: { session: Session }) {
   }, [load]);
 
   // purchase_credits → invoice → check_payment is the package's; an open
-  // invoice is checked on its own until it settles, and "I've paid" still works.
-  const { state, create, check, cancel } = useTopUp({ onSettled: load });
+  // invoice is checked on its own until it settles, and "Check now" still works.
+  const { state, watching, create, check, cancel } = useTopUp({ onSettled: load });
   const busy = state.phase === "creating" || (state.phase === "awaiting" && state.checking);
   const invoice = state.phase === "awaiting" ? state.invoice : null;
   // Settled is the only state worth clearing the invoice for. Anything else
@@ -101,8 +101,8 @@ export default function Profile({ session }: { session: Session }) {
       ? `${sats(state.credited)} sats in the hive.`
       : state.phase === "failed"
         ? state.message
-        : state.phase === "awaiting" && state.status
-          ? `Not paid yet — the invoice reads ${state.status}.`
+        : state.phase === "awaiting"
+          ? awaitingWords(state.status, watching)
           : state.phase === "idle"
             ? (state.message ?? "")
             : "";
@@ -161,9 +161,8 @@ export default function Profile({ session }: { session: Session }) {
       ) : (
         <div className="mt-4 space-y-2">
           <a
-            href={invoice.checkoutLink ?? (invoice.bolt11 ? `lightning:${invoice.bolt11}` : "#")}
-            target="_blank"
-            rel="noreferrer"
+            href={payLink(invoice) ?? "#"}
+            {...(invoice.bolt11 ? {} : { target: "_blank", rel: "noreferrer" })}
             className="bk-wax flex items-center justify-center gap-2 rounded-xl py-3 text-lg font-bold"
           >
             <Zap size={18} /> Pay {invoice.sats.toLocaleString("en-US")} sats
@@ -174,8 +173,18 @@ export default function Profile({ session }: { session: Session }) {
               onClick={check}
               className="flex-1 rounded-lg border border-ink/20 py-2 text-sm hover:bg-ink/7 disabled:opacity-40"
             >
-              I've paid — check
+              Check now
             </button>
+            {invoice.bolt11 && invoice.checkoutLink && (
+              <a
+                href={invoice.checkoutLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center rounded-lg border border-ink/20 px-3 py-2 text-sm text-ink/70 hover:bg-ink/7"
+              >
+                QR code
+              </a>
+            )}
             <button
               onClick={cancel}
               className="rounded-lg border border-ink/20 px-3 py-2 text-sm text-ink/70 hover:bg-ink/7"

@@ -1,0 +1,1 @@
+- Pay now opens your own Lightning wallet on the invoice, and a QR code button opens BTCPay's checkout for a desktop. While an invoice is open the page says it is watching for your payment, and the button reads "Check now" (web 2.6.0).
