@@ -86,7 +86,7 @@ export const TOURS: Record<TourPage, Tour> = {
     { target: "account.balance", title: "Your balance",
       says: "Your Patron's tranche of api_sats. MCP tool fees — a seat, a move — are paid from it.", side: "top" },
     { target: "account.topup", title: "Add sats",
-      says: "Pick an amount, pay the Lightning invoice, then tap I've paid.", side: "top" },
+      says: "Pick an amount and pay the Lightning invoice; the page sees it arrive.", side: "top" },
     { target: "account.winnings", title: "If you win",
       says: "Where a win goes: to the charity, or to the Lightning address you save here.", side: "top" },
     { target: "account.tutorial", title: "Live tutorial",
