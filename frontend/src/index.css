@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "@tollbooth-dpyc/web/theme.css";
 @import "@tollbooth-dpyc/web/tour.css";
-@import "@tollbooth-dpyc/web/price-sheet.css";
+@import "@tollbooth-dpyc/web/wallet.css";
 @import "leaflet/dist/leaflet.css";
 @source "../node_modules/@tollbooth-dpyc/web/dist";
 
@@ -354,4 +354,14 @@ canvas.hive {
 .tb-ps {
   --tb-accent: var(--color-you-ink);
   --tb-ps-wash: color-mix(in srgb, var(--color-wax) 14%, var(--color-sky));
+}
+
+/* The shared wallet in the hive's dress: honey-wax tiles on the lavender card. */
+:root {
+  --tb-wallet-figure: var(--color-ink);
+  --tb-tile-bg: var(--color-wax);
+  --tb-tile-ink: var(--color-comb);
+  --tb-tile-line: color-mix(in srgb, var(--color-wax) 70%, var(--color-wax-ink));
+  --tb-tile-chosen-bg: color-mix(in srgb, var(--color-wax) 80%, white);
+  --tb-tile-chosen-line: var(--color-you-ink);
 }

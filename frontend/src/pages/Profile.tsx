@@ -5,34 +5,19 @@
  * identity the hive knows them by, and the balance that decides whether the
  * next press does anything. They sit on one page because they are one question
  * — "am I ready to play?" — asked twice.
- *
- * Every figure is the service's answer or a dash. A balance nobody has read yet
- * is unknown, and unknown is not zero: showing 0 sats to someone who has funds
- * would send them to buy credits they already own.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { LogOut, Zap } from "lucide-react";
+import { LogOut } from "lucide-react";
 import {
-  AccountPage, NpubGate, RefreshButton, useTopUp, type Session, type UsageFigure, type UsageSummaryClassNames,
+  AccountPage, BalanceAndTopUp, NpubGate, type Session, type UsageFigure, type UsageSummaryClassNames,
 } from "@tollbooth-dpyc/web/react";
-import { awaitingWords, checkBalance, payLink } from "@tollbooth-dpyc/web";
 import Winnings from "../components/Winnings.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
-import { Art } from "../art/svg.tsx";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import TutorialSwitch from "../components/TutorialSwitch.tsx";
+import { decorateTile } from "../lib/tiles.tsx";
 import { tour } from "../lib/tour.ts";
 import { WELCOME } from "./SignIn.tsx";
-
-/** A dash, not a zero. See the note at the top of this file. */
-function sats(n: number | null): string {
-  return n === null ? "—" : n.toLocaleString("en-US");
-}
-
-/** Top-up sizes, plainly labelled. The operator sets prices; this only offers
- *  round numbers to pay in, and never guesses what a round of play will cost. */
-const TOP_UPS = [1_000, 5_000, 20_000];
 
 /** A card on this page. Solid sky, because the meadow runs behind the page
  *  and text never sits on grass. */
@@ -67,144 +52,6 @@ function toolName(tool: string): string {
 
 export default function Profile({ session }: { session: Session }) {
   useTour("account", { ready: session.signedIn });
-  const [balance, setBalance] = useState<number | null>(null);
-  const [reachable, setReachable] = useState(true);
-  // Returns the read, so the refresh button spins until it lands.
-  const load = useCallback(
-    () =>
-      checkBalance()
-        .then((r) => {
-          if (r.error) {
-            setReachable(false);
-            return;
-          }
-          setReachable(true);
-          setBalance(r.balance_api_sats ?? 0);
-        })
-        .catch(() => setReachable(false)),
-    [],
-  );
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // purchase_credits → invoice → check_payment is the package's; an open
-  // invoice is checked on its own until it settles, and "Check now" still works.
-  const { state, watching, create, check, cancel } = useTopUp({ onSettled: load });
-  const busy = state.phase === "creating" || (state.phase === "awaiting" && state.checking);
-  const invoice = state.phase === "awaiting" ? state.invoice : null;
-  // Settled is the only state worth clearing the invoice for. Anything else
-  // is "not yet", and saying so is more use than a spinner.
-  const msg =
-    state.phase === "settled"
-      ? `${sats(state.credited)} sats in the hive.`
-      : state.phase === "failed"
-        ? state.message
-        : state.phase === "awaiting"
-          ? awaitingWords(state.status, watching)
-          : state.phase === "idle"
-            ? (state.message ?? "")
-            : "";
-
-  /** The balance and its top-up: the hive's own card, right after the key it pays with. */
-  const balanceCard = (
-    <section className={CARD} {...tour("account.balance")}>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-ink/78">Balance</span>
-        <RefreshButton
-          onRefresh={load}
-          label="Refresh balance"
-          iconSize={14}
-          classNames={{ root: "-m-2 inline-flex items-center justify-center rounded-lg text-ink/65 hover:bg-ink/7 disabled:opacity-60" }}
-        />
-      </div>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums">
-          {sats(reachable ? balance : null)}
-        </span>
-        <span className="text-sm text-ink/65">sats</span>
-      </div>
-      {!reachable && (
-        <p className="mt-2 text-xs text-ink/70">
-          The hive did not answer. That is not the same as an empty balance, so nothing is
-          shown rather than a nought.
-        </p>
-      )}
-
-      {!invoice ? (
-        <div className="mt-4" {...tour("account.topup")}>
-          <div className="mb-2 flex items-center gap-1.5 text-sm text-ink/78">
-            <Zap size={14} /> Top up
-          </div>
-          {/* Honey wax, the hive's colour for money, and a swarm that grows
-            * with the jar. */}
-          <div className="grid grid-cols-3 gap-2">
-            {TOP_UPS.map((n, i) => (
-              <button
-                key={n}
-                disabled={busy}
-                onClick={() => create(n)}
-                className="bk-wax flex flex-col items-center rounded-xl px-1 pb-2.5 pt-3 transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40"
-              >
-                <span className="flex h-10 items-center">
-                  {Array.from({ length: i + 1 }, (_, k) => (
-                    <Art key={k} id="bee" size={34} rotate={-20 + k * 20} className="-mx-1" />
-                  ))}
-                </span>
-                <span className="mt-1 text-xl font-bold tabular-nums">{n.toLocaleString("en-US")}</span>
-                <span className="text-[11px] font-semibold opacity-75">sats</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 space-y-2">
-          <a
-            href={payLink(invoice) ?? "#"}
-            {...(invoice.bolt11 ? {} : { target: "_blank", rel: "noreferrer" })}
-            className="bk-wax flex items-center justify-center gap-2 rounded-xl py-3 text-lg font-bold"
-          >
-            <Zap size={18} /> Pay {invoice.sats.toLocaleString("en-US")} sats
-          </a>
-          <div className="flex gap-2">
-            <button
-              disabled={busy}
-              onClick={check}
-              className="flex-1 rounded-lg border border-ink/20 py-2 text-sm hover:bg-ink/7 disabled:opacity-40"
-            >
-              Check now
-            </button>
-            {invoice.bolt11 && invoice.checkoutLink && (
-              <a
-                href={invoice.checkoutLink}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center rounded-lg border border-ink/20 px-3 py-2 text-sm text-ink/70 hover:bg-ink/7"
-              >
-                QR code
-              </a>
-            )}
-            <button
-              onClick={cancel}
-              className="rounded-lg border border-ink/20 px-3 py-2 text-sm text-ink/70 hover:bg-ink/7"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-      {msg &&
-        (state.phase === "settled" ? (
-          <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--color-wax-ink)]">
-            <Art id="bee" size={18} rotate={-20} /> {msg}
-          </p>
-        ) : (
-          <p className="mt-3 text-xs text-ink/78">{msg}</p>
-        ))}
-    </section>
-  );
-
   // Signed out, the page is the sign-in itself, on the meadow, and signing in
   // turns it into the profile in place. Drawn here rather than reached by
   // redirect, as on the honey page: a server render of it shows a door.
@@ -230,7 +77,7 @@ export default function Profile({ session }: { session: Session }) {
        * end it. The session key is silent unless this tab holds one. */
       heading={null}
       between={{
-        sessionKey: balanceCard,
+        sessionKey: <div {...tour("account.balance")}><BalanceAndTopUp decorateTile={decorateTile} /></div>,
         usage: <div {...tour("account.winnings")}><Winnings npub={session.npub} /></div>,
       }}
       usage={{
@@ -243,7 +90,7 @@ export default function Profile({ session }: { session: Session }) {
             <span className="text-xs text-ink/65 tabular-nums">
               {t.calls.toLocaleString("en-US")} {t.calls === 1 ? "call" : "calls"}
             </span>
-            <span className="w-20 text-right tabular-nums">{sats(t.sats)} sats</span>
+            <span className="w-20 text-right tabular-nums">{t.sats.toLocaleString("en-US")} sats</span>
           </>
         ),
       }}
@@ -258,10 +105,9 @@ export default function Profile({ session }: { session: Session }) {
             "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm focus:border-[var(--color-you-ink)] focus:outline-none",
         },
       }}
-      // No theme toggle, coupons or build info here: the hive has one look, no
-      // coupons, and its build sits on About.
+      // No theme toggle or build info here: the hive has one look, and its build
+      // sits on About.
       theme={false}
-      coupons={false}
       build={false}
       after={
         <>

@@ -18,7 +18,7 @@ export const TARGETS = [
   // Honey near you.
   "honey.locate", "honey.where", "honey.find", "honey.map", "honey.sellers",
   // The profile.
-  "account.balance", "account.topup", "account.winnings", "account.tutorial", "account.signout",
+  "account.balance", "account.winnings", "account.tutorial", "account.signout",
 ] as const;
 
 export type Target = (typeof TARGETS)[number];
@@ -84,9 +84,7 @@ export const TOURS: Record<TourPage, Tour> = {
 
   account: accountTour("account", [
     { target: "account.balance", title: "Your balance",
-      says: "Your Patron's tranche of api_sats. MCP tool fees — a seat, a move — are paid from it.", side: "top" },
-    { target: "account.topup", title: "Add sats",
-      says: "Pick an amount and pay the Lightning invoice; the page sees it arrive.", side: "top" },
+      says: "Your Patron's tranche of api_sats pays MCP tool fees — a seat, a move. Pick an amount and pay the Lightning invoice; the page sees it arrive.", side: "top" },
     { target: "account.winnings", title: "If you win",
       says: "Where a win goes: to the charity, or to the Lightning address you save here.", side: "top" },
     { target: "account.tutorial", title: "Live tutorial",
