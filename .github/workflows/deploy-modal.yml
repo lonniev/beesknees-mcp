@@ -104,7 +104,7 @@ jobs:
           echo "::error::tollbooth-dpyc==$REQUIRED never reached the PyPI simple index after 5 minutes."
           exit 1
 
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
 
       - name: Install dependencies (the lockfile Horizon deploys)
         run: uv sync --locked
