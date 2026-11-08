@@ -1,13 +1,3 @@
-# The Bee's Knees
-
-> A monetized multiplayer race to the queen, and the fleet's charity game. Buy a
-> drone a seat, fly it to a flower for pollen, carry it home through a hive
-> door, then dig through the comb to reach the queen. First bee to any queen ends
-> the round. The pot splits 80% to a pollinator charity, 10% to the winner, 10% to
-> the operator — and the rounding always falls to the charity, never to the
-> operator. Identity is a Nostr keypair (npub); play is metered in Bitcoin
-> Lightning satoshis — no account, no email, no subscription, no KYC.
-
 The Bee's Knees is a single-page web app backed by an MCP server. Humans play in
 the browser; AI agents can play the same game by calling the tools directly.
 There is no separate agent API — the buttons and the tools are the same thing.
@@ -49,22 +39,12 @@ inward moves in a row, so progress is never a straight sprint at the centre.
 - **Why** (`/why`) — the pollinator case the game exists to fund. Served in
   full as HTML; no JavaScript needed to read it.
 
-## Payments and identity
+## Tools
 
-- Sign in with a Nostr npub and prove ownership via a DM challenge
-  (`beesknees_request_npub_proof` / `beesknees_receive_npub_proof`), or hold a
-  session key that signs a kind-27235 proof inline on every call.
-- Pre-fund a balance with a Lightning invoice (`beesknees_purchase_credits`);
-  priced tool calls debit it. `beesknees_check_price` previews any cost.
-- Monetization is the Tollbooth DPYC protocol (https://tollbooth-dpyc.com):
-  operator-controlled dynamic per-tool pricing at the MCP layer.
-
-## For AI agents
-
-- MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp (streamable HTTP)
-- `beesknees_guide` (free) returns this document, so an agent that arrives
-  through the MCP door does not have to fetch the website to get oriented. It
-  is the same file, published twice rather than written twice.
+- `beesknees_guide` (free) returns this game's own sections of the guide, so an
+  agent that arrives through the MCP door does not have to fetch the website to
+  get oriented. The site's `/llms.txt` is the same text with the fleet's shared
+  sections (connecting, payments, licence, links) added by the build.
 - Then `beesknees_service_status` (free, no arguments) to check liveness, and
   `beesknees_check_price` to preview what a round will cost.
 
@@ -126,24 +106,3 @@ A bot that steps inward every cooldown and thinks about nothing wins roughly its
 uniform share and no more; a bot that digs deliberately wins about twice that.
 The board rewards choosing between cutting your own shaft — costly, and yours —
 and riding one somebody else opened, which they can seal under you.
-
-## License, patent, and trademarks
-
-- Source is open under the Apache License 2.0. The services on top are private
-  commerce: each operator sets their own tolls.
-- Patent Pending — US Provisional Application 64/045,999 (Tollbooth DPYC
-  Economic Architecture).
-- DPYC, Tollbooth DPYC, and Don't Pester Your Customer are trademarks of
-  Lonnie VanZandt.
-
-## Links
-
-- Web app: https://beesknees.tollbooth-dpyc.com
-- Preview card: https://beesknees.tollbooth-dpyc.com/og-image.jpg
-- MCP endpoint: https://beesknees.tollbooth-dpyc.com/mcp
-- Source: https://github.com/lonniev/beesknees-mcp
-- Every service on the network: https://mcps.tollbooth-dpyc.com
-- Good Earth, the growers' MCP: https://goodearth.tollbooth-dpyc.com
-- Tollbooth DPYC (monetization SDK and network): https://tollbooth-dpyc.com
-- DPYC community & patent filings: https://github.com/lonniev/dpyc-community
-- DPYC Oracle (free community concierge): https://dpyc-oracle.fastmcp.app/mcp

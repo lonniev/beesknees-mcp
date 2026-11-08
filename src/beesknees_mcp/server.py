@@ -46,9 +46,9 @@ SITE = "https://beesknees.tollbooth-dpyc.com"
 #: The agent guide, read once at import.
 #:
 #: The canonical copy lives here, in the package, because it has to ship inside
-#: the wheel for `beesknees_guide` to serve it. The website publishes the SAME
-#: file at `/llms.txt` — `frontend/scripts/prerender.mjs` copies it into the
-#: build output rather than keeping a second copy in `frontend/public/`. Two
+#: the wheel for `beesknees_guide` to serve it. The website builds `/llms.txt`
+#: from the SAME file — `@tollbooth-dpyc/web/agent-guide` adds the fleet's
+#: shared sections — rather than keeping a second copy in `frontend/public/`. Two
 #: copies of a document about what a service does drift, and the first anybody
 #: notices is an agent being told something the site stopped saying.
 #:
@@ -704,9 +704,11 @@ async def settlement_history(
 async def guide(npub: PatronNpub = "") -> dict[str, Any]:
     """What this service is and how to play it, in prose.
 
-    The same text the website serves at ``/llms.txt`` — one file, published on
-    both surfaces, because an agent that arrives through the MCP door should
-    not have to go and scrape the front door to find out where it is.
+    The game's own sections of the guide the website serves at ``/llms.txt``,
+    which adds the fleet's shared sections (connecting, payments, licence,
+    links) at build time. One file, published on both surfaces, because an
+    agent that arrives through the MCP door should not have to go and scrape
+    the front door to find out where it is.
 
     It is the front-door answer to a problem the web app cannot solve on its
     own: a single-page app hands a fetcher an empty mount div, so everything a

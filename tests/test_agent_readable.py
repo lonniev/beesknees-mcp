@@ -22,7 +22,7 @@ GUIDE = ROOT / "src" / "beesknees_mcp" / "llms.txt"
 def test_the_guide_exists_once() -> None:
     """One document, two publications — not two documents.
 
-    The website serves this file at `/llms.txt` and `beesknees_guide` returns
+    The website builds `/llms.txt` from this file and `beesknees_guide` returns
     it. If a second copy appears under `frontend/public/`, both are served,
     neither is canonical, and they drift until an agent is told something the
     site stopped saying.
@@ -30,7 +30,7 @@ def test_the_guide_exists_once() -> None:
     assert GUIDE.is_file(), f"the canonical guide is missing: {GUIDE}"
     stray = ROOT / "frontend" / "public" / "llms.txt"
     assert not stray.exists(), (
-        f"{stray} is a second copy of the guide. The build copies the canonical "
+        f"{stray} is a second copy of the guide. The build reads the canonical "
         "one out of the package; delete this and let it."
     )
 
@@ -51,11 +51,18 @@ def test_the_wheel_carries_the_guide() -> None:
     )
 
 
-def test_the_build_copies_the_guide_rather_than_keeping_a_second_one() -> None:
-    prerender = (ROOT / "frontend" / "scripts" / "prerender.mjs").read_text()
-    assert "../src/beesknees_mcp/llms.txt" in prerender, (
-        "prerender.mjs no longer copies the canonical guide into dist/"
-    )
+def test_the_site_builds_its_guide_from_the_packaged_one() -> None:
+    """The site's `/llms.txt` is this file plus the fleet's shared sections.
+
+    `@tollbooth-dpyc/web/agent-guide` writes those sections, so the package
+    copy must not carry them and the build must read this copy.
+    """
+    vite = (ROOT / "frontend" / "vite.config.ts").read_text()
+    assert "../src/beesknees_mcp/llms.txt" in vite, "vite.config.ts does not build the guide from the package copy"
+    guide = GUIDE.read_text()
+    assert not guide.startswith("# "), "the shared plugin writes the title"
+    for heading in ("## Connecting an agent", "## Payments and identity", "## License, patent, and trademarks", "## Links"):
+        assert heading not in guide.splitlines(), f"{heading} is written by the shared plugin"
 
 
 def test_the_prose_routes_are_prerendered_and_the_live_ones_are_not() -> None:
