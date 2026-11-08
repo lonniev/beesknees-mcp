@@ -22,30 +22,13 @@
  */
 
 import { createServer } from "vite";
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 globalThis.requestAnimationFrame = () => 0;
 globalThis.cancelAnimationFrame = () => {};
 
 const DIST = "dist";
-
-/**
- * The agent guide, and why it is not in `public/`.
- *
- * `llms.txt` has two audiences that reach it two different ways: a fetcher
- * asking the website for `/llms.txt`, and an MCP client calling
- * `beesknees_guide`. Two audiences is not two documents — a copy in
- * `frontend/public/` and a copy in the Python package would drift, and the
- * first anybody would notice is an agent being told something the site no
- * longer says.
- *
- * So it lives once, in the Python package, where it has to be anyway to ship
- * inside the wheel. The build copies it into `dist/`, which is why the site
- * still serves it at exactly the same URL.
- */
-const GUIDE_SRC = "../src/beesknees_mcp/llms.txt";
-const GUIDE_OUT = "llms.txt";
 
 /**
  * The PROSE routes, and a phrase that proves the prose actually landed.
@@ -90,7 +73,12 @@ const server = await createServer({
 
 try {
   const { renderRoute } = await server.ssrLoadModule("/scripts/routeProbe.tsx");
-  const template = readFileSync(join(DIST, "index.html"), "utf8");
+  // The shared agent-guide plugin gives an empty mount a short intro for
+  // fetchers. The prose rendered here says more, so it takes the intro's place.
+  const template = readFileSync(join(DIST, "index.html"), "utf8").replace(
+    /<div id="root">\s*<main id="agent-intro"[\s\S]*?<\/main>\s*<\/div>/,
+    MOUNT,
+  );
 
   if (!template.includes(MOUNT)) {
     // Two different causes, and telling them apart saves the reader a hunt.
@@ -104,14 +92,6 @@ try {
     );
     process.exit(1);
   }
-
-  // Copy before rendering: if the canonical guide has moved, say so now rather
-  // than after two pages of work. `copyFileSync` throws on a missing source,
-  // and an unhandled throw here fails the build — which is what should happen,
-  // because a deploy that quietly stopped serving /llms.txt looks exactly like
-  // a deploy that worked.
-  copyFileSync(GUIDE_SRC, join(DIST, GUIDE_OUT));
-  console.log(`  guide   → ${GUIDE_OUT.padEnd(16)} (from ${GUIDE_SRC})`);
 
   const problems = [];
   for (const [path, out, want] of PROSE) {
