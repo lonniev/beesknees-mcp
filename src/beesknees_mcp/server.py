@@ -666,12 +666,15 @@ async def settlement_history(
         Field(description="settled | match | raised | charity | winner."),
     ] = "settled",
     sort_dir: Annotated[str, Field(description="asc or desc.")] = "desc",
-    npub: PatronNpub = "",
 ) -> dict[str, Any]:
     """What every settled match paid, and to whom.
 
     Free on purpose. A claim about where the money went that costs money to
     check is not a claim anybody should believe.
+
+    It takes no npub. The ledger is the same for everyone, so any caller reads
+    it without saying who they are, as with ``service_status``. With an npub
+    parameter, a caller that named one it had not proven was refused.
 
     Sorted and paged by the SERVER. This is the one table that grows without
     bound — a row per settled match, kept when everything else about the match
@@ -1011,11 +1014,12 @@ async def tick(npub: PatronNpub = "") -> dict[str, Any]:
 
 @tool
 @runtime.paid_tool(CHARITY_UUID)
-async def charity(npub: PatronNpub = "") -> dict[str, Any]:
+async def charity() -> dict[str, Any]:
     """Who the charity share goes to, and where to check them.
 
     Free on purpose. A claim about where somebody's money goes that costs money
-    to verify is not a claim anybody should have to take on trust.
+    to verify is not a claim anybody should have to take on trust. It takes no
+    npub, for the same reason as ``settlement_history``.
     """
     try:
         c = await board_store.get_charity()

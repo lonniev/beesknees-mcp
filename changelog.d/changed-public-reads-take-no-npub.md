@@ -1,0 +1,1 @@
+- `beesknees_settlement_history` and `beesknees_charity` take no npub. Anyone reads the ledger and the charity without saying who they are, as with `service_status`.

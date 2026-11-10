@@ -1151,12 +1151,12 @@ def test_the_public_charity_answer_carries_no_wallet(vault) -> None:
         await store.set_charity("Pollinator Partnership", "https://pollinator.org", "p@wallet.com")
         # The undecorated body: the fare wrapper is the runtime's business, and
         # what this asserts is the SHAPE the tool hands back.
-        out = await server.charity.__wrapped__(npub="npub1x")
+        out = await server.charity.__wrapped__()
         assert out["name"] == "Pollinator Partnership"
         assert out["website"] == "https://pollinator.org"
         assert "lightning_address" not in out, "the free answer must not carry the wallet"
 
-        hist = await server.settlement_history.__wrapped__(page_size=5, npub="npub1x")
+        hist = await server.settlement_history.__wrapped__(page_size=5)
         assert "lightning_address" not in hist["charity"]
 
     asyncio.run(go())
