@@ -1,0 +1,1 @@
+- The Ledger now shows the real figures to a guest whose browser still remembers an npub from an earlier sign-in. Before, it showed zeros.
