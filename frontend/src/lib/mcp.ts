@@ -155,19 +155,9 @@ export interface Charity {
   named: boolean;
 }
 
-/**
- * Arguments for a read that is the same for everyone, so it is asked anonymously.
- *
- * The client adds the remembered npub to every call, and a tab that signed out
- * still remembers it. A free tool given an npub this connection has not proven
- * answers `proof_required` — so a guest who once played saw a ledger of zeros
- * while a stranger saw the real one. These reads do not depend on who asks.
- */
-const ANYONE = { npub: "" } as const;
-
 /** Who the charity share goes to. Free, so a screen can always show it. */
 export async function charity(): Promise<Charity> {
-  return callTool<Charity>("charity", { ...ANYONE }, { bestEffort: true });
+  return callTool<Charity>("charity", {}, { bestEffort: true });
 }
 
 export interface Payout {
@@ -232,7 +222,7 @@ export async function settlementHistory(
 ): Promise<SettlementHistory> {
   const answer = await callTool<SettlementHistory & { error?: string }>(
     "settlement_history",
-    { ...ANYONE, page, page_size: pageSize, sort_col: sortCol, sort_dir: sortDir },
+    { page, page_size: pageSize, sort_col: sortCol, sort_dir: sortDir },
     { bestEffort: true },
   );
   // A refusal is not an empty ledger. Drawn as one, it read "0 sats raised",

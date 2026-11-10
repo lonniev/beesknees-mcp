@@ -14,4 +14,7 @@ configureTollbooth({
   appName: "The Bee's Knees",
   mcpUrl: import.meta.env.VITE_MCP_URL as string,
   operatorUrl: "https://beesknees-mcp.fastmcp.app",
+  // The ledger and the charity are the same for everyone and take no npub, so
+  // the client sends none, whether or not this tab is signed in.
+  extraBootstrapTools: ["settlement_history", "charity"],
 });
