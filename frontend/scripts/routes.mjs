@@ -67,7 +67,7 @@ try {
   for (const [path, want] of ROUTES) {
     let html = "";
     try {
-      html = renderRoute(path);
+      html = await renderRoute(path);
     } catch (e) {
       problems.push(`${path} threw: ${e.message}`);
       continue;
