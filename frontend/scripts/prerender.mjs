@@ -97,7 +97,7 @@ try {
   for (const [path, out, want] of PROSE) {
     let body = "";
     try {
-      body = renderRoute(path);
+      body = await renderRoute(path);
     } catch (e) {
       problems.push(`${path} threw: ${e.message}`);
       continue;

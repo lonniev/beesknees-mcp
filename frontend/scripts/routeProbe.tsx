@@ -5,13 +5,19 @@
  * about. Lives in scripts/ so it never reaches the shipped bundle.
  */
 import { createElement } from "react";
-import { renderToString } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { MemoryRouter } from "react-router-dom";
 import "../src/tollbooth.ts";
 import App from "../src/App.tsx";
 
-export function renderRoute(path: string): string {
-  return renderToString(
+/// Waits for every lazy page to arrive, so the markup is the page and never
+/// the Suspense fallback that a synchronous render would stop at.
+export async function renderRoute(path: string): Promise<string> {
+  const { prelude } = await prerender(
     createElement(MemoryRouter, { initialEntries: [path] }, createElement(App)),
+    // One piece: a large boundary is otherwise sent as a template and a script
+    // that swaps it in, and a fetcher runs no script.
+    { progressiveChunkSize: Infinity },
   );
+  return new Response(prelude).text();
 }

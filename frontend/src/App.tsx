@@ -8,6 +8,7 @@
  * stranger, and signing in is a choice they make when they want a bee.
  */
 
+import { lazy, Suspense } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { Avatar, DebugPanel, useSession } from "@tollbooth-dpyc/web/react";
 import { avatarFor } from "@tollbooth-dpyc/web";
@@ -15,15 +16,17 @@ import { Art, ArtSymbols } from "./art/svg.tsx";
 import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useOperator } from "./lib/useOperator";
-import About from "./pages/About.tsx";
-import Honey from "./pages/Honey.tsx";
-import Ledger from "./pages/Ledger.tsx";
 import Play from "./pages/Play.tsx";
-import Prices from "./pages/Prices.tsx";
-import Operator from "./pages/Operator.tsx";
-import Profile from "./pages/Profile.tsx";
-import SignIn from "./pages/SignIn.tsx";
-import Welcome from "./pages/Welcome.tsx";
+
+// Each page past the game is its own chunk, fetched the first time it opens.
+const About = lazy(() => import("./pages/About.tsx"));
+const Honey = lazy(() => import("./pages/Honey.tsx"));
+const Ledger = lazy(() => import("./pages/Ledger.tsx"));
+const Prices = lazy(() => import("./pages/Prices.tsx"));
+const Operator = lazy(() => import("./pages/Operator.tsx"));
+const Profile = lazy(() => import("./pages/Profile.tsx"));
+const SignIn = lazy(() => import("./pages/SignIn.tsx"));
+const Welcome = lazy(() => import("./pages/Welcome.tsx"));
 
 /// Material Design 24dp paths, inline.
 ///
@@ -173,6 +176,7 @@ export default function App() {
       {!onBoard && <PageBees />}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <Suspense fallback={<p className="px-4 py-6 text-sm text-ink/60">Loading…</p>}>
         <Routes>
           <Route path="/" element={<Play />} />
           {/* Kept alongside `/`, not replaced by it. It is in `sitemap.xml`,
@@ -199,6 +203,7 @@ export default function App() {
             * bare domain gets. */}
           <Route path="*" element={<Play />} />
         </Routes>
+        </Suspense>
 
         {/* Inside the scroller, after the page. Mounted here rather than by
           * each page because these pages are a narrow reading column and the
