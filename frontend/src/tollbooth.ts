@@ -8,6 +8,8 @@
  */
 
 import { configureTollbooth } from "@tollbooth-dpyc/web";
+// The hive's English, registered on import, so a server render reads words and not keys.
+import "./i18n/index.ts";
 
 configureTollbooth({
   slug: "beesknees",

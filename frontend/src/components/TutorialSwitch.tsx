@@ -3,9 +3,11 @@
 
 import { useTourSwitch } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
+import { useT } from "../i18n/index.ts";
 
 export default function TutorialSwitch() {
   const tutorial = useTourSwitch();
+  const t = useT();
   return (
     <section className="rounded-xl border border-ink/14 bg-[var(--color-sky)] p-4" {...tour("account.tutorial")}>
       <label className="flex items-center gap-3">
@@ -16,9 +18,9 @@ export default function TutorialSwitch() {
           className="h-5 w-5 accent-[var(--color-you)]"
         />
         <span className="text-sm">
-          Live tutorial
+          {t("tutorial.title")}
           <span className="block text-xs leading-snug text-ink/65">
-            A short walk around each page the first time it sits quiet, pointing at what to do.
+            {t("tutorial.note")}
           </span>
         </span>
       </label>

@@ -14,12 +14,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
-import { VERBS, activityLabel, readyLabel, tacticLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { VERBS, activityLabel, readyLabel, tacticLabel, verbHint, verbIcon, type Verb } from "./game/verbs.ts";
 import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import Lobby from "./components/Lobby.tsx";
 import { hydrate, phaseOf, type LiveHive } from "./game/live.ts";
-import { HIVE_NAMES, HOT_RING, QUEEN_NAMES } from "./game/match.ts";
+import { HOT_RING } from "./game/match.ts";
+import { hiveName, queenOf, queenTitle } from "./lib/names.ts";
+import { useT } from "./i18n/index.ts";
 import { COMB, DEFAULT_RULES, TICK_MS, makeGeometry, neighbors, ringOf, type Bee } from "./game/rules.ts";
 import { routeToward, stepToward } from "./game/bots.ts";
 import { cooldownLeft, useLiveMatch, type LiveBee } from "./lib/useLiveMatch.ts";
@@ -65,6 +67,7 @@ export default function LiveBoard({ session }: { session: Session }) {
     [],
   );
   const { board: live, error, refresh, leave } = useLiveMatch(call, true, session.npub);
+  const t = useT();
 
   const [target, setTarget] = useState<number | null>(null);
   const [verb, setVerb] = useState<Verb>("move");
@@ -165,8 +168,8 @@ export default function LiveBoard({ session }: { session: Session }) {
     const over = aimOver(myHive.board, mine, target);
     if (!over) return;
     setTarget(null);
-    if (over === "spent") setNote("A rival got there first — pick another flower.");
-  }, [live?.seq, target, myHive, mine]);
+    if (over === "spent") setNote(t("board.rivalFirst"));
+  }, [live?.seq, target, myHive, mine, t]);
 
   /**
    * A finished act retires its aim — the same rule solo has had all along.
@@ -201,12 +204,12 @@ export default function LiveBoard({ session }: { session: Session }) {
         if (res.error) return;
         setClaimed(
           res.donated === false
-            ? " — your share is yours; check your balance"
-            : ` — your share went to ${who?.name ?? "the pollinators"}`,
+            ? t("board.claimKept")
+            : t("board.claimDonated", { name: who?.name ?? t("tally.pollinators") }),
         );
       })
       .catch(() => {});
-  }, [live?.winner_npub, live?.match_id, session.npub, claimed, who?.name]);
+  }, [live?.winner_npub, live?.match_id, session.npub, claimed, who?.name, t]);
 
   const act = useCallback(async () => {
     if (!ready || busy) return;
@@ -237,11 +240,11 @@ export default function LiveBoard({ session }: { session: Session }) {
         setNote(String(res.refused));
         setCruise(false);
       } else if (res.moved === false) {
-        setNote(String(res.reason ?? "Somebody got there first."));
+        setNote(String(res.reason ?? t("board.lostRace")));
         if (++lostRaces.current >= 2) setCruise(false);
       } else {
         lostRaces.current = 0;
-        if (res.pollen === true) setNote("Pollen! Head for a door.");
+        if (res.pollen === true) setNote(t("board.pollen"));
       }
       if (verb === "seal") setTarget(null);
       refresh();
@@ -251,7 +254,7 @@ export default function LiveBoard({ session }: { session: Session }) {
     } finally {
       setBusy(false);
     }
-  }, [ready, busy, verb, target, next, round, refresh, live?.seq]);
+  }, [ready, busy, verb, target, next, round, refresh, live?.seq, t]);
 
   /**
    * Cruise: press the button for me whenever pressing it would do something.
@@ -282,7 +285,7 @@ export default function LiveBoard({ session }: { session: Session }) {
   }, [live?.state, live]);
 
   if (!live) {
-    return <div className="p-8 text-center text-sm text-ink/70">{error || "Finding a hive…"}</div>;
+    return <div className="p-8 text-center text-sm text-ink/70">{error || t("board.finding")}</div>;
   }
 
   // Nobody has enough bees yet. That is a state worth showing properly, not a
@@ -320,8 +323,8 @@ export default function LiveBoard({ session }: { session: Session }) {
     <BoardScreen
       hives={hives.map((h) => ({
         id: h.id,
-        name: HIVE_NAMES[h.id],
-        queen: `Queen ${QUEEN_NAMES[h.id % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[h.id]}`,
+        name: hiveName(h.id),
+        queen: queenOf(h.id),
         board: h.board,
         bees: h.bees.map((b) => ({ id: b.seat, cell: b.cell, phase: b.phase, digs: b.digs, seals: b.seals })),
         hot: h.bees.some((b) => ringOf(G, b.cell) <= HOT_RING),
@@ -330,7 +333,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       onFocus={setWatching}
       yourHive={mine?.hive ?? null}
       youId={mine?.seat ?? null}
-      tag={`${live.bees.length} bees`}
+      tag={t("board.bees", { count: live.bees.length })}
       elapsedSec={elapsed}
       frame={live.seq}
       epoch={live.match_id}
@@ -338,7 +341,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, word), label: tacticLabel(id, word) }))}
+      verbs={VERBS.map((id) => ({ id, hint: verbHint(id), icon: verbIcon(id, word), label: tacticLabel(id, word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
       cruise={cruise}
@@ -349,7 +352,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       prompt={
         !ready && left > 0 ? (
           <span className="text-[var(--color-you-ink)]">
-            {digging ? "Digging" : "Resting"} {(left / 1000).toFixed(1)}s
+            {t(digging ? "board.digging" : "board.resting", { s: (left / 1000).toFixed(1) })}
           </span>
         ) : (
           // The SAME hint the practice board gives. This used to be a two-way
@@ -363,7 +366,7 @@ export default function LiveBoard({ session }: { session: Session }) {
       }
       actionLabel={
         mine?.phase === "done"
-          ? { icon: "crown", text: "Home" }
+          ? { icon: "crown", text: t("board.home") }
           : !ready && left > 0
             // The server does not say WHICH action is being served, so it is read
             // off the length of the rest: only a cut costs more than one.
@@ -381,11 +384,11 @@ export default function LiveBoard({ session }: { session: Session }) {
           : winnerBee || live.winner_npub
           ? iWon
             ? {
-                label: `Consort to Queen ${QUEEN_NAMES[(winnerBee?.hive ?? 0) % QUEEN_NAMES.length]}`,
-                detail: `Hive ${HIVE_NAMES[winnerBee?.hive ?? 0]} is yours — first bee home`,
+                label: t("board.consort", { queen: queenTitle(winnerBee?.hive ?? 0) }),
+                detail: t("board.yours", { hive: hiveName(winnerBee?.hive ?? 0) }),
                 // Where the winner's share went, on its own line rather than
                 // tacked onto the sentence with a second dash.
-                note: claimed ? claimed.replace(/^\s*—\s*/, "") : undefined,
+                note: claimed || undefined,
                 yours: true,
                 hive: winnerBee?.hive,
                 beeId: winnerBee?.seat,
@@ -393,16 +396,16 @@ export default function LiveBoard({ session }: { session: Session }) {
             : {
                 label: winnerBee?.label || live.winner_npub.slice(0, 12),
                 detail: winnerBee
-                  ? `reached Queen ${QUEEN_NAMES[winnerBee.hive % QUEEN_NAMES.length]} of Hive ${HIVE_NAMES[winnerBee.hive]}`
-                  : "reached the queen first",
+                  ? t("board.reached", { queen: queenOf(winnerBee.hive) })
+                  : t("board.reachedFirst"),
                 hive: winnerBee?.hive,
                 beeId: winnerBee?.seat,
               }
           : {
               // Ended with nobody home: the ceiling ran out. Still a result,
               // and still owed to everyone who was playing.
-              label: "The round is over",
-              detail: "Time ran out before anybody reached a queen.",
+              label: t("board.over"),
+              detail: t("board.timeUp"),
               unwon: true,
             }
       }
@@ -426,7 +429,7 @@ export default function LiveBoard({ session }: { session: Session }) {
             }
           : undefined
       }
-      againLabel="Queue for the next round"
+      againLabel={t("board.queue")}
     />
   );
 }

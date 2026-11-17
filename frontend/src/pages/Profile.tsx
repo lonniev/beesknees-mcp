@@ -9,7 +9,7 @@
 
 import { LogOut } from "lucide-react";
 import {
-  AccountPage, BalanceAndTopUp, NpubGate, type Session, type UsageFigure, type UsageSummaryClassNames,
+  AccountPage, BalanceAndTopUp, LanguageChooser, NpubGate, type Session, type UsageFigure, type UsageSummaryClassNames,
 } from "@tollbooth-dpyc/web/react";
 import Winnings from "../components/Winnings.tsx";
 import Meadowscape from "../components/Meadowscape.tsx";
@@ -17,7 +17,8 @@ import { useTour } from "@tollbooth-dpyc/web/react";
 import TutorialSwitch from "../components/TutorialSwitch.tsx";
 import { decorateTile } from "../lib/tiles.tsx";
 import { tour } from "../lib/tour.ts";
-import { WELCOME } from "./SignIn.tsx";
+import { Languages } from "./SignIn.tsx";
+import { useT } from "../i18n/index.ts";
 
 /** A card on this page. Solid sky, because the meadow runs behind the page
  *  and text never sits on grass. */
@@ -52,6 +53,7 @@ function toolName(tool: string): string {
 
 export default function Profile({ session }: { session: Session }) {
   useTour("account", { ready: session.signedIn });
+  const t = useT();
   // Signed out, the page is the sign-in itself, on the meadow, and signing in
   // turns it into the profile in place. Drawn here rather than reached by
   // redirect, as on the honey page: a server render of it shows a door.
@@ -59,7 +61,8 @@ export default function Profile({ session }: { session: Session }) {
     return (
       <>
         <Meadowscape />
-        <NpubGate welcome={WELCOME} notice={session.notice} onLogin={() => session.refresh()} />
+        <NpubGate welcome={t("signin.welcome")} notice={session.notice} onLogin={() => session.refresh()} />
+        <Languages />
       </>
     );
   }
@@ -79,25 +82,34 @@ export default function Profile({ session }: { session: Session }) {
       between={{
         sessionKey: <div {...tour("account.balance")}><BalanceAndTopUp decorateTile={decorateTile} /></div>,
         usage: <div {...tour("account.winnings")}><Winnings npub={session.npub} /></div>,
+        timezone: (
+          <section className={CARD}>
+            <h2 className="text-sm text-ink/78">{t("profile.language.title")}</h2>
+            <p className="mt-1 text-xs text-ink/65">{t("profile.language.note")}</p>
+            <div className="mt-3">
+              <LanguageChooser />
+            </div>
+          </section>
+        ),
       }}
       usage={{
         figures: MONTH,
-        labels: { spent: "Spent", calls: "Moves & calls", credited: "Bought" },
+        labels: { spent: t("profile.spent"), calls: t("profile.calls"), credited: t("profile.bought") },
         classNames: MONTH_LOOK,
-        renderRow: (t) => (
+        renderRow: (row) => (
           <>
-            <span className="min-w-0 flex-1 truncate">{toolName(t.tool)}</span>
+            <span className="min-w-0 flex-1 truncate">{toolName(row.tool)}</span>
             <span className="text-xs text-ink/65 tabular-nums">
-              {t.calls.toLocaleString("en-US")} {t.calls === 1 ? "call" : "calls"}
+              {t("profile.callCount", { count: row.calls })}
             </span>
-            <span className="w-20 text-right tabular-nums">{t.sats.toLocaleString("en-US")} sats</span>
+            <span className="w-20 text-right tabular-nums">{t("profile.sats", { n: row.sats.toLocaleString("en-US") })}</span>
           </>
         ),
       }}
       timezone={{
         heading: null,
-        label: "Time zone",
-        note: () => "The times on the Ledger read in this zone.",
+        label: t("profile.timezone"),
+        note: () => t("profile.timezoneNote"),
         classNames: {
           root: "flex flex-col gap-1.5",
           label: "text-sm text-ink/78",
@@ -115,15 +127,15 @@ export default function Profile({ session }: { session: Session }) {
         <div className={`${CARD} flex items-center gap-3 py-3`}>
           <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
             {session.canSign
-              ? "Signing with a session key held in this tab."
-              : "Signed in on a cached proof, which expires."}
+              ? t("profile.sessionKey")
+              : t("profile.cachedProof")}
           </span>
           <button
             onClick={session.signOut}
             {...tour("account.signout")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/7"
           >
-            <LogOut size={14} /> Sign out
+            <LogOut size={14} /> {t("profile.signOut")}
           </button>
         </div>
         </>

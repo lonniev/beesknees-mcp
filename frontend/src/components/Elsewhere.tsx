@@ -13,6 +13,7 @@
 import { ExternalLink } from "lucide-react";
 import { useCharity } from "./CharityNote";
 import HoneyChiclet from "./HoneyChiclet";
+import { useT } from "../i18n/index.ts";
 
 function Card({
   href,
@@ -48,6 +49,7 @@ function Card({
 
 export default function Elsewhere() {
   const charity = useCharity();
+  const t = useT();
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
@@ -58,20 +60,20 @@ export default function Elsewhere() {
           href={charity.website || "#"}
           glyph="💛"
           title={charity.name}
-          blurb="Where eighty percent of every pot goes. Go and read what they do with it."
+          blurb={t("elsewhere.charity")}
         />
       )}
       <Card
         href="https://mcps.tollbooth-dpyc.com"
         glyph="🛰️"
-        title="The DPYC network"
-        blurb="Every service on the tollbooth: what they do and what they charge."
+        title={t("elsewhere.network")}
+        blurb={t("elsewhere.networkNote")}
       />
       <Card
         href="https://goodearth.tollbooth-dpyc.com"
         glyph="🌱"
         title="Good Earth"
-        blurb="Climate answers for the ground you actually farm — the growers' MCP."
+        blurb={t("elsewhere.goodEarthNote")}
       />
     </div>
   );

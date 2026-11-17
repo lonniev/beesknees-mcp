@@ -18,6 +18,7 @@ import { ExternalLink, HeartHandshake, Loader2 } from "lucide-react";
 import { payout, setPayout } from "../lib/mcp";
 import { useCharity } from "./CharityNote";
 import { fetchProfile } from "@tollbooth-dpyc/web";
+import { useT } from "../i18n/index.ts";
 
 const field =
   "w-full rounded-lg border border-ink/25 bg-white/70 px-3 py-2 text-sm placeholder:text-ink/50 focus:border-[var(--color-wax)] focus:outline-none";
@@ -27,6 +28,7 @@ export default function Winnings({ npub }: { npub: string }) {
   const [address, setAddress] = useState("");
   const [stated, setStated] = useState(false);
   const who = useCharity();
+  const t = useT();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,15 +71,17 @@ export default function Winnings({ npub }: { npub: string }) {
     try {
       const r = await setPayout(donate, address.trim());
       if (!r.success) {
-        setMsg({ tone: "err", text: r.error ?? "That did not save. Try again." });
+        setMsg({ tone: "err", text: r.error ?? t("winnings.failed") });
         return;
       }
       setStated(true);
       setMsg({
         tone: "ok",
         text: donate
-          ? `Settled. Your share goes to ${who?.name ?? "the charity"}.`
-          : "Settled. Your share will be credited to you.",
+          ? who?.name
+            ? t("winnings.settledDonateTo", { name: who.name })
+            : t("winnings.settledDonate")
+          : t("winnings.settledKeep"),
       });
     } catch (e) {
       setMsg({ tone: "err", text: (e as Error).message });
@@ -92,20 +96,20 @@ export default function Winnings({ npub }: { npub: string }) {
     <section className="rounded-xl border border-ink/14 bg-[var(--color-sky)] p-4">
       <div className="flex items-center gap-2">
         <HeartHandshake size={15} className="text-[var(--color-wax-ink)]" />
-        <h2 className="text-sm font-semibold text-ink/90">If you win</h2>
+        <h2 className="text-sm font-semibold text-ink/90">{t("winnings.title")}</h2>
         {loading && <Loader2 size={13} className="animate-spin text-ink/65" />}
       </div>
 
       <p className="mt-1 text-xs text-ink/70">
-        Ten percent of the pot goes to the winner. Say now what should happen to it.
-        {!loading && !stated && " You have not said, so it goes to the charity."}
+        {t("winnings.intro")}
+        {!loading && !stated && ` ${t("winnings.unstated")}`}
       </p>
 
       <div className="mt-4 space-y-2">
         <Choice
           checked={donate}
           onSelect={() => setDonate(true)}
-          title={who ? `Donate it to ${who.name}` : "Donate it to the charity"}
+          title={who ? t("winnings.donateTo", { name: who.name }) : t("winnings.donate")}
           note={
             who?.website ? (
               <a
@@ -119,21 +123,21 @@ export default function Winnings({ npub }: { npub: string }) {
                 <ExternalLink size={11} />
               </a>
             ) : (
-              "The default, and where the other 80% already goes."
+              t("winnings.donateNote")
             )
           }
         />
         <Choice
           checked={!donate}
           onSelect={() => setDonate(false)}
-          title="Keep it"
-          note="Paid to a Lightning address you name."
+          title={t("winnings.keep")}
+          note={t("winnings.keepNote")}
         />
       </div>
 
       {!donate && (
         <div className="mt-3">
-          <label className="mb-1 block text-[11px] text-ink/65">Lightning address</label>
+          <label className="mb-1 block text-[11px] text-ink/65">{t("winnings.address")}</label>
           <input
             className={field}
             value={address}
@@ -152,7 +156,7 @@ export default function Winnings({ npub }: { npub: string }) {
         disabled={saving || loading || needsAddress}
         className="mt-4 w-full rounded-lg bg-[var(--color-you)] py-2 text-sm font-semibold text-black disabled:opacity-40"
       >
-        {saving ? "Saving…" : needsAddress ? "An address is needed to keep it" : "Save"}
+        {saving ? t("winnings.saving") : needsAddress ? t("winnings.needsAddress") : t("winnings.save")}
       </button>
 
       {msg && (

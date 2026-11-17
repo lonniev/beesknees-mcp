@@ -14,6 +14,8 @@
  * two flowers that is, and the mark answers it without a sentence.
  */
 
+import { tr } from "../i18n/index.ts";
+
 /** A mark the hint points at, drawn beside the words. */
 export type Mark = "pollen" | "door" | null;
 
@@ -27,7 +29,8 @@ export interface Step {
  * @param aimed   Whether the player has already chosen a destination.
  * @param why     The board's own objection, if it has one — always wins, because
  *                it is about this press rather than about the phase.
- * @param word    "Fly" or "Crawl": what the next press is called out there.
+ * @param word    "Fly" or "Crawl": what the next press is called out there (the
+ *                English token; the words are read in the language on screen).
  */
 export function nextStep(
   phase: string | undefined,
@@ -35,29 +38,25 @@ export function nextStep(
   why: string,
   word: string,
 ): Step {
-  if (phase === "done") return { text: "At the queen.", mark: null };
+  if (phase === "done") return { text: tr("next.done"), mark: null };
 
   if (!aimed) {
-    if (phase === "forage") return { text: "Tap a flower that still has pollen", mark: "pollen" };
-    if (phase === "return")
-      return { text: "Choose a door now — tap a gap in the hive wall", mark: "door" };
-    return { text: "Tap where you want to end up — the queen, or anywhere on the way.", mark: null };
+    if (phase === "forage") return { text: tr("next.forage"), mark: "pollen" };
+    if (phase === "return") return { text: tr("next.return"), mark: "door" };
+    return { text: tr("next.tunnel"), mark: null };
   }
 
   // The board's objection outranks the phase: it is about the press the player
   // is about to make, and the phase is about the half-hour they are in.
   if (why) return { text: why, mark: null };
 
-  const verb = word.toLowerCase();
-  if (phase === "forage") return { text: `Flower chosen — press to ${verb}.`, mark: null };
-  if (phase === "return") return { text: `Door chosen — press to ${verb}.`, mark: null };
+  const crawl = word === "Crawl";
+  if (phase === "forage") return { text: tr(crawl ? "next.flower.crawl" : "next.flower.fly"), mark: null };
+  if (phase === "return") return { text: tr(crawl ? "next.door.crawl" : "next.door.fly"), mark: null };
   // The route is drawn, so this says what the NEXT press costs rather than
   // repeating a destination the player can already see marked.
   // Names the BUTTON, not the gesture. "Press to crawl the line" describes the
   // input; "Crawl! to follow the path" is the word actually printed on the
   // thing to press, so the sentence and the button agree.
-  return {
-    text: word === "Crawl" ? "Crawl! to follow the path" : "Fly! to follow the path",
-    mark: null,
-  };
+  return { text: tr(crawl ? "next.path.crawl" : "next.path.fly"), mark: null };
 }

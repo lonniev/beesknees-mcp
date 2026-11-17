@@ -15,6 +15,7 @@
  */
 
 import { Art } from "../art/svg.tsx";
+import { tr } from "../i18n/index.ts";
 
 /** A mark sitting on the text baseline, at about the size of a capital. */
 function Inline({ children, title }: { children: React.ReactNode; title: string }) {
@@ -32,7 +33,7 @@ function Inline({ children, title }: { children: React.ReactNode; title: string 
 
 export function Fly() {
   return (
-    <Inline title="Fly">
+    <Inline title={tr("marks.fly")}>
       <Art id="go" size={18} tint="var(--color-ink)" />
     </Inline>
   );
@@ -40,7 +41,7 @@ export function Fly() {
 
 export function Crawl() {
   return (
-    <Inline title="Crawl">
+    <Inline title={tr("marks.crawl")}>
       <Art id="crawl" size={18} tint="var(--color-ink)" />
     </Inline>
   );
@@ -49,7 +50,7 @@ export function Crawl() {
 /** The seal verb — a mound of wax over an open cell. */
 export function Mound() {
   return (
-    <Inline title="Mound a tunnel shut">
+    <Inline title={tr("marks.mound")}>
       <Art id="fill" size={18} tint="var(--color-ink)" />
     </Inline>
   );
@@ -58,7 +59,7 @@ export function Mound() {
 /** A flower that still has its pollen — the daisy the board draws. */
 export function PollenFlower() {
   return (
-    <Inline title="A flower with pollen">
+    <Inline title={tr("marks.pollen")}>
       <Art id="daisy" size={19} />
     </Inline>
   );
@@ -67,7 +68,7 @@ export function PollenFlower() {
 /** One somebody has already taken: the same daisy, gone to lavender. */
 export function PluckedFlower() {
   return (
-    <Inline title="A flower already plucked">
+    <Inline title={tr("marks.plucked")}>
       <Art id="daisy-empty" size={19} />
     </Inline>
   );
@@ -75,7 +76,7 @@ export function PluckedFlower() {
 
 export function BeeMark() {
   return (
-    <Inline title="A bee">
+    <Inline title={tr("marks.bee")}>
       <Art id="bee" size={20} rotate={-20} />
     </Inline>
   );
@@ -84,7 +85,7 @@ export function BeeMark() {
 /** The queen, on her chamber — the pink disc at the centre of every hive. */
 export function QueenMark() {
   return (
-    <Inline title="The queen, in her chamber">
+    <Inline title={tr("marks.queen")}>
       <span
         className="inline-flex h-[19px] w-[19px] items-center justify-center rounded-full text-[11px] leading-none"
         style={{ background: "var(--color-queen)", opacity: 0.9, color: "var(--color-wax)" }}
@@ -104,7 +105,7 @@ export function QueenMark() {
  */
 export function YouMark() {
   return (
-    <Inline title="Your bee, in its halo">
+    <Inline title={tr("marks.you")}>
       <span
         className="inline-flex h-[21px] w-[21px] items-center justify-center rounded-full text-[12px] leading-none"
         style={{
@@ -127,7 +128,7 @@ export function YouMark() {
  */
 export function DoorMark() {
   return (
-    <Inline title="A doorway in the hive wall">
+    <Inline title={tr("marks.door")}>
       {/* A ring with a BREAK in it, and the mouth filling the break.
         * Two earlier attempts read as a broken circle and then as a smile: the
         * gap has to be unmistakable at twenty pixels, so it is a wide one at

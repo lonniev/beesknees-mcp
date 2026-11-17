@@ -24,113 +24,78 @@
  *     underlines of the same word reads as spam. Only the first is marked.
  */
 
-interface Term {
-  /** Matched case-insensitively. Whole words only. */
-  term: string;
+import { tr, type MessageKey, type Translate } from "../i18n/index.ts";
+
+/**
+ * The words with a definition. Each one's forms and tip are in the catalog, as
+ * `glossary.<id>.term` (its forms in that language, "|" between them — "tool
+ * call|tool calls") and `glossary.<id>.tip`, so a page is annotated in the
+ * language it is read in.
+ */
+export const TERM_IDS = [
+  "mcp", "toolCall", "dpyc", "satoshis", "lightning", "nostr", "npub",
+  "kyc", "serverless", "postgres", "stateless", "agent", "cooldown", "quorum",
+] as const;
+
+export type TermId = (typeof TERM_IDS)[number];
+
+export interface Term {
+  id: TermId;
+  /** Matched case-insensitively, whole words only. */
+  forms: string[];
   /** Kept short — this is a footnote, not a chapter. */
   tip: string;
 }
 
+/** The terms as `t` speaks them. */
+export function glossary(t: Translate = tr): Term[] {
+  return TERM_IDS.map((id) => ({
+    id,
+    forms: t(`glossary.${id}.term` as MessageKey).split("|").map((f) => f.trim()).filter(Boolean),
+    tip: t(`glossary.${id}.tip` as MessageKey),
+  }));
+}
+
 /**
- * Ordered longest-first so a multi-word term matches before its own parts:
- * "tool call" must win over "call", and "Lightning Network" over "Lightning".
+ * A letter that would make a match part of a longer word. Latin and Devanagari
+ * words are separated by spaces, so a term there must stand alone ("agent" is
+ * not in "agentic"); Chinese and Japanese are written without spaces, so a
+ * term there is found wherever it is written.
  */
-export const TERMS: Term[] = [
-  {
-    term: "MCP",
-    tip: "Model Context Protocol — a standard way to offer software as a set of named tools an AI agent can call directly, instead of as a website a person has to click through.",
-  },
-  {
-    term: "tool call",
-    tip: "One named request to the service — fly, dig, seal. It is what a button press sends and what an agent sends; the game does not know or care which.",
-  },
-  {
-    term: "DPYC",
-    tip: "Don't Pester Your Customer — a network of services that charge tiny amounts per call from a balance you top up in advance, so nothing interrupts you mid-task to ask for a card.",
-  },
-  {
-    term: "satoshis",
-    tip: "The smallest unit of bitcoin — one hundred-millionth of one. Small enough that a single move in a game can have an honest price.",
-  },
-  {
-    term: "Lightning",
-    tip: "A payment layer on top of bitcoin built for amounts too small to be worth a bitcoin transaction. It is how money reaches the charity and the winner.",
-  },
-  {
-    term: "Nostr",
-    tip: "A protocol where your identity is a keypair you generate yourself, not an account somebody grants you. Nobody can issue it, and nobody can take it away.",
-  },
-  {
-    term: "npub",
-    tip: "The public half of a Nostr key — your name here. The private half never leaves your device, and signing with it is how you prove the name is yours.",
-  },
-  {
-    term: "KYC",
-    tip: "Know Your Customer — the identity paperwork financial services usually demand. There is none here: a key is enough to play.",
-  },
-  {
-    term: "serverless",
-    tip: "Infrastructure that runs only while a request is in flight and costs nothing between them. A quiet hive is a hive nobody is paying for.",
-  },
-  {
-    term: "Postgres",
-    tip: "The database holding every board, bee and fare. It is the one place the game exists — the service itself remembers nothing between requests.",
-  },
-  {
-    term: "stateless",
-    tip: "The service keeps nothing in its own memory between calls. Two requests can land on two different machines and neither can tell, because the board is in the database, not in either of them.",
-  },
-  {
-    term: "agent",
-    tip: "A program that decides what to do next — usually an AI model. Here it plays the same way you do, by asking what the board looks like and naming a move.",
-  },
-  {
-    term: "cooldown",
-    tip: "The wall-clock rest between a bee's moves. It is why money cannot buy a faster bee: everyone waits the same seconds.",
-  },
-  {
-    term: "quorum",
-    tip: "The number of bees one hive needs before the race begins — eight. Until then the hive is a lobby.",
-  },
-];
-
-const SORTED = [...TERMS].sort((a, b) => b.term.length - a.term.length);
-// Whole words, with an optional plural: the prose says "tool calls" and
-// "cooldowns" as readily as the singular, and a definition that only matches
-// one of them is a definition that misses half its occurrences.
-const PATTERN = new RegExp(
-  `\\b(${SORTED.map((t) => t.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})s?\\b`,
-  "gi",
-);
-
+const WORD = "[\\p{Script=Latin}\\p{Script=Devanagari}\\p{M}\\p{N}_]";
 
 /** A piece of annotated prose: plain text, or a term to mark. */
-export type Piece = string | { raw: string; tip: string; term: string };
+export type Piece = string | { raw: string; tip: string; term: TermId };
 
 /**
  * Split a paragraph into plain runs and terms to mark.
  *
  * `seen` is shared across a page so a term is marked once and then left alone.
- * Pass the same Set to every call on one page; a fresh one starts over.
+ * Pass the same Set to every call on one page; a fresh one starts over. Forms
+ * are tried longest first, so "tool call" wins over a shorter term inside it.
  */
-export function splitTerms(text: string, seen: Set<string> = new Set()): Piece[] {
+export function splitTerms(text: string, seen: Set<string> = new Set(), terms: Term[] = glossary()): Piece[] {
+  const byForm = new Map<string, Term>();
+  for (const term of terms) for (const form of term.forms) byForm.set(form.toLocaleLowerCase(), term);
+  const forms = [...byForm.keys()].sort((a, b) => b.length - a.length);
+  if (!forms.length) return [text];
+  const pattern = new RegExp(
+    `(?<!${WORD})(${forms.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?!${WORD})`,
+    "giu",
+  );
+
   const out: Piece[] = [];
   let last = 0;
-
-  PATTERN.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = PATTERN.exec(text)) !== null) {
+  while ((m = pattern.exec(text)) !== null) {
     const raw = m[0];
-    const bare = raw.toLowerCase();
-    const found = SORTED.find(
-      (t) => t.term.toLowerCase() === bare || `${t.term.toLowerCase()}s` === bare,
-    );
-    if (!found || seen.has(found.term)) continue;
-    seen.add(found.term);
+    const found = byForm.get(raw.toLocaleLowerCase());
+    if (!found || seen.has(found.id)) continue;
+    seen.add(found.id);
 
     if (m.index > last) out.push(text.slice(last, m.index));
-    out.push({ raw, tip: found.tip, term: found.term });
-    last = PATTERN.lastIndex;
+    out.push({ raw, tip: found.tip, term: found.id });
+    last = pattern.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));
   return out;

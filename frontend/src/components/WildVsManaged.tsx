@@ -12,23 +12,26 @@
  * label says so rather than letting anyone count them.
  */
 
+import { useT } from "../i18n/index.ts";
+
 const DOTS = 60;
 
 export default function WildVsManaged() {
+  const t = useT();
   return (
     <figure className="my-7 rounded-2xl bg-ink/4 p-5">
       <figcaption className="text-sm font-medium text-ink/95">
-        Which bees actually need the help
+        {t("wild.title")}
       </figcaption>
 
       <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <div>
           <div className="text-4xl font-semibold tracking-tight text-[var(--color-wax-ink)]">~4,000</div>
           <div className="mt-1 text-sm text-ink/80">
-            native bee species in North America
+            {t("wild.native")}
           </div>
           <div className="mt-1 text-[11px] text-ink/65">
-            Many in documented decline. None has a keeper.
+            {t("wild.nativeNote")}
           </div>
         </div>
 
@@ -36,9 +39,9 @@ export default function WildVsManaged() {
 
         <div>
           <div className="text-4xl font-semibold tracking-tight text-ink/90">1</div>
-          <div className="mt-1 text-sm text-ink/80">managed for honey and pollination</div>
+          <div className="mt-1 text-sm text-ink/80">{t("wild.managed")}</div>
           <div className="mt-1 text-[11px] text-ink/65">
-            Losses replaced each spring by splitting hives.
+            {t("wild.managedNote")}
           </div>
         </div>
       </div>
@@ -56,7 +59,7 @@ export default function WildVsManaged() {
         ))}
       </div>
       <p className="mt-2 text-[10px] text-ink/65">
-        Marks are illustrative, not to scale — the real ratio is about four thousand to one.
+        {t("wild.scale")}
       </p>
     </figure>
   );

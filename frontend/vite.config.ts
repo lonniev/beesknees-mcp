@@ -25,5 +25,19 @@ export default defineConfig({
     }),
   ],
   server: { port: 5180 },
+  build: {
+    rolldownOptions: {
+      output: {
+        // React, and the translating (i18next), each in a chunk of their own:
+        // cached apart from the app, and the shared chunk stays under 500 kB.
+        advancedChunks: {
+          groups: [
+            { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: "i18next", test: /node_modules[\\/](i18next|react-i18next)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   define: { __APP_VERSION__: JSON.stringify(release ?? "") },
 });

@@ -30,6 +30,7 @@ import Meadowscape from "../components/Meadowscape.tsx";
 import { checkBalance } from "@tollbooth-dpyc/web";
 import { useSession, useTour } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
+import { useT } from "../i18n/index.ts";
 
 type Mode = "choosing" | "solo" | "live";
 
@@ -40,6 +41,7 @@ export default function Play() {
   const [mode, setMode] = useState<Mode>("choosing");
   const [explaining, setExplaining] = useState(false);
   const nav = useNavigate();
+  const t = useT();
   // The chooser's tour, while the chooser is what is on screen.
   useTour("play", { ready: mode === "choosing" });
 
@@ -82,7 +84,7 @@ export default function Play() {
    */
   const needsOnboarding = !session.signedIn;
   const why = session.signedIn && balance === 0
-    ? "Your balance is empty — every motion is a fare."
+    ? t("play.empty")
     : "";
 
   return (
@@ -102,16 +104,14 @@ export default function Play() {
 
       <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Play</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("play.title")}</h1>
           {/* The code owner's words. It opened with "The same board either
             * way", which compares two things the reader has not been told
             * about yet — a sentence for somebody who already knows the game.
             * This one starts by saying what the site is and then names the two
             * doors, which is the order a first-time visitor needs. */}
           <p className="mt-1 text-sm text-ink/70">
-            Welcome to The Bee's Knees game. You can choose to play a Practice round or
-            help raise donations with a Real round. During Practice play there are no
-            fees and the bees are agentic simulator bees.
+            {t("play.intro")}
           </p>
         </div>
 
@@ -122,15 +122,14 @@ export default function Play() {
         >
           <Bot size={20} className="mt-0.5 shrink-0 text-ink/70" />
           <span>
-            <span className="font-semibold">Practice</span>
+            <span className="font-semibold">{t("play.practice")}</span>
             {/* Says what the reader GETS, not what the board contains. The
               * count of bots is a fact about the simulation and meant nothing
               * to somebody deciding whether to tap it; "no sats" and "nothing
               * at stake" both name an absence, which is a poor pitch for the
               * door a first-time visitor should actually go through. */}
             <span className="block text-sm text-ink/70">
-              Watch and learn how to play without having to purchase anything. Come
-              practice anytime.
+              {t("play.practiceNote")}
             </span>
           </span>
         </button>
@@ -153,13 +152,13 @@ export default function Play() {
         >
           <Zap size={20} className="mt-0.5 shrink-0 text-[var(--color-you-ink)]" />
           <span>
-            <span className="font-semibold">The real game</span>
+            <span className="font-semibold">{t("play.real")}</span>
             <span className="block text-sm text-ink/70">
-              Real bees, a real pot, and 80% of it to the pollinators.
+              {t("play.realNote")}
             </span>
             {needsOnboarding && (
               <span className="mt-2 block text-sm text-[var(--color-wax-ink)]">
-                New to this? Press here and I will explain what you need.
+                {t("play.explain")}
               </span>
             )}
             {why && known && (
@@ -174,11 +173,11 @@ export default function Play() {
 
         {!session.signedIn ? (
           <Link to="/signin" state={{ from: "/play" }} {...tour("play.signin")} className="text-center text-sm underline text-ink/78">
-            I already have an npub — sign in
+            {t("play.signIn")}
           </Link>
         ) : balance === 0 ? (
           <Link to="/profile" className="text-center text-sm underline text-ink/78">
-            Add sats
+            {t("play.addSats")}
           </Link>
         ) : null}
       </div>

@@ -19,6 +19,7 @@
  */
 
 import { useState } from "react";
+import { useT } from "../i18n/index.ts";
 
 /** Annual colony loss, % of managed colonies, US national surveys (BIP / AIA). */
 const SERIES: { year: string; loss: number | null }[] = [
@@ -51,24 +52,24 @@ const y = (v: number) => PAD.top + PLOT_H - (v / Y_MAX) * PLOT_H;
 
 export default function LossChart() {
   const [hover, setHover] = useState<number | null>(null);
+  const t = useT();
   const points = SERIES.map((d, i) => ({ ...d, i })).filter((d) => d.loss !== null);
   const active = hover !== null ? SERIES[hover] : null;
 
   return (
     <figure className="my-7">
       <figcaption className="text-sm font-medium text-ink/95">
-        Share of US managed colonies lost each year
+        {t("lossChart.title")}
       </figcaption>
       <p className="mt-0.5 text-[11px] text-ink/65">
-        Beekeeper-reported annual losses. Years without a dot are years I have no figure for, not
-        years without losses.
+        {t("lossChart.note")}
       </p>
 
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="mt-3 w-full"
         role="img"
-        aria-label="Annual US managed honeybee colony losses by survey year, ranging from about 29 to 51 percent"
+        aria-label={t("lossChart.aria")}
       >
         {/* Recessive grid — four gridlines, no box, no ticks. */}
         {[0, 20, 40, 60].map((v) => (
@@ -101,7 +102,7 @@ export default function LossChart() {
           opacity={0.65}
         />
         <text x={W - PAD.right} y={y(AVERAGE) - 6} textAnchor="end" className="fill-[var(--color-hot)] text-[10px]">
-          about 4 in 10, most years
+          {t("lossChart.average")}
         </text>
 
         {SERIES.map((d, i) => (
@@ -164,7 +165,7 @@ export default function LossChart() {
       {/* Identity is never colour-alone, and the numbers are readable without
           hovering anything. */}
       <details className="mt-2">
-        <summary className="cursor-pointer text-[11px] text-ink/65">The figures</summary>
+        <summary className="cursor-pointer text-[11px] text-ink/65">{t("lossChart.figures")}</summary>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink/70">
           {points.map((d) => (
             <span key={d.year} className="tabular-nums">
@@ -175,7 +176,7 @@ export default function LossChart() {
       </details>
 
       <p className="mt-2 text-[10px] text-ink/65">
-        Source: Bee Informed Partnership / Apiary Inspectors of America national colony loss surveys.
+        {t("lossChart.source")}
       </p>
     </figure>
   );

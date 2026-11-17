@@ -27,6 +27,7 @@ import type { Board } from "../game/rules.ts";
 import { useWide } from "../lib/useWide.ts";
 import { useTour } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
+import { useT } from "../i18n/index.ts";
 
 export interface ScreenHive {
   id: number;
@@ -126,10 +127,11 @@ function RivalTile({
   frame: number;
   onPick: (id: number) => void;
 }) {
+  const t = useT();
   return (
     <button
       onClick={() => onPick(hive.id)}
-      title={yours ? `${hive.name} — your hive` : hive.name}
+      title={yours ? t("board.hiveTitleYours", { hive: hive.name }) : hive.name}
       {...tour("board.rival")}
       /* Where the foragers in `Meadow` think this hive is. Read from the
        * rendered element rather than assumed: the gutters collapse below `md`
@@ -219,6 +221,7 @@ export default function BoardScreen(p: BoardScreenProps) {
    * hives to enlarge a fifth would lose the thing the layout was built for.
    */
   const [zoomed, setZoomed] = useState(false);
+  const t = useT();
 
   /**
    * The width of the hive as it is actually DRAWN, so the controls can line up
@@ -251,7 +254,7 @@ export default function BoardScreen(p: BoardScreenProps) {
   useTour("board");
   const hintLine = (
     <span className="block px-2 text-center text-[13px] font-semibold leading-snug text-ink/90" {...tour("board.hint")}>
-      <span className="font-normal text-ink/65">Hint: </span>
+      <span className="font-normal text-ink/65">{t("board.hint")}</span>
       {p.prompt}
     </span>
   );
@@ -325,7 +328,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             {String(Math.floor(p.elapsedSec / 60))}:{String(p.elapsedSec % 60).padStart(2, "0")}
           </span>
           {p.onNewMatch && (
-            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-ink/7" title="New match" {...tour("board.new")}>
+            <button onClick={p.onNewMatch} className="rounded-md p-1.5 hover:bg-ink/7" title={t("board.newMatch")} {...tour("board.new")}>
               <RotateCcw size={16} />
             </button>
           )}
@@ -347,7 +350,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           {wide && <span className="w-24 shrink-0 lg:w-32 xl:w-40" />}
           <span className="min-w-0 flex-1 truncate text-center font-medium">
             {shown.queen}
-            {mineHere && <span className="ml-1.5 text-[var(--color-you-ink)]">your hive</span>}
+            {mineHere && <span className="ml-1.5 text-[var(--color-you-ink)]">{t("board.yourHive")}</span>}
           </span>
           {wide && (
             <span className="flex w-24 shrink-0 justify-end lg:w-32 xl:w-40">
@@ -356,7 +359,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                   onClick={() => p.onFocus(p.yourHive!)}
                   className="rounded-full bg-[var(--color-you)]/15 px-2.5 py-1 text-[var(--color-you-ink)]"
                 >
-                  Back to my bee
+                  {t("board.back")}
                 </button>
               )}
             </span>
@@ -427,7 +430,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             <button
               onClick={() => setZoomed((v) => !v)}
               aria-pressed={zoomed}
-              title={zoomed ? "Show every hive" : "Fill the screen with this hive"}
+              title={zoomed ? t("board.showAll") : t("board.fill")}
               className="absolute right-1.5 top-1.5 z-10 rounded-lg bg-black/45 p-2 text-white/85 backdrop-blur-sm"
             >
               {zoomed ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -439,7 +442,7 @@ export default function BoardScreen(p: BoardScreenProps) {
             <div className="pointer-events-none absolute inset-x-0 top-1.5 z-10 text-center text-[11px] text-white/80">
               <span className="rounded-md bg-black/45 px-2 py-1 backdrop-blur-sm">
                 {shown.queen}
-                {mineHere && <span className="ml-1.5 text-[var(--color-you)]">your hive</span>}
+                {mineHere && <span className="ml-1.5 text-[var(--color-you)]">{t("board.yourHive")}</span>}
               </span>
             </div>
           )}
@@ -450,11 +453,11 @@ export default function BoardScreen(p: BoardScreenProps) {
                * then to be done looking. */
               <button
                 onClick={() => setDismissed(won)}
-                aria-label="Dismiss the result"
+                aria-label={t("board.dismiss")}
                 className="absolute inset-0 z-20 flex items-end justify-center pb-6"
               >
                 <span className="bk-hint rounded-full bg-black/45 px-3 py-1 text-[11px] text-white/85 backdrop-blur-sm">
-                  Tap when you have finished looking
+                  {t("board.finished")}
                 </span>
               </button>
             )}
@@ -488,7 +491,7 @@ export default function BoardScreen(p: BoardScreenProps) {
                     onClick={p.onNewMatch}
                     className="bk-wax inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold"
                   >
-                    <Repeat size={15} /> {p.againLabel ?? "Play Again"}
+                    <Repeat size={15} /> {p.againLabel ?? t("board.again")}
                   </button>
                 )}
               </div>
@@ -545,7 +548,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           * button. Purple, and labelled, and no longer shoulder to shoulder
           * with the thing it modifies. */}
         <div className="flex shrink-0 items-center gap-2">
-          <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Tactic?</span>
+          <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">{t("board.tactic")}</span>
           {/* A tray the tactics sit IN — sunk a little, so the chosen one, raised
             * and purple, reads as the cell that is lit. The marks are the board's
             * own, in the button's ink: a selected tactic and an idle one differ in
@@ -571,14 +574,14 @@ export default function BoardScreen(p: BoardScreenProps) {
             <button
               onClick={() => p.onCruise(!p.cruise)}
               disabled={!p.cruiseEnabled}
-              title="Cruise"
+              title={t("board.cruise")}
               aria-pressed={p.cruise}
               className={`bk-cell flex h-11 w-11 flex-col items-center justify-center rounded-xl transition sm:h-12 sm:w-12 disabled:opacity-35 ${
                 p.cruise ? "bk-verb-on text-[var(--color-ink)]" : "text-ink/70 hover:bg-ink/7"
               }`}
             >
               <Art id="cruise" size={21} />
-              <span>cruise</span>
+              <span>{t("board.cruiseLabel")}</span>
             </button>
           </div>
         </div>
@@ -588,7 +591,7 @@ export default function BoardScreen(p: BoardScreenProps) {
           * fit before the air between them does. */}
         <span className="min-w-2 flex-1 sm:min-w-6" />
 
-        <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">Now?</span>
+        <span className="shrink text-[11px] font-medium tracking-wide text-ink/60">{t("board.now")}</span>
         {/* Lime wax: your colour, with the weight of a thing you press. */}
         <button
           onClick={p.onAct}

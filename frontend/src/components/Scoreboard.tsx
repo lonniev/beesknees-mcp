@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { HeartHandshake, Coins, Trophy } from "lucide-react";
 import { Art } from "../art/svg.tsx";
 import { settlementHistory, type SettlementHistory } from "../lib/mcp";
+import { useT } from "../i18n/index.ts";
 
 /** Slow on purpose: settlements happen per match, not per second. */
 const REFRESH_MS = 60_000;
@@ -27,6 +28,7 @@ function short(npub: string): string {
 export default function Scoreboard() {
   const [data, setData] = useState<SettlementHistory | null>(null);
   const [reachable, setReachable] = useState(true);
+  const t = useT();
 
   useEffect(() => {
     let alive = true;
@@ -72,23 +74,23 @@ export default function Scoreboard() {
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-ink/90">
           <Art id="bee" size={16} rotate={-20} className="shrink-0" />
-          Every move you make feeds the pollinators
-          <span className="ml-1 font-normal text-ink/70">— 80% of every pot goes to them</span>
+          {t("scoreboard.feeds")}
+          <span className="ml-1 font-normal text-ink/70">{t("scoreboard.share")}</span>
         </span>
         <div className="flex items-center gap-1.5 text-ink/70">
           <Coins size={13} />
-          <span>raised</span>
+          <span>{t("scoreboard.raised")}</span>
           <span className="font-medium tabular-nums text-ink/95">{sats(raised)}</span>
-          <span className="text-ink/65">sats</span>
+          <span className="text-ink/65">{t("scoreboard.sats")}</span>
         </div>
       </div>
 
       <div className="flex min-w-0 flex-col items-end gap-1">
         <div className="flex items-center gap-1.5 text-ink/70">
           <HeartHandshake size={13} className="text-[var(--color-wax-ink)]" />
-          <span>to pollinators</span>
+          <span>{t("scoreboard.toPollinators")}</span>
           <span className="font-medium tabular-nums text-[var(--color-wax-ink)]">{sats(charity)}</span>
-          <span className="text-ink/65">sats</span>
+          <span className="text-ink/65">{t("scoreboard.sats")}</span>
         </div>
 
         {/* The three best bees in the hive, by ROUNDS WON.
@@ -111,7 +113,7 @@ export default function Scoreboard() {
                 <Art id="crown" size={13} tint={["#c9960c", "#8a8f98", "#b06a3b"][i]} className="-translate-y-px" />{" "}
                 <span className="font-mono text-[10px]">{short(row.npub)}</span>{" "}
                 <span className="text-ink/85">
-                  {row.wins} {row.wins === 1 ? "win" : "wins"}
+                  {t("scoreboard.wins", { count: row.wins })}
                 </span>
                 {row.sats > 0 && <span className="pl-1 text-ink/70">· {sats(row.sats)}</span>}
               </span>

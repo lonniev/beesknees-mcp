@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { LINK } from "../lib/ink";
 import { ExternalLink } from "lucide-react";
-import { PageControls, SortHeader, TableShell, useTimezone } from "@tollbooth-dpyc/web/react";
+import { PageControls, SortHeader, TableShell, Tx, useTimezone } from "@tollbooth-dpyc/web/react";
 import { formatDateTime } from "@tollbooth-dpyc/web";
 import { sats } from "../lib/figures";
 import { useBtcUsd, usd } from "../lib/btcUsd";
@@ -21,16 +21,17 @@ import type { LedgerSort } from "../lib/mcp";
 import {
   Money, Standings, StandingsHeading, useSettlements,
 } from "../components/Standings";
+import { useT, WORDS, type MessageKey } from "../i18n/index.ts";
 
 const PAGE = 25;
 
 /** The columns, in the order they are read, with the key the server sorts by. */
-const COLUMNS: { key: LedgerSort; label: string; right?: boolean }[] = [
-  { key: "match", label: "Match" },
-  { key: "raised", label: "Raised", right: true },
-  { key: "charity", label: "To charity", right: true },
-  { key: "winner", label: "To winner", right: true },
-  { key: "settled", label: "Settled" },
+const COLUMNS: { key: LedgerSort; label: MessageKey; right?: boolean }[] = [
+  { key: "match", label: "ledger.col.match" },
+  { key: "raised", label: "ledger.col.raised", right: true },
+  { key: "charity", label: "ledger.col.charity", right: true },
+  { key: "winner", label: "ledger.col.winner", right: true },
+  { key: "settled", label: "ledger.col.settled" },
 ];
 
 /**
@@ -59,6 +60,7 @@ export default function Ledger() {
   const { data, failed } = useSettlements(page, PAGE, sort, dir);
   const rate = useBtcUsd();
   const [, zone] = useTimezone();
+  const t = useT();
 
   const total = data?.total ?? 0;
 
@@ -72,7 +74,7 @@ export default function Ledger() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">
-        Funds Raised and Charity Payouts
+        {t("ledger.title")}
       </h1>
       <Beneficiary name={data?.beneficiary ?? ""} website={data?.charity?.website ?? ""} />
 
@@ -82,15 +84,15 @@ export default function Ledger() {
       <Quote rate={rate} />
 
       <div className="mt-9">
-        <StandingsHeading>Most won</StandingsHeading>
+        <StandingsHeading>{t("ledger.mostWon")}</StandingsHeading>
       </div>
       <div className="mt-3">
         <Standings data={data} failed={failed} />
       </div>
 
       <div className="mt-9 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-sm font-semibold text-ink/90">Every settled match</h2>
-        {total > 0 && <span className="text-xs text-ink/65">{sats(total)} settled</span>}
+        <h2 className="text-sm font-semibold text-ink/90">{t("ledger.every")}</h2>
+        {total > 0 && <span className="text-xs text-ink/65">{t("ledger.settledCount", { n: sats(total) })}</span>}
       </div>
 
       {data?.settlements?.length ? (
@@ -105,7 +107,7 @@ export default function Ledger() {
                   // and A first for the one column that is a name.
                   <SortHeader
                     key={c.key}
-                    label={c.label}
+                    label={t(c.label)}
                     col={c.key}
                     activeCol={sort}
                     dir={dir}
@@ -154,15 +156,12 @@ export default function Ledger() {
         </>
       ) : (
         <p className="mt-3 text-sm text-ink/65">
-          {failed ? "The hive did not answer." : "No match has been settled yet."}
+          {failed ? t("standings.noAnswer") : t("standings.none")}
         </p>
       )}
 
       <p className="mt-8 text-xs leading-relaxed text-ink/65">
-        A match's share accrues here and is paid to the charity in batches — a single round's share
-        is small enough that a network fee could exceed it, so settling each one would destroy the
-        thing it is meant to deliver. Each payment is recorded with its transaction id, which is
-        what makes this checkable by somebody who trusts nothing else on this page.
+        {t("ledger.batches")}
       </p>
     </div>
   );
@@ -193,11 +192,11 @@ function Sats({ n, rate, tone = "" }: { n: number; rate: number | null; tone?: s
  * on their own, and a page about charity money does not guess.
  */
 function Quote({ rate }: { rate: number | null }) {
+  const t = useT();
   if (rate === null) return null;
   return (
     <p className="mt-2 text-xs text-ink/60">
-      Dollar figures at ${rate.toLocaleString("en-US", { maximumFractionDigits: 0 })} per bitcoin,
-      quoted just now. Sats are what actually moved.
+      {t("ledger.quote", { rate: `$${rate.toLocaleString("en-US", { maximumFractionDigits: 0 })}` })}
     </p>
   );
 }
@@ -216,7 +215,7 @@ function Beneficiary({ name, website }: { name: string; website: string }) {
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/70">
       <span>
-        Beneficiary: <span className="text-ink/85">{name}</span>
+        <Tx ns={WORDS} k="ledger.beneficiary" vars={{ name }} components={{ name: <span className="text-ink/85" /> }} />
       </span>
       {website && (
         <a
