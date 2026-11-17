@@ -14,6 +14,8 @@ import { useEffect, useState } from "react";
 import { LINK } from "../lib/ink";
 import { ExternalLink } from "lucide-react";
 import { charity, type Charity } from "../lib/mcp";
+import { Tx } from "@tollbooth-dpyc/web/react";
+import { WORDS } from "../i18n/index.ts";
 
 /** The named charity, or null while unknown. Shared by every screen that says so. */
 export function useCharity(): Charity | null {
@@ -36,22 +38,20 @@ export default function CharityNote({ className = "" }: { className?: string }) 
 
   return (
     <p className={`text-xs leading-relaxed text-ink/65 ${className}`}>
-      80% of every pot goes to <span className="text-ink/80">{who.name}</span>
-      {who.website && (
-        <>
-          {" — "}
-          <a
-            href={who.website}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={LINK}
-          >
-            {who.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-            <ExternalLink size={11} />
-          </a>
-        </>
-      )}
-      .
+      <Tx
+        ns={WORDS}
+        k={who.website ? "charity.noteSite" : "charity.note"}
+        vars={{ name: who.name }}
+        components={{
+          name: <span className="text-ink/80" />,
+          site: (
+            <a href={who.website} target="_blank" rel="noreferrer noopener" className={LINK}>
+              {who.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              <ExternalLink size={11} />
+            </a>
+          ),
+        }}
+      />
     </p>
   );
 }

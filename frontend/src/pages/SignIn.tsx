@@ -14,13 +14,21 @@
 
 import { useLocation, useNavigate } from "react-router-dom";
 import Meadowscape from "../components/Meadowscape.tsx";
-import { NpubGate, useTour, type Session } from "@tollbooth-dpyc/web/react";
+import { LanguageChooser, NpubGate, useTour, type Session } from "@tollbooth-dpyc/web/react";
+import { useT } from "../i18n/index.ts";
 
-/** The site's own words above the sign-in card. */
-export const WELCOME = "A race to the queen. Five hives, twelve seats each, one winner a round, and a share of every round retained for charity.";
+/** The languages, under the sign-in card: a guest chooses before they have an account to keep it in. */
+export function Languages() {
+  return (
+    <div className="mx-auto mb-8 flex max-w-md justify-center px-4">
+      <LanguageChooser />
+    </div>
+  );
+}
 
 export default function SignIn({ session }: { session: Session }) {
   const nav = useNavigate();
+  const t = useT();
   const loc = useLocation();
   const nav_state = loc.state as { from?: string; generate?: boolean } | null;
   const back = nav_state?.from ?? "/profile";
@@ -31,7 +39,7 @@ export default function SignIn({ session }: { session: Session }) {
     <>
       <Meadowscape />
       <NpubGate
-        welcome={WELCOME}
+        welcome={t("signin.welcome")}
         notice={session.notice}
         startFresh={Boolean(nav_state?.generate)}
         onLogin={() => {
@@ -39,6 +47,7 @@ export default function SignIn({ session }: { session: Session }) {
           nav(back, { replace: true });
         }}
       />
+      <Languages />
     </>
   );
 }

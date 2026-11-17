@@ -20,17 +20,22 @@
  * here that destroys rather than travels, and it must never be a mis-tap.
  *
  * Pure: no React, no DOM, so it runs under `node --test`. The icon is a mark
- * id from `art/shapes.ts` — the button draws it.
+ * id from `art/shapes.ts` — the button draws it. The words are read from the
+ * catalog in the language on screen; `word` stays the English token "Fly" or
+ * "Crawl", which is how the two boards name the move between themselves.
  */
 
 import type { SymbolId } from "../art/shapes.ts";
+import { tr } from "../i18n/index.ts";
 
 export type Verb = "move" | "seal";
 
-export const VERBS: readonly { id: Verb; hint: string }[] = [
-  { id: "move", hint: "Travel — cut fresh comb where you must" },
-  { id: "seal", hint: "Bring down an open tunnel" },
-];
+export const VERBS: readonly Verb[] = ["move", "seal"];
+
+/** What a tactic is for, under the pointer. */
+export function verbHint(id: Verb): string {
+  return id === "move" ? tr("verbs.moveHint") : tr("verbs.sealHint");
+}
 
 /**
  * The motion's name, decided by where it ENDS rather than where it starts.
@@ -53,12 +58,14 @@ export function verbIcon(id: Verb, word: string): SymbolId {
 
 /** The tactic's name in teeny print under its icon: the move by the word it is called out there, the seal by the owner's word for it. */
 export function tacticLabel(id: Verb, word: string): string {
-  return id === "move" ? word.toLowerCase() : "mound";
+  if (id !== "move") return tr("verbs.tactic.mound");
+  return word === "Crawl" ? tr("verbs.tactic.crawl") : tr("verbs.tactic.fly");
 }
 
 /** The verb as the button's imperative. */
 export function verbLabel(id: Verb, word: string): string {
-  return id === "move" ? `${word}!` : "Fill!";
+  if (id !== "move") return tr("verbs.go.fill");
+  return word === "Crawl" ? tr("verbs.go.crawl") : tr("verbs.go.fly");
 }
 
 /** What the button shows: a mark and a word. */
@@ -87,14 +94,14 @@ export function readyLabel(id: Verb, word: string): ActionLabel {
  */
 export function activityLabel(action: string | null | undefined, word: string): ActionLabel {
   // A dig is the move verb cutting its way in — feet, not the wax cap.
-  if (action === "dig") return { icon: "crawl", text: "Digging…" };
-  if (action === "collapse") return { icon: "fill", text: "Sealing…" };
-  if (action === "fly") return word === "Crawl" ? { icon: "crawl", text: "Crawling…" } : { icon: "go", text: "Flying…" };
-  return { icon: "bee", text: "Resting…" };
+  if (action === "dig") return { icon: "crawl", text: tr("verbs.digging") };
+  if (action === "collapse") return { icon: "fill", text: tr("verbs.sealing") };
+  if (action === "fly") return word === "Crawl" ? { icon: "crawl", text: tr("verbs.crawling") } : { icon: "go", text: tr("verbs.flying") };
+  return { icon: "bee", text: tr("verbs.resting") };
 }
 
 /**
- * The word for the wait in the prompt beside the button.
+ * The word for the wait in the prompt beside the button, with the seconds left.
  *
  * It said "Resting" whatever the delay was for, which told the player their bee
  * was idle at the exact moment it was working hardest — eight seconds of it,
@@ -104,8 +111,8 @@ export function activityLabel(action: string | null | undefined, word: string): 
  * the same fact rather than a fiction: the bee is in the cell it is still busy
  * cutting its way through.
  */
-export function busyWord(action: string | null | undefined): string {
-  if (action === "dig") return "Digging";
-  if (action === "collapse") return "Sealing";
-  return "Resting";
+export function busyWord(action: string | null | undefined, seconds: string): string {
+  if (action === "dig") return tr("board.digging", { s: seconds });
+  if (action === "collapse") return tr("board.sealing", { s: seconds });
+  return tr("board.resting", { s: seconds });
 }

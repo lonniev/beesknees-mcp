@@ -9,13 +9,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BoardScreen from "./components/BoardScreen.tsx";
-import { VERBS, activityLabel, busyWord, moveWord, readyLabel, tacticLabel, verbIcon, type Verb } from "./game/verbs.ts";
+import { VERBS, activityLabel, busyWord, moveWord, readyLabel, tacticLabel, verbHint, verbIcon, type Verb } from "./game/verbs.ts";
 import { CRUISE_BEAT_MS, aimOver, shouldCruise } from "./game/aim.ts";
 import NextStep from "./components/NextStep.tsx";
 import { heldUp, routeToward, stepToward } from "./game/bots.ts";
 import type { Action } from "./game/rules.ts";
 import { COMB, OPEN, TICK_MS, legal, neighbors, ringOf } from "./game/rules.ts";
-import { isHot, queenName, queenOf, seated, youWon } from "./game/match.ts";
+import { isHot, seated, youWon } from "./game/match.ts";
+import { hiveName, queenOf, queenTitle } from "./lib/names.ts";
+import { useT } from "./i18n/index.ts";
 import { cellCentre } from "./lib/polar.ts";
 import { useSoloMatch } from "./lib/useMatch.ts";
 
@@ -37,6 +39,7 @@ import { useSoloMatch } from "./lib/useMatch.ts";
  */
 export default function App() {
   const { match, frame, you, cooldown, cooldownMs, submit, restart } = useSoloMatch();
+  const t = useT();
   const [focus, setFocus] = useState<number | null>(match.you?.hive ?? 0);
   const [verb, setVerb] = useState<Verb>("move");
   const [target, setTarget] = useState<number | null>(null);
@@ -176,13 +179,13 @@ export default function App() {
       return { action: null, why: "", word: fallback };
     const round = yourHive.round;
     const g = round.board.g;
-    if (target === null) return { action: null, why: "Tap the board to aim", word: fallback };
+    if (target === null) return { action: null, why: t("board.aim"), word: fallback };
 
     if (verb === "seal") {
       const r = ringOf(g, target);
-      if (r < 1 || r > g.R) return { action: null, why: "Only inside the hive", word: fallback };
+      if (r < 1 || r > g.R) return { action: null, why: t("board.insideOnly"), word: fallback };
       if (round.board.state[target] !== OPEN)
-        return { action: null, why: "Already solid", word: fallback };
+        return { action: null, why: t("board.solid"), word: fallback };
       return { action: { kind: "collapse", at: target }, why: "", word: fallback };
     }
 
@@ -193,7 +196,7 @@ export default function App() {
     const step = stepToward(round, you, target);
     const queueing = heldUp(round, you, target);
     if (!step || step.kind === "wait" || step.kind === "collapse")
-      return { action: null, why: "Held up — nothing gets you closer yet.", word: fallback };
+      return { action: null, why: t("board.heldUp"), word: fallback };
 
     // The word is named for where the step ENDS: into the hive is a crawl, out
     // of it is a flight, whichever side of the threshold the bee is standing on.
@@ -204,10 +207,10 @@ export default function App() {
     const action = { kind: solid ? "dig" : "fly", to: step.to } as Action;
     return {
       action,
-      why: queueing && you.phase === "return" ? `That door is taken — ${word.toLowerCase()} up beside it.` : "",
+      why: queueing && you.phase === "return" ? t(word === "Crawl" ? "board.doorTaken.crawl" : "board.doorTaken.fly") : "",
       word,
     };
-  }, [frame, inHive, match.state, target, verb, you, yourHive]);
+  }, [frame, inHive, match.state, target, verb, you, yourHive, t]);
 
   const act = useCallback(() => {
     if (!pending.action || !ready) return;
@@ -252,8 +255,8 @@ export default function App() {
     <BoardScreen
       hives={match.hives.map((h) => ({
         id: h.id,
-        name: h.name,
-        queen: queenOf(h),
+        name: hiveName(h.id),
+        queen: queenOf(h.id),
         board: h.round.board,
         bees: seated(h).map((b) => ({ id: b.id, cell: b.cell, phase: b.phase, digs: b.digs, seals: b.collapses })),
         hot: isHot(h),
@@ -262,7 +265,7 @@ export default function App() {
       onFocus={setFocus}
       yourHive={match.you?.hive ?? null}
       youId={match.you?.beeId ?? null}
-      tag="solo"
+      tag={t("board.solo")}
       elapsedSec={elapsed}
       onNewMatch={newMatch}
       frame={frame}
@@ -271,7 +274,7 @@ export default function App() {
       route={route}
       options={options}
       onTapCell={onTapCell}
-      verbs={VERBS.map(({ id, hint }) => ({ id, hint, icon: verbIcon(id, pending.word), label: tacticLabel(id, pending.word) }))}
+      verbs={VERBS.map((id) => ({ id, hint: verbHint(id), icon: verbIcon(id, pending.word), label: tacticLabel(id, pending.word) }))}
       verb={verb}
       onVerb={(v) => setVerb(v as Verb)}
       cruise={cruise}
@@ -280,10 +283,10 @@ export default function App() {
       prompt={
         !ready ? (
           <span className="text-[var(--color-you-ink)]">
-            {busyWord(you?.lastAction)} {(cooldownMs / 1000).toFixed(1)}s
+            {busyWord(you?.lastAction, (cooldownMs / 1000).toFixed(1))}
           </span>
         ) : pending.action?.kind === "dig" ? (
-          "Press to cut — eight seconds of digging, against one to crawl."
+          t("board.pressToCut")
         ) : (
           <NextStep
             phase={you?.phase}
@@ -304,15 +307,15 @@ export default function App() {
         match.state === "ended" && match.winner
           ? youWon(match)
             ? {
-                label: `Consort to ${queenName(match.hives[match.winner.hive])}`,
-                detail: `Hive ${match.hives[match.winner.hive].name} is yours — first bee home`,
+                label: t("board.consort", { queen: queenTitle(match.winner.hive) }),
+                detail: t("board.yours", { hive: hiveName(match.winner.hive) }),
                 yours: true,
                 hive: match.winner.hive,
                 beeId: match.winner.beeId,
               }
             : {
                 label: match.winner.label,
-                detail: `reached ${queenOf(match.hives[match.winner.hive])}`,
+                detail: t("board.reached", { queen: queenOf(match.winner.hive) }),
                 hive: match.winner.hive,
                 beeId: match.winner.beeId,
               }

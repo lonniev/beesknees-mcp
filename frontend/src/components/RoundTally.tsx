@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HeartHandshake, Trophy } from "lucide-react";
 import { MIN_REELS, reels, widthFor } from "../game/odometer.ts";
+import { useT, type Translate } from "../i18n/index.ts";
 
 export interface Pot {
   pot: number;
@@ -64,14 +65,12 @@ function Reels({ value, size }: { value: number; size: "big" | "small" }) {
 }
 
 /** The figure, for anything that reads rather than watches. */
-function spoken(p: Pot, charityName: string): string {
-  return (
-    `This round has raised ${p.pot} sats: ` +
-    `${p.charity} to ${charityName}, ${p.winner} to the winning bee.`
-  );
+function spoken(t: Translate, p: Pot, charityName: string): string {
+  return t("tally.spoken", { pot: p.pot, charity: p.charity, name: charityName, winner: p.winner });
 }
 
 export default function RoundTally({ pot, charity }: { pot: Pot | null; charity?: string }) {
+  const t = useT();
   // A round that has taken nothing still shows a till at zero — that is the
   // honest reading and a scoreboard at nil-nil is still a scoreboard. What
   // would be wrong is a figure nobody paid, so an ABSENT pot draws nothing.
@@ -80,29 +79,29 @@ export default function RoundTally({ pot, charity }: { pot: Pot | null; charity?
   const p = pot ?? last.current;
   if (!p) return null;
 
-  const who = charity || "the pollinators";
+  const who = charity || t("tally.pollinators");
   return (
     <div
       className="rounded-xl border border-ink/14 bg-ink/4 px-2.5 py-2 text-ink/90"
       role="status"
       aria-live="polite"
-      aria-label={spoken(p, who)}
+      aria-label={spoken(t, p, who)}
     >
-      <div className="text-[10px] uppercase tracking-wide text-ink/60">This round</div>
+      <div className="text-[10px] uppercase tracking-wide text-ink/60">{t("tally.thisRound")}</div>
       <div className="flex items-baseline gap-1">
         <Reels value={p.pot} size="big" />
-        <span className="text-[11px] text-ink/60">sats</span>
+        <span className="text-[11px] text-ink/60">{t("tally.sats")}</span>
       </div>
       <div className="mt-1.5 space-y-1 border-t border-ink/10 pt-1.5">
-        <div className="flex items-center gap-1.5" title={`To ${who}`}>
+        <div className="flex items-center gap-1.5" title={t("tally.to", { name: who })}>
           <HeartHandshake size={12} className="shrink-0 text-[var(--color-wax-ink)]" />
           <Reels value={p.charity} size="small" />
           <span className="truncate text-[10px] text-ink/60">{who}</span>
         </div>
-        <div className="flex items-center gap-1.5" title="To the bee that reaches a queen first">
+        <div className="flex items-center gap-1.5" title={t("tally.toWinner")}>
           <Trophy size={12} className="shrink-0 text-[var(--color-you-ink)]" />
           <Reels value={p.winner} size="small" />
-          <span className="text-[10px] text-ink/60">winner</span>
+          <span className="text-[10px] text-ink/60">{t("tally.winner")}</span>
         </div>
       </div>
     </div>

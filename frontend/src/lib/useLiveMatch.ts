@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stillLeaving, type Board } from "./leaving";
+import { tr } from "../i18n/index.ts";
 
 export interface LiveBee {
   hive: number;
@@ -169,7 +170,7 @@ export function useLiveMatch(call: Caller, enabled = true, me = ""): LiveApi {
       }
       if (!alive.current || !res) return 1500;
       if (res.success === false) {
-        setError("The hive did not answer");
+        setError(tr("board.noAnswer"));
         return 3000;
       }
       setError("");

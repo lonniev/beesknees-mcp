@@ -17,6 +17,7 @@ import { PageBees } from "./components/Meadow.tsx";
 import Meadowscape from "./components/Meadowscape.tsx";
 import { useOperator } from "./lib/useOperator";
 import Play from "./pages/Play.tsx";
+import { useT, type MessageKey } from "./i18n/index.ts";
 
 // Each page past the game is its own chunk, fetched the first time it opens.
 const About = lazy(() => import("./pages/About.tsx"));
@@ -56,12 +57,12 @@ const MD = {
 /// the pollinator argument has to live at a URL that can be listed in
 /// `sitemap.xml` and named in `llms.txt` rather than only at whatever `/`
 /// happens to render this week.
-const TABS = [
-  { to: "/", label: "Play!", icon: MD.play },
-  { to: "/why", label: "Why?", icon: MD.why },
-  { to: "/about", label: "About?", icon: MD.about },
-  { to: "/ledger", label: "Ledger", icon: MD.ledger },
-  { to: "/prices", label: "Prices", icon: MD.prices },
+const TABS: { to: string; label: MessageKey; icon: string }[] = [
+  { to: "/", label: "app.tab.play", icon: MD.play },
+  { to: "/why", label: "app.tab.why", icon: MD.why },
+  { to: "/about", label: "app.tab.about", icon: MD.about },
+  { to: "/ledger", label: "app.tab.ledger", icon: MD.ledger },
+  { to: "/prices", label: "app.tab.prices", icon: MD.prices },
 ];
 
 function Glyph({ d }: { d: string }) {
@@ -79,6 +80,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function App() {
   const session = useSession();
+  const t = useT();
   const path = useLocation().pathname;
   // `/play` is a CHOICE before it is a board — two cards and a lot of empty
   // meadow — and excluding the whole route left the one screen that most looks
@@ -113,26 +115,26 @@ export default function App() {
           * the bar breathe on a tablet, where they used to sit in one corner
           * with two thirds of the width empty beside them. */}
         <div className="flex min-w-0 flex-1 items-center justify-evenly gap-1">
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.to === "/"}
-              title={t.label}
-              aria-label={t.label}
+              key={tab.to}
+              to={tab.to}
+              end={tab.to === "/"}
+              title={t(tab.label)}
+              aria-label={t(tab.label)}
               className={tabClass}
             >
-              <Glyph d={t.icon} />
+              <Glyph d={tab.icon} />
               {/* A help circle and an info circle are a poor pair to tell
                 * apart at 18px, so both keep `title` and `aria-label` when the
                 * word is gone. */}
-              <span className="hidden sm:inline">{t.label}</span>
+              <span className="hidden sm:inline">{t(tab.label)}</span>
             </NavLink>
           ))}
           {isOperator && (
-            <NavLink to="/operator" title="Books" aria-label="Books" className={tabClass}>
+            <NavLink to="/operator" title={t("app.tab.books")} aria-label={t("app.tab.books")} className={tabClass}>
               <Glyph d={MD.books} />
-              <span className="hidden sm:inline">Books</span>
+              <span className="hidden sm:inline">{t("app.tab.books")}</span>
             </NavLink>
           )}
         </div>
@@ -140,13 +142,13 @@ export default function App() {
         {/* Your own face, or the way to get one. Deliberately the last thing on
          * the bar and never a wall in front of the others. */}
         {session.signedIn ? (
-          <NavLink to="/profile" title="You" className="ml-1 rounded-lg p-0.5 hover:bg-ink/7">
+          <NavLink to="/profile" title={t("app.you")} className="ml-1 rounded-lg p-0.5 hover:bg-ink/7">
             <Avatar value={avatarFor(session.npub)} size={26} />
           </NavLink>
         ) : (
-          <NavLink to="/signin" title="Sign in" aria-label="Sign in" className={tabClass}>
+          <NavLink to="/signin" title={t("app.signIn")} aria-label={t("app.signIn")} className={tabClass}>
             <Glyph d={MD.signin} />
-            <span className="hidden sm:inline">Sign in</span>
+            <span className="hidden sm:inline">{t("app.signIn")}</span>
           </NavLink>
         )}
       </nav>
@@ -157,10 +159,10 @@ export default function App() {
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--color-wax)]/40 bg-[var(--color-wax)]/12 px-3 py-1.5 text-xs text-[var(--color-wax-ink)]">
           <span className="flex-1">{session.notice}</span>
           <NavLink to="/signin" className="font-semibold underline">
-            Sign in
+            {t("app.signIn")}
           </NavLink>
           <button onClick={session.dismissNotice} className="text-[var(--color-wax-ink)]/70 hover:text-[var(--color-wax-ink)]">
-            Dismiss
+            {t("app.dismiss")}
           </button>
         </div>
       )}
@@ -176,7 +178,7 @@ export default function App() {
       {!onBoard && <PageBees />}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Suspense fallback={<p className="px-4 py-6 text-sm text-ink/60">Loading…</p>}>
+        <Suspense fallback={<p className="px-4 py-6 text-sm text-ink/60">{t("app.loading")}</p>}>
         <Routes>
           <Route path="/" element={<Play />} />
           {/* Kept alongside `/`, not replaced by it. It is in `sitemap.xml`,

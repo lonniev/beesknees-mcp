@@ -9,8 +9,10 @@
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { tour } from "../lib/tour.ts";
+import { useT } from "../i18n/index.ts";
 
 export default function HoneyChiclet() {
+  const t = useT();
   return (
     <Link
       to="/honey"
@@ -22,11 +24,11 @@ export default function HoneyChiclet() {
       </span>
       <span className="min-w-0">
         <span className="flex items-center gap-1 text-[13px] font-medium text-ink/95">
-          Honey near you
+          {t("honeyChiclet.title")}
           <MapPin size={11} className="text-ink/65 group-hover:text-ink/78" />
         </span>
         <span className="mt-0.5 block text-[11px] leading-snug text-ink/70">
-          Three sellers close by, each with an address and a website that answers.
+          {t("honeyChiclet.note")}
         </span>
       </span>
     </Link>

@@ -6,7 +6,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { lintTours } from "@tollbooth-dpyc/web";
-import { TARGETS, TOUR_PAGES, TOURS } from "./tour.ts";
+import { TARGETS, TOUR_PAGES, tours } from "./tour.ts";
+
+const TOURS = tours();
 
 const SRC = new URL("..", import.meta.url).pathname;
 

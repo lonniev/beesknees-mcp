@@ -6,6 +6,8 @@
  * place box is still there to type into.
  */
 
+import { tr } from "../i18n/index.ts";
+
 /** Country codes whose road signs read in miles. */
 const MILES = new Set(["US", "GB", "LR", "MM"]);
 
@@ -63,12 +65,12 @@ export function nearFromPosition(lat: number, lon: number): string {
 export function locateMe(): Promise<string> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("This browser cannot share a position."));
+      reject(new Error(tr("honey.cannotShare")));
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve(nearFromPosition(p.coords.latitude, p.coords.longitude)),
-      (e) => reject(new Error(e.code === e.PERMISSION_DENIED ? "Position not shared." : "Position not found.")),
+      (e) => reject(new Error(e.code === e.PERMISSION_DENIED ? tr("honey.notShared") : tr("honey.notFound"))),
       { timeout: 10_000, maximumAge: 300_000 },
     );
   });

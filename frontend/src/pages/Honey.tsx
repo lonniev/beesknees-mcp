@@ -23,14 +23,14 @@ import { distanceLabel, locateMe, sellerGlyph, sourceBadges, usesMiles } from ".
 import { useTour } from "@tollbooth-dpyc/web/react";
 import { tour } from "../lib/tour.ts";
 import { Art } from "../art/svg.tsx";
+import { useT } from "../i18n/index.ts";
 
 const TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_CREDIT = "© OpenStreetMap contributors";
-/** Above the sign-in card, for somebody who arrived here first. */
-const WELCOME = "Thank you for playing for the pollinators.";
 
 export default function Honey({ session }: { session: Session }) {
   useTour("honey", { ready: session.signedIn });
+  const t = useT();
   const [near, setNear] = useState("");
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<HoneyAnswer | null>(null);
@@ -77,7 +77,7 @@ export default function Honey({ session }: { session: Session }) {
       g.clearLayers();
       const you = L.latLng(origin.lat, origin.lon);
       L.circleMarker(you, { radius: 7, color: "#FAFAF3", weight: 2, fillColor: "#3f6212", fillOpacity: 1 })
-        .bindTooltip("You", { direction: "top", offset: [0, -8] })
+        .bindTooltip(t("honey.you"), { direction: "top", offset: [0, -8] })
         .addTo(g);
       const points = [you];
       found.forEach((s, i) => {
@@ -100,7 +100,7 @@ export default function Honey({ session }: { session: Session }) {
       if (found.length) m.fitBounds(L.latLngBounds(points), { padding: [28, 28], maxZoom: 13 });
       else m.setView(you, 9);
     });
-  }, [answer]);
+  }, [answer, t]);
 
   // ── Asking ─────────────────────────────────────────────────────────────
   async function ask(where: string) {
@@ -112,7 +112,7 @@ export default function Honey({ session }: { session: Session }) {
       setAnswer(await findHoney(q));
     } catch (e) {
       setAnswer(null);
-      setNote(e instanceof Error ? e.message : "The hive did not answer.");
+      setNote(e instanceof Error ? e.message : t("honey.noAnswer"));
     } finally {
       setBusy(false);
     }
@@ -130,7 +130,7 @@ export default function Honey({ session }: { session: Session }) {
       setNear(at);
       await ask(at);
     } catch (e) {
-      setNote(e instanceof Error ? e.message : "Position not shared.");
+      setNote(e instanceof Error ? e.message : t("honey.notShared"));
     }
   }
 
@@ -138,7 +138,8 @@ export default function Honey({ session }: { session: Session }) {
   // than reached by redirect, so the page keeps its place and a server render
   // of it shows a door and not a blank.
   if (!session.signedIn) {
-    return <NpubGate welcome={WELCOME} notice={session.notice} onLogin={() => session.refresh()} />;
+    // Above the sign-in card, for somebody who arrived here first.
+    return <NpubGate welcome={t("honey.welcome")} notice={session.notice} onLogin={() => session.refresh()} />;
   }
 
   const sellers = answer?.success ? (answer.sellers ?? []) : [];
@@ -148,15 +149,13 @@ export default function Honey({ session }: { session: Session }) {
     <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
       <header className="flex flex-col gap-2">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Art id="bee" size={26} rotate={-20} /> Thank you for playing for the pollinators
+          <Art id="bee" size={26} rotate={-20} /> {t("honey.title")}
         </h1>
         <p className="text-[15px] leading-relaxed text-ink/85">
-          Every round of The Bee's Knees supports the bees that pollinate our gardens, orchards and
-          farms. And here's to you for enjoying honey, the sweetest thing they make.
+          {t("honey.p1")}
         </p>
         <p className="text-[15px] leading-relaxed text-ink/85">
-          Find beekeepers and stores near you that sell honey, beeswax and other bee products: type a
-          town or postal code, or share your position.
+          {t("honey.p2")}
         </p>
       </header>
 
@@ -165,8 +164,8 @@ export default function Honey({ session }: { session: Session }) {
           type="button"
           onClick={onLocate}
           disabled={busy}
-          aria-label="Use my position"
-          title="Use my position"
+          aria-label={t("honey.locate")}
+          title={t("honey.locate")}
           {...tour("honey.locate")}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/14 text-ink/78 hover:bg-ink/4 disabled:opacity-40"
         >
@@ -175,8 +174,8 @@ export default function Honey({ session }: { session: Session }) {
         <input
           value={near}
           onChange={(e) => setNear(e.target.value)}
-          placeholder="Town, postal code, or lat,lon"
-          aria-label="Where"
+          placeholder={t("honey.placeholder")}
+          aria-label={t("honey.where")}
           {...tour("honey.where")}
           autoComplete="off"
           maxLength={120}
@@ -185,8 +184,8 @@ export default function Honey({ session }: { session: Session }) {
         <button
           type="submit"
           disabled={busy || !near.trim()}
-          aria-label="Find honey"
-          title="Find honey"
+          aria-label={t("honey.find")}
+          title={t("honey.find")}
           {...tour("honey.find")}
           className="bk-act flex h-11 w-11 shrink-0 items-center justify-center rounded-xl disabled:opacity-40"
         >
@@ -203,7 +202,7 @@ export default function Honey({ session }: { session: Session }) {
         <div ref={host} className="h-full w-full bg-[var(--color-far)]" />
         {busy && (
           <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-sky/50">
-            <span className="animate-pulse text-3xl" aria-label="Searching">🐝</span>
+            <span className="animate-pulse text-3xl" aria-label={t("honey.searching")}>🐝</span>
           </div>
         )}
       </div>
@@ -226,7 +225,7 @@ export default function Honey({ session }: { session: Session }) {
                   </span>
                 </span>
                 {s.address && <span className="mt-0.5 block text-sm text-ink/78">{s.address}</span>}
-                <span className="mt-1 flex flex-wrap gap-1" aria-label="Listed by">
+                <span className="mt-1 flex flex-wrap gap-1" aria-label={t("honey.listedBy")}>
                   {sourceBadges(s.sources).map((b) => (
                     <span
                       key={b}
@@ -244,7 +243,7 @@ export default function Honey({ session }: { session: Session }) {
                       rel="noreferrer noopener"
                       className="flex items-center gap-1 text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4"
                     >
-                      Website <ExternalLink size={11} />
+                      {t("honey.website")} <ExternalLink size={11} />
                     </a>
                   )}
                   {s.phone && (
@@ -255,7 +254,7 @@ export default function Honey({ session }: { session: Session }) {
                 </span>
                 {s.verify.length > 0 && (
                   <span className="mt-1 block text-xs text-[var(--color-wax-ink)]">
-                    Check first: {s.verify.join("; ")}
+                    {t("honey.checkFirst", { what: s.verify.join("; ") })}
                   </span>
                 )}
               </span>

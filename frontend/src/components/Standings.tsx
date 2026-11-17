@@ -19,6 +19,7 @@ import type { ReactNode } from "react";
 import { Coins, HeartHandshake, Trophy } from "lucide-react";
 import { sats, shortNpub } from "../lib/figures";
 import { settlementHistory, type LedgerSort, type SettlementHistory } from "../lib/mcp";
+import { useT } from "../i18n/index.ts";
 
 /** The public receipt, read once by whoever needs it. */
 export function useSettlements(
@@ -79,20 +80,21 @@ export function Money({ data, btcUsd = null }: {
   // `data.settlements`, which was right while the browser was sent every row
   // and became a false headline the moment the ledger was paged — and had
   // already been wrong for anybody past the fiftieth settled match.
+  const t = useT();
   const raised = data?.raised_sats ?? 0;
   const owed = data?.accrued_sats ?? 0;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Stat
         icon={<Coins size={16} />}
-        label="Raised across all matches"
-        value={`${sats(raised)} sats`}
+        label={t("standings.raised")}
+        value={t("standings.sats", { n: sats(raised) })}
         aside={usd(raised, btcUsd)}
       />
       <Stat
         icon={<HeartHandshake size={16} />}
-        label="Waiting to be paid to the charity"
-        value={`${sats(owed)} sats`}
+        label={t("standings.owed")}
+        value={t("standings.sats", { n: sats(owed) })}
         aside={usd(owed, btcUsd)}
       />
     </div>
@@ -113,13 +115,14 @@ export function Standings({ data, failed, limit, you = "" }: {
   limit?: number;
   you?: string;
 }) {
+  const t = useT();
   const rows = data?.leaderboard ?? [];
   const shown = limit ? rows.slice(0, limit) : rows;
 
   if (!shown.length) {
     return (
       <p className="text-sm text-ink/65">
-        {failed ? "The hive did not answer." : "No match has been settled yet."}
+        {failed ? t("standings.noAnswer") : t("standings.none")}
       </p>
     );
   }
@@ -137,7 +140,7 @@ export function Standings({ data, failed, limit, you = "" }: {
           >
             <span className="w-5 tabular-nums text-ink/65">{i + 1}</span>
             <span className="flex-1 truncate font-mono text-[12px] text-ink/80">
-              {mine ? "you" : shortNpub(row.npub)}
+              {mine ? t("standings.you") : shortNpub(row.npub)}
             </span>
             <span className="text-ink/65">{row.wins}×</span>
             <span className="tabular-nums font-medium">{sats(row.sats)}</span>

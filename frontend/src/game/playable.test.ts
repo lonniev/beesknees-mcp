@@ -16,6 +16,7 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { LANGUAGES } from "@tollbooth-dpyc/web";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -58,18 +59,20 @@ test("skill still beats a coin, on the rules as shipped", () => {
   );
 });
 
-test("the figures the About page quotes are the ones the rules recorded", () => {
+test("the figures the About page quotes are the ones the rules recorded", async () => {
   // Two of the page's claims come from measurements written down beside the
   // rules they caused. Quoting a number into prose is how it goes stale, so
-  // the page is checked against the source rather than against my memory of it.
+  // the page is checked against the source rather than against my memory of it
+  // — in every language, each writing the number its own way ("1 218", "52,6 %").
   const rules = readFileSync(fileURLToPath(new URL("./rules.ts", import.meta.url)), "utf8");
-  const about = readFileSync(
-    fileURLToPath(new URL("../pages/About.tsx", import.meta.url)),
-    "utf8",
-  );
 
-  for (const figure of ["1,218", "52.6%", "80%"]) {
-    assert.ok(rules.includes(figure), `${figure} is no longer recorded in rules.ts`);
-    assert.ok(about.includes(figure), `About.tsx quotes a figure rules.ts no longer records`);
+  for (const { code } of LANGUAGES) {
+    const words: Record<string, string> = (await import(`../i18n/${code}.ts`)).default;
+    const about = Object.entries(words).filter(([k]) => k.startsWith("about.")).map(([, v]) => v).join("\n");
+    for (const figure of ["1,218", "52.6%", "80%"]) {
+      assert.ok(rules.includes(figure), `${figure} is no longer recorded in rules.ts`);
+      const written = new RegExp(figure.replace(/[,.]/g, "[,.\\s\u00a0\u202f]?").replace("%", "\\s?%"));
+      assert.match(about, written, `${code}: the About page no longer quotes ${figure}, which rules.ts records`);
+    }
   }
 });

@@ -12,7 +12,7 @@
  * of eight, and the race did not begin when it said it would.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Share2, Users, Zap } from "lucide-react";
 import CharityNote, { useCharity } from "./CharityNote";
@@ -23,13 +23,14 @@ import Elsewhere from "./Elsewhere";
 import Skep from "./Skep";
 import Meadowscape from "./Meadowscape.tsx";
 import { PageBees } from "./Meadow.tsx";
-import { HIVE_NAMES } from "../game/match.ts";
+import { hiveName } from "../lib/names.ts";
 import FirstTime from "./FirstTime.tsx";
 import { checkNow, joinMatch } from "../lib/mcp";
 import type { LiveState } from "../lib/useLiveMatch.ts";
 import type { Session } from "@tollbooth-dpyc/web/react";
 import { QuoteScroller } from "@tollbooth-dpyc/web/react";
-import { QUOTES } from "../lib/quotes.ts";
+import { quotes } from "../lib/quotes.ts";
+import { useT } from "../i18n/index.ts";
 import { quoteStyles } from "../lib/quoteStyles.ts";
 import { Art } from "../art/svg.tsx";
 import { useTour } from "@tollbooth-dpyc/web/react";
@@ -64,6 +65,8 @@ export default function Lobby({
   // Free, and the same read the ledger page makes. A player stuck in a
   // lobby should not have to leave it to find out what the wait is for.
   const { data: money, failed: moneyFailed } = useSettlements(0, 10);
+  const t = useT();
+  const poetry = useMemo(() => quotes(t), [t]);
 
   useEffect(() => {
     const t = setInterval(() => setWaited((s) => s + 1), 1000);
@@ -115,9 +118,7 @@ export default function Lobby({
    */
   async function share() {
     const url = `${window.location.origin}/play`;
-    const text =
-      "I'm waiting on a hive in The Bee's Knees — come play, " +
-      `80% of the pot goes to ${who?.name ?? "the pollinators"}.`;
+    const text = t("lobby.shareText", { name: who?.name ?? t("lobby.pollinators") });
     try {
       if (navigator.share) {
         await navigator.share({ title: "The Bee's Knees", text, url });
@@ -189,15 +190,15 @@ export default function Lobby({
         * huddled in the middle third with the screen empty on both sides. */}
       <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10 text-center sm:max-w-3xl sm:gap-8 sm:py-12">
       <div>
-        <div className="text-sm text-ink/70">The hive is filling</div>
+        <div className="text-sm text-ink/70">{t("lobby.filling")}</div>
         <div className="mt-2 flex items-baseline justify-center gap-2">
           <span className="text-5xl font-semibold tabular-nums">{fullest}</span>
           <span className="text-2xl text-ink/65">/ {QUORUM}</span>
         </div>
         <div className="mt-1 text-sm text-ink/78">
           {needed === 0
-            ? "Quorum reached — the round is about to start."
-            : `${needed} more ${needed === 1 ? "bee" : "bees"} and the race begins.`}
+            ? t("lobby.quorum")
+            : t("lobby.needed", { count: needed })}
         </div>
       </div>
 
@@ -221,7 +222,7 @@ export default function Lobby({
                 mine?.hive === h ? "text-[var(--color-you-ink)]" : "text-ink/70"
               }`}
             >
-              {HIVE_NAMES[h]}
+              {hiveName(h)}
             </span>
             <div className="flex h-28 w-9 flex-col-reverse items-center gap-[1px] rounded-md bg-ink/6 p-[3px] sm:h-32 sm:w-11">
               {Array.from({ length: QUORUM }, (_, i) =>
@@ -240,7 +241,7 @@ export default function Lobby({
                     }`}
                     // Its own rhythm. Shared, they read as one machine.
                     style={{ animationDelay: `${((i * 137 + h * 61) % 900) / 1000}s` }}
-                    title={isMine(h, i) ? "your bee" : mine?.hive === h ? "your hive" : undefined}
+                    title={isMine(h, i) ? t("lobby.yourBee") : mine?.hive === h ? t("lobby.yourHive") : undefined}
                   >
                     {/* The same halo the board draws around your bee: a soft
                         disc of `--color-you` breathing underneath it, and a
@@ -278,16 +279,14 @@ export default function Lobby({
         <div className="flex flex-col gap-2">
           <div className="text-sm text-ink/70">
             <Users size={14} className="mr-1 inline" />
-            Your bee has a seat. Waiting {Math.floor(waited / 60)}:
-            {String(waited % 60).padStart(2, "0")}
+            {t("lobby.seated", { time: `${Math.floor(waited / 60)}:${String(waited % 60).padStart(2, "0")}` })}
           </div>
           {/* Said once they are actually seated, because until then there is
               nothing to come back to. The wait is minutes and nobody should
               feel held here — but the race starts without them, so the leaving
               and the returning have to be said in the same breath. */}
           <p className="mx-auto max-w-md text-xs leading-relaxed text-ink/65">
-            You can leave this page while waiting but make sure to get back
-            before the game begins.
+            {t("lobby.leave")}
           </p>
         </div>
       ) : (
@@ -297,7 +296,7 @@ export default function Lobby({
           {...tour("lobby.fund")}
           className="mx-auto flex items-center gap-2 rounded-xl bg-[var(--color-you)] px-6 py-3 font-semibold text-black disabled:opacity-40"
         >
-          <Zap size={16} /> {busy ? "Funding your bee…" : "Fund a Bee"}
+          <Zap size={16} /> {busy ? t("lobby.funding") : t("lobby.fund")}
         </button>
       )}
 
@@ -319,7 +318,7 @@ export default function Lobby({
         className="mx-auto flex items-center gap-2 rounded-xl border border-ink/20 px-4 py-2.5 text-sm text-ink/85 hover:bg-ink/4"
       >
         {shared ? <Check size={15} className="text-[var(--color-you-ink)]" /> : <Share2 size={15} />}
-        {shared ? "Link copied — send it to a friend" : "Share it — bring a friend to the race"}
+        {shared ? t("lobby.copied") : t("lobby.share")}
       </button>
 
       {/* What the wait is FOR.
@@ -337,7 +336,7 @@ export default function Lobby({
       <div className="flex flex-col gap-3 rounded-2xl bg-[var(--color-sky)]/92 p-4 text-left">
         <Money data={money} />
         <CharityNote className="text-center" />
-        <StandingsHeading>Most won</StandingsHeading>
+        <StandingsHeading>{t("lobby.mostWon")}</StandingsHeading>
         <Standings data={money} failed={moneyFailed} limit={5} you={session.npub} />
       </div>
 
@@ -345,7 +344,7 @@ export default function Lobby({
         * controls, and a bare number counting to eight is a frozen "Loading…"
         * wearing a different hat. This game also asks people to spend money on
         * pollinators, and this minute is the one they are certain to read. */}
-      <QuoteScroller quotes={QUOTES} intervalMs={7000} classNames={quoteStyles} />
+      <QuoteScroller quotes={poetry} intervalMs={7000} classNames={quoteStyles} />
 
       {/* Somewhere to go, for the one screen where a visitor has nothing to do
         * and is certain to read something. */}
@@ -353,9 +352,7 @@ export default function Lobby({
 
 
       <p className="text-xs leading-relaxed text-ink/65">
-        Nothing is spent while you wait — a seat costs a fare, and the motions cost
-        theirs only once the race is on. Every hive races its own board; the first
-        bee to any queen ends the round.
+        {t("lobby.nothingSpent")}
       </p>
       </div>
     </>

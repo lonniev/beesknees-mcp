@@ -21,6 +21,8 @@
 import { useEffect, useRef } from "react";
 import { ExternalLink, KeyRound, X, Zap } from "lucide-react";
 import { LINK } from "../lib/ink";
+import { Tx } from "@tollbooth-dpyc/web/react";
+import { useT, WORDS, type MessageKey } from "../i18n/index.ts";
 
 /**
  * Three starting points, different in kind on purpose, easiest first.
@@ -31,21 +33,21 @@ import { LINK } from "../lib/ink";
  * never held bitcoin, and the other two are there for the person who reads the
  * first note and decides they would rather hold their own keys.
  */
-const WALLETS: { name: string; url: string; note: string }[] = [
+const WALLETS: { name: string; url: string; note: MessageKey }[] = [
   {
     name: "Wallet of Satoshi",
     url: "https://www.walletofsatoshi.com/",
-    note: "The simplest one to start with — install it, top it up, done.",
+    note: "firstTime.wallet.wos",
   },
   {
     name: "Phoenix",
     url: "https://phoenix.acinq.co/",
-    note: "Holds its own keys, so the money is yours rather than an account balance.",
+    note: "firstTime.wallet.phoenix",
   },
   {
     name: "Blue Wallet",
     url: "https://bluewallet.io/",
-    note: "Open source, and the code can be read by anybody who wants to.",
+    note: "firstTime.wallet.blue",
   },
 ];
 
@@ -61,6 +63,7 @@ export default function FirstTime({
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   // Escape closes, and the panel takes focus so a keyboard reader lands inside
   // the thing that just opened rather than behind it.
@@ -89,11 +92,11 @@ export default function FirstTime({
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="first-time-title" className="text-lg font-semibold">
-            Two things, and both are free to set up
+            {t("firstTime.title")}
           </h2>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("firstTime.close")}
             className="-m-1 rounded-lg p-1 text-ink/60 hover:bg-ink/7"
           >
             <X size={18} />
@@ -101,20 +104,16 @@ export default function FirstTime({
         </div>
 
         <p className="mt-1 text-[13px] text-ink/70">
-          You do not need either of them to look around — Practice is free and always will be.
+          {t("firstTime.intro")}
         </p>
 
         {/* ── 1. The money ─────────────────────────────────────────── */}
         <div className="mt-5 flex items-center gap-2">
           <Zap size={16} className="text-[var(--color-wax-ink)]" />
-          <h3 className="text-sm font-semibold">A Lightning wallet</h3>
+          <h3 className="text-sm font-semibold">{t("firstTime.wallet.title")}</h3>
         </div>
         <p className="mt-1.5 text-[14px] leading-relaxed text-ink/85">
-          A move in this game costs a fraction of a penny. Ordinary bitcoin cannot send an amount
-          that small — the fee would be bigger than the payment. <b>Lightning</b> is a faster layer
-          on top of bitcoin built exactly for this, and a wallet is just an app on your phone. You
-          put a few pounds or dollars in once, and it pays out in tiny pieces without asking you
-          each time.
+          <Tx ns={WORDS} k="firstTime.wallet.body" components={{ b: <b /> }} />
         </p>
         <ul className="mt-3 space-y-2">
           {WALLETS.map((w) => (
@@ -123,30 +122,25 @@ export default function FirstTime({
                 {w.name}
                 <ExternalLink size={12} />
               </a>
-              <span className="ml-2 text-ink/70">{w.note}</span>
+              <span className="ml-2 text-ink/70">{t(w.note)}</span>
             </li>
           ))}
         </ul>
         <p className="mt-2 text-[12px] text-ink/60">
-          Easiest first. This service takes nothing from any of them, any Lightning wallet will do,
-          and which ones are available where you live is worth a look before you install one.
+          {t("firstTime.wallet.note")}
         </p>
 
         {/* ── 2. The name ──────────────────────────────────────────── */}
         <div className="mt-6 flex items-center gap-2">
           <KeyRound size={16} className="text-[var(--color-wax-ink)]" />
-          <h3 className="text-sm font-semibold">A Nostr key — your name here</h3>
+          <h3 className="text-sm font-semibold">{t("firstTime.key.title")}</h3>
         </div>
         <p className="mt-1.5 text-[14px] leading-relaxed text-ink/85">
-          There is no email address, no password and no account to be approved for. Your name is a{" "}
-          <b>key</b> you make yourself: a public half you can hand out, and a private half that
-          never leaves your device. Nobody issues it and nobody can take it away — and the same key
-          works across every service on this network, so you make it once.
+          <Tx ns={WORDS} k="firstTime.key.body" components={{ b: <b /> }} />
         </p>
 
         <p className="mt-4 text-[12px] leading-relaxed text-ink/60">
-          A key made here is generated in your browser and stays there. Save it somewhere safe —
-          it is the only copy, and there is nobody who can send you a new one.
+          {t("firstTime.key.note")}
         </p>
 
         {/* ONE sticky block, and the buttons stay in a row inside it.
@@ -161,13 +155,13 @@ export default function FirstTime({
             onClick={onGenerate}
             className="flex-1 rounded-xl bg-[var(--color-you)] px-3 py-3 text-[15px] font-semibold text-black"
           >
-            Make me a key
+            {t("firstTime.make")}
           </button>
           <button
             onClick={onExisting}
             className="flex-1 rounded-xl border border-ink/20 px-3 py-3 text-[15px] text-ink/85 hover:bg-ink/4"
           >
-            I already have one
+            {t("firstTime.have")}
           </button>
         </div>
 
