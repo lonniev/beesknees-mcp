@@ -146,7 +146,7 @@ export default function Honey({ session }: { session: Session }) {
   const refusal = answer && !answer.success ? answer.error : "";
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
+    <div className="mx-auto flex max-w-[90rem] flex-col gap-4 px-4 py-6">
       <header className="flex flex-col gap-2">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Art id="bee" size={26} rotate={-20} /> {t("honey.title")}

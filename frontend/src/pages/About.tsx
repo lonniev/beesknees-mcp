@@ -50,7 +50,7 @@ export default function About() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 leading-relaxed">
+    <div className="mx-auto max-w-[90rem] px-5 py-8 leading-relaxed">
       <h1 className="text-2xl font-semibold tracking-tight">{t("about.title")}</h1>
 
       <P

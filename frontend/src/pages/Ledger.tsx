@@ -72,7 +72,7 @@ export default function Ledger() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8">
+    <div className="mx-auto max-w-[90rem] px-5 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">
         {t("ledger.title")}
       </h1>

@@ -102,7 +102,7 @@ export default function Play() {
         />
       )}
 
-      <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
+      <div className="mx-auto flex max-w-[90rem] flex-col gap-6 px-4 py-10">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("play.title")}</h1>
           {/* The code owner's words. It opened with "The same board either
