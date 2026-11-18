@@ -147,7 +147,7 @@ export default function Operator({ session }: { session: Session }) {
   const canSettle = canAct && !busy && owedCharity > 0 && Boolean(t?.node_reachable);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-4 py-6">
+    <div className="mx-auto max-w-[90rem] space-y-5 px-4 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">{tr("operator.title")}</h1>
         <RefreshButton

@@ -141,7 +141,7 @@ export default function Profile({ session }: { session: Session }) {
         </>
       }
       classNames={{
-        root: "mx-auto max-w-lg space-y-6 px-4 py-6",
+        root: "mx-auto max-w-[90rem] space-y-6 px-4 py-6",
         section: CARD,
         sectionNote: "mt-2 text-xs text-ink/65",
       }}

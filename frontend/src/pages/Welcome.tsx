@@ -43,7 +43,7 @@ export default function Welcome() {
   const inkLink = "text-[var(--color-wax-ink)] underline decoration-dotted underline-offset-4";
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-10 leading-relaxed">
+    <div className="mx-auto max-w-[90rem] px-5 py-10 leading-relaxed">
       <h1 className="text-3xl font-semibold tracking-tight">The Bee's Knees</h1>
       <div className="mt-4 space-y-4 text-[15px] text-ink/90">
         <p>{t("welcome.p1")}</p>

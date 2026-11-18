@@ -285,7 +285,7 @@ export default function Lobby({
               nothing to come back to. The wait is minutes and nobody should
               feel held here — but the race starts without them, so the leaving
               and the returning have to be said in the same breath. */}
-          <p className="mx-auto max-w-md text-xs leading-relaxed text-ink/65">
+          <p className="text-xs leading-relaxed text-ink/65">
             {t("lobby.leave")}
           </p>
         </div>
