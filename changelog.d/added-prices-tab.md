@@ -1,1 +1,0 @@
-- Prices has its own tab in the top bar, beside Ledger, so fares and "Need a wallet?" are one tap away.
