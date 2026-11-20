@@ -1,7 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lonniev/beesknees-mcp",
+  "title": "The Bee's Knees",
   "description": "The Bee's Knees — a monetized multiplayer race to the queen, on Tollbooth DPYC",
+  "websiteUrl": "https://beesknees.tollbooth-dpyc.com",
   "version": "0.4.0",
   "repository": {
     "url": "https://github.com/lonniev/beesknees-mcp",
