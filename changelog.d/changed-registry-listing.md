@@ -1,0 +1,1 @@
+- The MCP Registry listing carries a title (The Bee's Knees) and a link to https://beesknees.tollbooth-dpyc.com.
