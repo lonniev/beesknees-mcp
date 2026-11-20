@@ -75,10 +75,10 @@ export function tours(t: Translate = tr): Record<TourPage, Tour> {
     signin: signInTour("signin"),
 
     account: accountTour("account", [
-      step(t, "account.balance", { side: "top" }),
-      step(t, "account.winnings", { side: "top" }),
       step(t, "account.tutorial", { side: "top" }),
       step(t, "account.signout", { side: "top" }),
+      step(t, "account.balance", { side: "top" }),
+      step(t, "account.winnings", { side: "top" }),
     ]),
   };
 }
