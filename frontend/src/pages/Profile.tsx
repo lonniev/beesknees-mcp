@@ -69,8 +69,8 @@ export default function Profile({ session }: { session: Session }) {
 
   return (
     <>
-    {/* The ground under the page, as on sign-in: one column of cards in a lot
-      * of sky. */}
+    {/* The ground under the page, as on sign-in: folding groups of cards in a
+      * lot of sky. */}
     <Meadowscape />
     <AccountPage
       npub={session.npub}
@@ -79,19 +79,6 @@ export default function Profile({ session }: { session: Session }) {
        * the panel has no business knowing — how this session signs, and how to
        * end it. The session key is silent unless this tab holds one. */
       heading={null}
-      between={{
-        sessionKey: <div {...tour("account.balance")}><BalanceAndTopUp decorateTile={decorateTile} /></div>,
-        usage: <div {...tour("account.winnings")}><Winnings npub={session.npub} /></div>,
-        timezone: (
-          <section className={CARD}>
-            <h2 className="text-sm text-ink/78">{t("profile.language.title")}</h2>
-            <p className="mt-1 text-xs text-ink/65">{t("profile.language.note")}</p>
-            <div className="mt-3">
-              <LanguageChooser />
-            </div>
-          </section>
-        ),
-      }}
       usage={{
         figures: MONTH,
         labels: { spent: t("profile.spent"), calls: t("profile.calls"), credited: t("profile.bought") },
@@ -121,27 +108,48 @@ export default function Profile({ session }: { session: Session }) {
       // sits on About.
       theme={false}
       build={false}
-      after={
-        <>
-        <TutorialSwitch />
-        <div className={`${CARD} flex items-center gap-3 py-3`}>
-          <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
-            {session.canSign
-              ? t("profile.sessionKey")
-              : t("profile.cachedProof")}
-          </span>
-          <button
-            onClick={session.signOut}
-            {...tour("account.signout")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/7"
-          >
-            <LogOut size={14} /> {t("profile.signOut")}
-          </button>
-        </div>
-        </>
-      }
+      panels={{
+        you: (
+          <>
+            <section className={CARD}>
+              <h2 className="text-sm text-ink/78">{t("profile.language.title")}</h2>
+              <p className="mt-1 text-xs text-ink/65">{t("profile.language.note")}</p>
+              <div className="mt-3">
+                <LanguageChooser />
+              </div>
+            </section>
+            <TutorialSwitch />
+            {/* The page's own sign-out, not the package's: it carries the tour's
+              * account.signout step, and sits beside how this session signs. */}
+            <div className={`${CARD} flex items-center gap-3 py-3`}>
+              <span className="min-w-0 flex-1 text-[11px] leading-snug text-ink/65">
+                {session.canSign
+                  ? t("profile.sessionKey")
+                  : t("profile.cachedProof")}
+              </span>
+              <button
+                onClick={session.signOut}
+                {...tour("account.signout")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/7"
+              >
+                <LogOut size={14} /> {t("profile.signOut")}
+              </button>
+            </div>
+          </>
+        ),
+        money: (
+          <>
+            <div {...tour("account.balance")}><BalanceAndTopUp decorateTile={decorateTile} /></div>
+            <div {...tour("account.winnings")}><Winnings npub={session.npub} /></div>
+          </>
+        ),
+      }}
       classNames={{
         root: "mx-auto max-w-[90rem] space-y-6 px-4 py-6",
+        // The title sits on sky, like every card: the meadow runs behind the page.
+        groupSummary:
+          "mb-3 w-fit cursor-pointer rounded-lg bg-[var(--color-sky)] px-3 py-1 text-lg font-semibold tracking-tight text-ink/90",
+        groupBody: "grid grid-cols-[repeat(auto-fit,minmax(min(100%,26rem),1fr))] items-start gap-4",
         section: CARD,
         sectionNote: "mt-2 text-xs text-ink/65",
       }}
