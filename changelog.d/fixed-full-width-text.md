@@ -1,1 +1,0 @@
-- Pages and their text now use the width the screen gives them: Welcome, About, Play, Honey, Ledger, Prices, Operator and Profile stopped partway across a wide screen.

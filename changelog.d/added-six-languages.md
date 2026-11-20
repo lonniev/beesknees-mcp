@@ -1,3 +1,0 @@
-- The Bee's Knees speaks English, French, Spanish, Japanese, Chinese and Hindi. The first language is the reader's saved choice, else their country's, else English. A row of languages under the sign-in card and a Language section on Profile change it.
-- The hives and queens have names in each language, the lobby's bee poetry is translated with its attribution, and the About page's underlined terms are defined in the language they are read in.
-- Whatever the hive itself says (a refusal, a seller's name) still arrives as it is sent.

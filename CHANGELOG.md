@@ -8,6 +8,42 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.4.1] — 2026-11-19
+
+### Added
+
+- A Prices page (`/prices`), linked from About: every tool with what it does and its live fare, read from the pricing model so a visitor sees it without signing in. It is the fleet's `PriceSheet` on the meadow palette, and needs `@tollbooth-dpyc/web` 2.4.1.
+
+- Prices has its own tab in the top bar, beside Ledger, so fares and "Need a wallet?" are one tap away.
+
+- The Bee's Knees speaks English, French, Spanish, Japanese, Chinese and Hindi. The first language is the reader's saved choice, else their country's, else English. A row of languages under the sign-in card and a Language section on Profile change it.
+- The hives and queens have names in each language, the lobby's bee poetry is translated with its attribution, and the About page's underlined terms are defined in the language they are read in.
+- Whatever the hive itself says (a refusal, a seller's name) still arrives as it is sent.
+
+### Changed
+
+- Hindi addresses the reader informally (तुम), like Spanish, French and Chinese already did; quotations keep their own words.
+
+- Each page loads the first time it opens, so the first visit downloads about a fifth less.
+
+- Pay now opens your own Lightning wallet on the invoice, and a QR code button opens BTCPay's checkout for a desktop. While an invoice is open the page says it is watching for your payment, and the button reads "Check now" (web 2.6.0).
+
+- `beesknees_settlement_history` and `beesknees_charity` take no npub. Anyone reads the ledger and the charity without saying who they are, as with `service_status`.
+
+- The MCP Registry listing carries a title (The Bee's Knees) and a link to https://beesknees.tollbooth-dpyc.com.
+
+- `/llms.txt` is built by the shared `@tollbooth-dpyc/web/agent-guide` plugin from this service's own sections, so its connecting, payments, license and links sections match the rest of the fleet.
+
+- The wallet is now the shared one from tollbooth-web 3.0.0, with a QR code on an open invoice and amounts of 100 to 25,000 plus Custom.
+
+### Fixed
+
+- Pages and their text now use the width the screen gives them: Welcome, About, Play, Honey, Ledger, Prices, Operator and Profile stopped partway across a wide screen.
+
+- The Ledger now shows the real figures to a guest whose browser still remembers an npub from an earlier sign-in. Before, it showed zeros.
+
+- "Need a wallet?" on the Prices page now loads its list of wallets.
+
 ## [0.4.0] — 2026-10-21
 
 ### Added
