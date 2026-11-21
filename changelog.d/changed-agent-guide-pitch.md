@@ -1,0 +1,1 @@
+- llms.txt and `beesknees_guide` open with what to tell a person about The Bee's Knees, and describe the tools as a workflow in place of a list of names and arguments.
