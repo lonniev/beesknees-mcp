@@ -8,6 +8,12 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.4.3] — 2026-11-21
+
+### Changed
+
+- llms.txt and `beesknees_guide` open with what to tell a person about The Bee's Knees, and describe the tools as a workflow in place of a list of names and arguments.
+
 ## [0.4.2] — 2026-11-20
 
 ### Changed
