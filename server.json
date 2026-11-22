@@ -4,7 +4,7 @@
   "title": "The Bee's Knees",
   "description": "The Bee's Knees — a monetized multiplayer race to the queen, on Tollbooth DPYC",
   "websiteUrl": "https://beesknees.tollbooth-dpyc.com",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "repository": {
     "url": "https://github.com/lonniev/beesknees-mcp",
     "source": "github"
