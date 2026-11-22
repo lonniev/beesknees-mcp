@@ -8,6 +8,12 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.4.4] — 2026-11-22
+
+### Changed
+
+- Runs on tollbooth-dpyc 0.129.0, which lets an operator ask its own human by Nostr DM to fund an outside account that ran dry.
+
 ## [0.4.3] — 2026-11-21
 
 ### Changed
