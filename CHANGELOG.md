@@ -8,6 +8,12 @@ Released versions appear below. **Unreleased changes live in `changelog.d/`,
 one file per change** — see the README there for why, and
 `scripts/changelog.py` for what folds them in at release time.
 
+## [0.4.5] — 2026-11-25
+
+### Changed
+
+- Refreshed dependencies (Renovate lock-file maintenance and package updates).
+
 ## [0.4.4] — 2026-11-22
 
 ### Changed
